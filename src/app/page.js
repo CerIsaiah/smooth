@@ -354,8 +354,11 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div className="mt-2">
-                <h3 className="text-gray-900 text-lg mb-4 font-medium">
+              <p className="text-gray-500 text-sm text-center italic mt-2 mb-8">
+                  Note: Your screenshots and texts are not stored on our servers and are only used for generating responses.
+              </p>
+              <div className="mt-1">
+                <h3 className="text-gray-900 text-lg mb-2 font-medium text-center">
                   Choose where you are in the conversation:
                 </h3>
                 <div
@@ -431,6 +434,7 @@ export default function Home() {
                     ? "Daily limit reached"
                     : "Get response"}
                 </button>
+                
               </div>
             </div>
           </section>
