@@ -302,13 +302,10 @@ export default function Home() {
 
         {/* Main content */}
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto">
-          <section className="text-center mb-16 md:mb-24">
-            <h2
-              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight"
-              style={{ color: "#121418" }}
-            >
-              It's Your Turn to be the
-              <br />
+          {/* Hero Section with Main Image */}
+          <section className="text-center mb-16 md:mb-24 relative">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight" style={{ color: "#121418" }}>
+              It's Your Turn to be the<br />
               <span style={{ color: "#FE3C72" }} className="drop-shadow-sm">
                 <i>Smooth</i> Talker
               </span>
@@ -316,127 +313,129 @@ export default function Home() {
             <p className="text-gray-600 text-lg md:text-xl mb-12 md:mb-16 max-w-2xl mx-auto">
               With The Smoothest AI Rizz on the Internet
             </p>
-            <div className="flex flex-col md:flex-row gap-8 md:gap-12 lg:gap-16 items-center md:items-start justify-center">
-              <div className="w-64 md:w-72 lg:w-80 shrink-0">
-                <div className="bg-gray-100/50 rounded-3xl p-2 shadow-md transform transition-transform">
-                  <img
-                    src="/top_phone.png"
-                    alt="iPhone mockup"
-                    className="w-full rounded-2xl opacity-90"
-                  />
-                </div>
+            <img src="/mainpic.png" alt="App demonstration" className="max-w-4xl w-full mx-auto" />
+            <button
+              onClick={() => document.querySelector('#upload-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="mt-8 px-8 py-4 rounded-full text-white font-bold shadow-lg transition-all hover:scale-[1.02]"
+              style={{ backgroundColor: "#FE3C72" }}
+            >
+              Get Started <ArrowDown className="inline ml-2" size={20} />
+            </button>
+          </section>
+
+          {/* Upload Section */}
+          <section id="upload-section" className="mb-16 md:mb-24">
+            <div className="flex flex-col gap-4 max-w-md mx-auto w-full">
+              <div className="text-gray-700 text-center mb-3 font-bold">
+                Screenshot full conversation + text to respond to! 📱
               </div>
-              <div className="flex flex-col gap-4 flex-1 max-w-md w-full">
-                <div className="text-gray-700 text-center mb-3 font-bold">
-                  Screenshot full conversation + text to respond to! ��
-                </div>
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
-                  <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <Upload className="text-gray-400" size={24} />
-                    <span className="text-gray-600 text-center">
-                      Upload or paste conversation Screenshot!
-                    </span>
-                    <span className="text-gray-400 text-sm">
-                      Click to upload or Ctrl+V to paste
-                    </span>
-                  </label>
-                  {selectedFile && (
-                    <div
-                      className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white"
-                      style={{ backgroundColor: "#FE3C72" }}
-                    >
-                      File uploaded ✨
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <h3 className="text-gray-900 text-lg mb-4 font-medium">
-                    Choose where you are in the conversation:
-                  </h3>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
+                <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Upload className="text-gray-400" size={24} />
+                  <span className="text-gray-600 text-center">
+                    Upload or paste conversation Screenshot!
+                  </span>
+                  <span className="text-gray-400 text-sm">
+                    Click to upload or Ctrl+V to paste
+                  </span>
+                </label>
+                {selectedFile && (
                   <div
-                    className="grid grid-cols-3 gap-3 md:gap-4 p-4 rounded-2xl shadow-inner"
-                    style={{ backgroundColor: "rgba(254, 60, 114, 0.1)" }}
-                  >
-                    {[
-                      {
-                        name: "First Move",
-                        desc: "Nail that opener",
-                        emoji: "👋",
-                      },
-                      {
-                        name: "Mid-Game",
-                        desc: "Keep it flowing",
-                        emoji: "💭",
-                      },
-                      {
-                        name: "End Game",
-                        desc: "Bring it home",
-                        emoji: "🎯",
-                      },
-                    ].map((phase) => {
-                      const isSelected =
-                        mode === phase.name.toLowerCase().replace(" ", "-");
-                      return (
-                        <div
-                          key={phase.name}
-                          className={`rounded-xl p-3 md:p-4 text-center cursor-pointer hover:scale-[1.02] transition-all text-white shadow-lg ${
-                            isSelected
-                              ? "ring-4 ring-pink-400 ring-opacity-50"
-                              : ""
-                          }`}
-                          style={{ backgroundColor: "#121418" }}
-                          onClick={() =>
-                            setMode(phase.name.toLowerCase().replace(" ", "-"))
-                          }
-                        >
-                          <span className="block text-xl mb-1">
-                            {phase.emoji}
-                          </span>
-                          <span className="text-sm font-medium">
-                            {phase.name}
-                          </span>
-                          <span className="block text-xs text-white/60 mt-1">
-                            {phase.desc}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-4">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={
-                      isLoading ||
-                      !selectedFile ||
-                      (isSignedIn && usageCount >= 30)
-                    }
-                    className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
-                      isLoading ||
-                      !selectedFile ||
-                      (isSignedIn && usageCount >= 30)
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:scale-[1.02]"
-                    }`}
+                    className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white"
                     style={{ backgroundColor: "#FE3C72" }}
                   >
-                    {isLoading
-                      ? "Analyzing..."
-                      : isSignedIn && usageCount >= 30
-                      ? "Daily limit reached"
-                      : "Get response"}
-                  </button>
+                    File uploaded ✨
+                  </div>
+                )}
+              </div>
+              <div className="mt-2">
+                <h3 className="text-gray-900 text-lg mb-4 font-medium">
+                  Choose where you are in the conversation:
+                </h3>
+                <div
+                  className="grid grid-cols-3 gap-3 md:gap-4 p-4 rounded-2xl shadow-inner"
+                  style={{ backgroundColor: "rgba(254, 60, 114, 0.1)" }}
+                >
+                  {[
+                    {
+                      name: "First Move",
+                      desc: "Nail that opener",
+                      emoji: "👋",
+                    },
+                    {
+                      name: "Mid-Game",
+                      desc: "Keep it flowing",
+                      emoji: "💭",
+                    },
+                    {
+                      name: "End Game",
+                      desc: "Bring it home",
+                      emoji: "🎯",
+                    },
+                  ].map((phase) => {
+                    const isSelected =
+                      mode === phase.name.toLowerCase().replace(" ", "-");
+                    return (
+                      <div
+                        key={phase.name}
+                        className={`rounded-xl p-3 md:p-4 text-center cursor-pointer hover:scale-[1.02] transition-all text-white shadow-lg ${
+                          isSelected
+                            ? "ring-4 ring-pink-400 ring-opacity-50"
+                            : ""
+                        }`}
+                        style={{ backgroundColor: "#121418" }}
+                        onClick={() =>
+                          setMode(phase.name.toLowerCase().replace(" ", "-"))
+                        }
+                      >
+                        <span className="block text-xl mb-1">
+                          {phase.emoji}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {phase.name}
+                        </span>
+                        <span className="block text-xs text-white/60 mt-1">
+                          {phase.desc}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                <button
+                  onClick={handleSubmit}
+                  disabled={
+                    isLoading ||
+                    !selectedFile ||
+                    (isSignedIn && usageCount >= 30)
+                  }
+                  className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
+                    isLoading ||
+                    !selectedFile ||
+                    (isSignedIn && usageCount >= 30)
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:scale-[1.02]"
+                  }`}
+                  style={{ backgroundColor: "#FE3C72" }}
+                >
+                  {isLoading
+                    ? "Analyzing..."
+                    : isSignedIn && usageCount >= 30
+                    ? "Daily limit reached"
+                    : "Get response"}
+                </button>
               </div>
             </div>
           </section>
 
+          {/* Responses section */}
           <section id="responses-section" className="mb-16 md:mb-24">
             <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
               <span style={{ color: "#121418" }}>Analyzing texts... </span>
