@@ -349,6 +349,23 @@ export default function Home() {
             </p>
           </div>
         </section>
+
+        {/* Footer */}
+        <footer className="text-center pb-8">
+          <div className="max-w-4xl mx-auto px-4">
+            <a 
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-900 transition block mb-2"
+            >
+              Smooth Rizz adheres to the Google API Services User Data Policy
+            </a>
+            <p className="text-gray-500 text-sm">
+              © 2025 Smooth Rizz. All rights reserved.
+            </p>
+          </div>
+        </footer>
       </main>
     </div>
   )
