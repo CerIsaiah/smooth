@@ -9,6 +9,35 @@ export default function Home() {
   const [mode, setMode] = useState('first-move')
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [isSignedIn, setIsSignedIn] = useState(false)
+  const [user, setUser] = useState(null)
+
+  const handleSignIn = (response) => {
+    // Decode the JWT token to get user info
+    const token = response.credential;
+    const decodedToken = JSON.parse(atob(token.split('.')[1]));
+    
+    setUser({
+      email: decodedToken.email,
+      name: decodedToken.name,
+      picture: decodedToken.picture
+    });
+    setIsSignedIn(true);
+  }
+
+  const handleSignOut = () => {
+    setUser(null);
+    setIsSignedIn(false);
+    // Clear any user-specific data
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setResponses([]);
+    
+    // Call Google's sign out
+    if (window.google?.accounts?.id) {
+      google.accounts.id.disableAutoSelect();
+    }
+  }
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
@@ -36,44 +65,43 @@ export default function Home() {
 
   const handleSubmit = async () => {
     if (!selectedFile) {
-      alert('Please select a screenshot first')
-      return
+      alert('Please select a screenshot first');
+      return;
     }
 
     try {
-      setIsLoading(true)
-      const result = await analyzeScreenshot(selectedFile, mode)
+      setIsLoading(true);
+      const result = await analyzeScreenshot(selectedFile, mode);
       
       // Handle array with string response
       if (Array.isArray(result) && result.length > 0) {
-        const firstResponse = result[0]
+        const firstResponse = result[0];
         if (typeof firstResponse === 'string' && firstResponse.includes('|')) {
-          const splitResponses = firstResponse.split('|').map(r => r.trim())
-          setResponses(splitResponses.slice(0, 3))
+          const splitResponses = firstResponse.split('|').map(r => r.trim());
+          setResponses(splitResponses.slice(0, 3));
         } else {
-          setResponses(result.slice(0, 3))
+          setResponses(result.slice(0, 3));
         }
       }
       // Handle direct string response
       else if (typeof result === 'string') {
         if (result.includes('|')) {
-          const splitResponses = result.split('|').map(r => r.trim())
-          setResponses(splitResponses.slice(0, 3))
+          const splitResponses = result.split('|').map(r => r.trim());
+          setResponses(splitResponses.slice(0, 3));
         } else {
-          setResponses([result])
+          setResponses([result]);
         }
       }
 
-      // Scroll to responses section
       document.querySelector('#responses-section')?.scrollIntoView({ 
         behavior: 'smooth',
         block: 'start'
-      })
+      });
     } catch (error) {
-      console.error('Error:', error)
-      alert('Error analyzing screenshot. Please try again.')
+      console.error('Error:', error);
+      alert('Error analyzing screenshot. Please try again.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -82,6 +110,60 @@ export default function Home() {
     return () => window.removeEventListener('paste', handlePaste)
   }, [])
 
+  useEffect(() => {
+    const initializeGoogleSignIn = async () => {
+      if (typeof window !== 'undefined' && window.google) {
+        try {
+          const response = await fetch('/api/auth/google-client-id');
+          const { clientId } = await response.json();
+          
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleSignIn
+          });
+
+          // Render the sign-in button with additional options
+          google.accounts.id.renderButton(
+            document.getElementById('google-signin-button'),
+            { 
+              theme: 'outline', 
+              size: 'large',
+              type: 'standard',
+              shape: 'rectangular',
+              prompt_parent_id: 'google-signin-button',
+              ux_mode: 'popup',
+              auto_select: false,
+              one_tap: false
+            }
+          );
+
+          google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed()) {
+              console.log('One Tap prompt not displayed');
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching Google client ID:', error);
+        }
+      }
+    };
+
+    // Load Google Sign-In script
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.onload = initializeGoogleSignIn;
+    script.async = true;
+    script.id = 'google-client-script';
+    document.querySelector('body').appendChild(script);
+
+    return () => {
+      const scriptElement = document.getElementById('google-client-script');
+      if (scriptElement) {
+        scriptElement.remove();
+      }
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -89,17 +171,24 @@ export default function Home() {
         <h1 className="text-2xl md:text-3xl font-bold" style={{ color: '#FE3C72' }}>
           SmoothRizz
         </h1>
-        <div className="flex gap-3 md:gap-4">
+        <div className="flex gap-3 md:gap-4 items-center">
           <a 
             href="/privacy-policy" 
             className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base"
           >
             Privacy Policy
           </a>
-          <button className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium" 
-            style={{ backgroundColor: '#121418' }}>
-            Get Started
-          </button>
+          {!isSignedIn ? (
+            <div id="google-signin-button"></div>
+          ) : (
+            <button 
+              onClick={handleSignOut}
+              className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium"
+              style={{ backgroundColor: '#121418' }}
+            >
+              Sign Out
+            </button>
+          )}
         </div>
       </nav>
 
@@ -198,157 +287,169 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Arrow Divider */}
-        <div className="flex justify-center mb-12 md:mb-16">
-          <ArrowDown size={48} className="animate-bounce" style={{ color: '#FE3C72' }} />
-        </div>
-
-        {/* Analysis Section */}
-        <section id="responses-section" className="mb-16 md:mb-24">
-          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
-            <span style={{ color: '#121418' }}>Analyzing texts... </span>
-            <span style={{ color: '#FE3C72' }}>Predicting success...</span>
-          </h2>
-
-          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start justify-center">
-            {/* Left side - Conversation Preview */}
-            <div className="w-full md:w-1/2 max-w-md">
-              <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: '#121418' }}>
-                Your conversation
-              </h3>
-              {previewUrl ? (
-                <img 
-                  src={previewUrl} 
-                  alt="Uploaded conversation" 
-                  className="w-full rounded-xl"
-                />
-              ) : (
-                <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
-                  Your conversation will appear here
-                </div>
-              )}
-            </div>
-
-            {/* Right side - Responses */}
-            <div className="w-full md:w-1/2 max-w-md">
-              <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: '#121418' }}>
-                SmoothRizz suggestions ✨
-              </h3>
-              <div className="space-y-4">
-                {[0, 1, 2].map((index) => (
-                  <div 
-                    key={index}
-                    className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative" 
-                    style={{ backgroundColor: '#FE3C72' }}
-                  >
-                    {responses[index] || `Response ${index + 1}`}
-                    <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: '#FE3C72' }}></div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-8 space-y-4">
-                <button
-                  onClick={handleSubmit}
-                  disabled={isLoading}
-                  className={`w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block ${
-                    isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  {isLoading ? 'Analyzing...' : 'Regenerate responses'}
-                </button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">or</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block"
-                >
-                  Try new screenshot
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Screenshot Section */}
-        <section className="mb-16 md:mb-24">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-12 lg:gap-16 items-center justify-center">
-            {/* Left side - Text content */}
-            <div className="flex flex-col gap-4 max-w-md">
-              <h2 className="text-4xl font-bold" style={{ color: '#121418' }}>
-                It starts with a screenshot.
-              </h2>
-              <p className="text-lg" style={{ color: '#FE3C72' }}>
-                Let SmoothRizz take the wheel with just a click.
-              </p>
-            </div>
-
-            {/* Right side - Image */}
-            <div className="max-w-md">
-              <img 
-                src="/two_phones.png"
-                alt="Two phones showing the app interface"
-                className="w-full rounded-2xl shadow-xl"
-              />
-            </div>
+        {/* Remove isSignedIn check and show content directly */}
+        <>
+          {/* Arrow Divider */}
+          <div className="flex justify-center mb-12 md:mb-16">
+            <ArrowDown size={48} className="animate-bounce" style={{ color: '#FE3C72' }} />
           </div>
 
-          <div className="flex flex-col md:flex-row gap-8 md:gap-12 lg:gap-16 items-center justify-center mt-16">
-            {/* Left side - Image */}
-            <div className="max-w-md">
-              <img 
-                src="/drizzy_convo.png"
-                alt="Example conversation"
-                className="w-full rounded-2xl shadow-xl"
-              />
-            </div>
-
-            {/* Right side - Text content */}
-            <div className="flex flex-col gap-4 max-w-md">
-              <h2 className="text-4xl font-bold" style={{ color: '#121418' }}>
-                Rizz that adapts to you.
-              </h2>
-              <p className="text-lg" style={{ color: '#FE3C72' }}>
-                Whether you're a jokester, a poet, or a smooth talker, we all have something smooth to say
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Bottom Section with Wave */}
-        <section className="relative pb-24 md:pb-32 text-center">
-          <div className="absolute bottom-0 left-0 right-0 h-64 rounded-t-full -z-10" 
-            style={{ backgroundColor: '#121418' }} />
-          
-          <div className="relative inline-block mb-8">
-            <div className="text-xl font-bold rotate-[-30deg] absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-              style={{ color: '#FE3C72' }}>
-              Why SmoothRizz?
-            </div>
-            <div className="w-36 h-36 md:w-48 md:h-48 rounded-full border-4 flex items-center justify-center bg-white shadow-xl transform transition-transform hover:rotate-12"
-              style={{ borderColor: '#FE3C72' }}>
-              <span className="text-4xl md:text-5xl">🦸‍♂️</span>
-            </div>
-          </div>
-
-          <div className="mt-8 relative z-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-              Charm. Confidence. Chemistry.
+          {/* Analysis Section */}
+          <section id="responses-section" className="mb-16 md:mb-24">
+            <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+              <span style={{ color: '#121418' }}>Analyzing texts... </span>
+              <span style={{ color: '#FE3C72' }}>Predicting success...</span>
             </h2>
-            <p className="text-white text-lg md:text-xl">
-              We Make It Effortless.
-            </p>
-          </div>
-        </section>
+
+            <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start justify-center">
+              {/* Left side - Conversation Preview */}
+              <div className="w-full md:w-1/2 max-w-md">
+                <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: '#121418' }}>
+                  Your conversation
+                </h3>
+                {previewUrl ? (
+                  <img 
+                    src={previewUrl} 
+                    alt="Uploaded conversation" 
+                    className="w-full rounded-xl"
+                  />
+                ) : (
+                  <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
+                    Your conversation will appear here
+                  </div>
+                )}
+              </div>
+
+              {/* Right side - Responses */}
+              <div className="w-full md:w-1/2 max-w-md">
+                <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: '#121418' }}>
+                  SmoothRizz suggestions ✨
+                </h3>
+                <div className="space-y-4">
+                  {responses.length > 0 ? responses.map((response, index) => (
+                    <div 
+                      key={index}
+                      className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative" 
+                      style={{ backgroundColor: '#FE3C72' }}
+                    >
+                      {response}
+                      <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: '#FE3C72' }}></div>
+                    </div>
+                  )) : [0, 1, 2].map((index) => (
+                    <div 
+                      key={index}
+                      className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative" 
+                      style={{ backgroundColor: '#FE3C72' }}
+                    >
+                      Suggestion {index + 1}
+                      <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: '#FE3C72' }}></div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mt-8 space-y-4">
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isLoading}
+                    className={`w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block ${
+                      isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {isLoading ? 'Analyzing...' : 'Regenerate responses'}
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-500">or</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block"
+                  >
+                    Try new screenshot
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Screenshot Section */}
+          <section className="mb-16 md:mb-24">
+            <div className="flex flex-col md:flex-row gap-8 md:gap-12 lg:gap-16 items-center justify-center">
+              {/* Left side - Text content */}
+              <div className="flex flex-col gap-4 max-w-md">
+                <h2 className="text-4xl font-bold" style={{ color: '#121418' }}>
+                  It starts with a screenshot.
+                </h2>
+                <p className="text-lg" style={{ color: '#FE3C72' }}>
+                  Let SmoothRizz take the wheel with just a click.
+                </p>
+              </div>
+
+              {/* Right side - Image */}
+              <div className="max-w-md">
+                <img 
+                  src="/two_phones.png"
+                  alt="Two phones showing the app interface"
+                  className="w-full rounded-2xl shadow-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-8 md:gap-12 lg:gap-16 items-center justify-center mt-16">
+              {/* Left side - Image */}
+              <div className="max-w-md">
+                <img 
+                  src="/drizzy_convo.png"
+                  alt="Example conversation"
+                  className="w-full rounded-2xl shadow-xl"
+                />
+              </div>
+
+              {/* Right side - Text content */}
+              <div className="flex flex-col gap-4 max-w-md">
+                <h2 className="text-4xl font-bold" style={{ color: '#121418' }}>
+                  Rizz that adapts to you.
+                </h2>
+                <p className="text-lg" style={{ color: '#FE3C72' }}>
+                  Whether you're a jokester, a poet, or a smooth talker, we all have something smooth to say
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Bottom Section with Wave */}
+          <section className="relative pb-24 md:pb-32 text-center">
+            <div className="absolute bottom-0 left-0 right-0 h-64 rounded-t-full -z-10" 
+              style={{ backgroundColor: '#121418' }} />
+            
+            <div className="relative inline-block mb-8">
+              <div className="text-xl font-bold rotate-[-30deg] absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                style={{ color: '#FE3C72' }}>
+                Why SmoothRizz?
+              </div>
+              <div className="w-36 h-36 md:w-48 md:h-48 rounded-full border-4 flex items-center justify-center bg-white shadow-xl transform transition-transform hover:rotate-12"
+                style={{ borderColor: '#FE3C72' }}>
+                <span className="text-4xl md:text-5xl">🦸‍♂️</span>
+              </div>
+            </div>
+
+            <div className="mt-8 relative z-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                Charm. Confidence. Chemistry.
+              </h2>
+              <p className="text-white text-lg md:text-xl">
+                We Make It Effortless.
+              </p>
+            </div>
+          </section>
+        </>
 
         {/* Footer */}
         <footer className="text-center pb-8">

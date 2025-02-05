@@ -17,6 +17,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${poppins.variable}`}>
+      <head>
+        <script src="https://accounts.google.com/gserviceauth/js"></script>
+      </head>
       <body className="font-poppins">
         {children}
         <Analytics />
