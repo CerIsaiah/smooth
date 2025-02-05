@@ -90,9 +90,12 @@ export default function Home() {
           SmoothRizz
         </h1>
         <div className="flex gap-3 md:gap-4">
-          <button className="px-4 py-2 rounded-full border border-gray-200 text-gray-900 hover:bg-gray-50 transition text-sm md:text-base font-medium">
-            Learn more
-          </button>
+          <a 
+            href="/privacy-policy" 
+            className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base"
+          >
+            Privacy Policy
+          </a>
           <button className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium" 
             style={{ backgroundColor: '#121418' }}>
             Get Started
@@ -128,12 +131,12 @@ export default function Home() {
 
             {/* Right side - Upload section */}
             <div className="flex flex-col gap-4 flex-1 max-w-md w-full">
-              <div className="rounded-full p-3 text-white shadow-md transform transition-transform hover:scale-[1.02]" 
-                style={{ backgroundColor: '#FE3C72' }}>
+              {/* Upload Instructions */}
+              <div className="text-gray-700 text-center mb-3 font-bold">
                 Screenshot full conversation + text to respond to! 👇
               </div>
 
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative shadow-sm hover:border-pink-300 transition-colors">
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
                 <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
                   <input
                     type="file"
@@ -146,7 +149,7 @@ export default function Home() {
                   <span className="text-gray-400 text-sm">Click to upload or Ctrl+V to paste</span>
                 </label>
                 {selectedFile && (
-                  <div className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white shadow-md"
+                  <div className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white"
                     style={{ backgroundColor: '#FE3C72' }}>
                     File uploaded ✨
                   </div>
@@ -209,36 +212,37 @@ export default function Home() {
 
           <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start justify-center">
             {/* Left side - Conversation Preview */}
-            <div className="w-full md:w-72 lg:w-80 order-1 md:order-none">
-              <h3 className="text-xl font-semibold mb-4" style={{ color: '#121418' }}>
+            <div className="w-full md:w-1/2 max-w-md">
+              <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: '#121418' }}>
                 Your conversation
               </h3>
               {previewUrl ? (
                 <img 
                   src={previewUrl} 
                   alt="Uploaded conversation" 
-                  className="w-full rounded-xl shadow-lg"
+                  className="w-full rounded-xl"
                 />
               ) : (
-                <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 shadow-inner">
+                <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
                   Your conversation will appear here
                 </div>
               )}
             </div>
 
             {/* Right side - Responses */}
-            <div className="flex-1 max-w-md space-y-4 order-2 md:order-none">
-              <h3 className="text-xl font-semibold mb-4" style={{ color: '#121418' }}>
+            <div className="w-full md:w-1/2 max-w-md">
+              <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: '#121418' }}>
                 SmoothRizz suggestions ✨
               </h3>
               <div className="space-y-4">
                 {[0, 1, 2].map((index) => (
                   <div 
                     key={index}
-                    className="rounded-xl p-4 text-white shadow-lg transform transition-all hover:scale-[1.02]" 
+                    className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative" 
                     style={{ backgroundColor: '#FE3C72' }}
                   >
                     {responses[index] || `Response ${index + 1}`}
+                    <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: '#FE3C72' }}></div>
                   </div>
                 ))}
               </div>
@@ -248,10 +252,9 @@ export default function Home() {
                 <button
                   onClick={handleSubmit}
                   disabled={isLoading}
-                  className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
-                    isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
+                  className={`w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block ${
+                    isLoading ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
-                  style={{ backgroundColor: '#FE3C72' }}
                 >
                   {isLoading ? 'Analyzing...' : 'Regenerate responses'}
                 </button>
@@ -267,7 +270,7 @@ export default function Home() {
 
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="w-full text-gray-900 rounded-full p-4 font-bold shadow-lg transition-all hover:scale-[1.02] border-2 border-gray-200"
+                  className="w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block"
                 >
                   Try new screenshot
                 </button>
