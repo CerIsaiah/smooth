@@ -2,6 +2,7 @@
 import { Upload, ArrowDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { analyzeScreenshot } from './openai'
+import { createOrUpdateUser, getUser } from '@/lib/db'
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
@@ -11,18 +12,34 @@ export default function Home() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isSignedIn, setIsSignedIn] = useState(false)
   const [user, setUser] = useState(null)
+  const [subscriptionPlan, setSubscriptionPlan] = useState(null)
 
-  const handleSignIn = (response) => {
-    // Decode the JWT token to get user info
-    const token = response.credential;
-    const decodedToken = JSON.parse(atob(token.split('.')[1]));
-    
-    setUser({
-      email: decodedToken.email,
-      name: decodedToken.name,
-      picture: decodedToken.picture
-    });
-    setIsSignedIn(true);
+  const handleSignIn = async (response) => {
+    try {
+      // Decode the JWT token to get user info
+      const token = response.credential;
+      const decodedToken = JSON.parse(atob(token.split('.')[1]));
+      
+      // Create or update user in database
+      const dbUser = await createOrUpdateUser({
+        id: decodedToken.sub, // Google's unique user ID
+        email: decodedToken.email,
+        name: decodedToken.name,
+        picture: decodedToken.picture
+      });
+      
+      setUser({
+        email: dbUser.email,
+        name: dbUser.name,
+        picture: dbUser.picture,
+        subscriptionPlan: dbUser.subscription_plan
+      });
+      setSubscriptionPlan(dbUser.subscription_plan);
+      setIsSignedIn(true);
+    } catch (error) {
+      console.error('Error saving user:', error);
+      alert('Error signing in. Please try again.');
+    }
   }
 
   const handleSignOut = () => {
