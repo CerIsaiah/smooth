@@ -2,6 +2,7 @@
 import { Upload, ArrowDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { analyzeScreenshot } from './openai'
+import { supabase } from '@/utils/supabase'
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
@@ -20,25 +21,21 @@ export default function Home() {
     const userData = {
       email: decodedToken.email,
       name: decodedToken.name,
-      picture: decodedToken.picture,
-      subscription: 'free' // Default subscription status
+      picture: decodedToken.picture
     };
 
     try {
-      // Store user data in edge-config
-      const storeResponse = await fetch('/api/users/store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData)
-      });
+      // Store or update user data in Supabase
+      const { data, error } = await supabase
+        .from('users')
+        .upsert([userData], {
+          onConflict: 'email',
+          returning: true
+        })
 
-      if (!storeResponse.ok) {
-        throw new Error('Failed to store user data');
-      }
+      if (error) throw error
 
-      // Set user state with subscription status
+      // Set user state
       setUser(userData);
       setIsSignedIn(true);
     } catch (error) {
