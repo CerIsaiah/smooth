@@ -10,6 +10,7 @@ FORMAT REQUIREMENTS:
 3. Figure out the best style to respond with then create 3 different variations
 4. Responses MUST be separated by the | character
 5. DO NOT number your responses or add any extra formatting
+6. No emoji's allowed
 
 Example format:
 This is response one using style A | This is response two using style A different | This is response three using style A different

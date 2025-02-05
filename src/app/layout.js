@@ -1,5 +1,6 @@
 // app/layout.js
 import { Poppins } from 'next/font/google'
+import { Analytics } from "@vercel/analytics/react"
 import './globals.css'
 
 const poppins = Poppins({
@@ -16,7 +17,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${poppins.variable}`}>
-      <body className="font-poppins">{children}</body>
+      <body className="font-poppins">
+        {children}
+        <Analytics />
+
+        </body>
     </html>
   )
 }
