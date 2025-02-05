@@ -2,7 +2,6 @@
 import { Upload, ArrowDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { analyzeScreenshot } from './openai'
-import { createOrUpdateUser, getUser } from '@/lib/db'
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
@@ -12,33 +11,41 @@ export default function Home() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isSignedIn, setIsSignedIn] = useState(false)
   const [user, setUser] = useState(null)
-  const [subscriptionPlan, setSubscriptionPlan] = useState(null)
 
   const handleSignIn = async (response) => {
+    // Decode the JWT token to get user info
+    const token = response.credential;
+    const decodedToken = JSON.parse(atob(token.split('.')[1]));
+    
+    const userData = {
+      email: decodedToken.email,
+      name: decodedToken.name,
+      picture: decodedToken.picture,
+      subscription: 'free' // Default subscription status
+    };
+
     try {
-      // Decode the JWT token to get user info
-      const token = response.credential;
-      const decodedToken = JSON.parse(atob(token.split('.')[1]));
-      
-      // Create or update user in database
-      const dbUser = await createOrUpdateUser({
-        id: decodedToken.sub, // Google's unique user ID
-        email: decodedToken.email,
-        name: decodedToken.name,
-        picture: decodedToken.picture
+      // Store user data in edge-config
+      const storeResponse = await fetch('/api/users/store', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
       });
-      
-      setUser({
-        email: dbUser.email,
-        name: dbUser.name,
-        picture: dbUser.picture,
-        subscriptionPlan: dbUser.subscription_plan
-      });
-      setSubscriptionPlan(dbUser.subscription_plan);
+
+      if (!storeResponse.ok) {
+        throw new Error('Failed to store user data');
+      }
+
+      // Set user state with subscription status
+      setUser(userData);
       setIsSignedIn(true);
     } catch (error) {
-      console.error('Error saving user:', error);
-      alert('Error signing in. Please try again.');
+      console.error('Error storing user data:', error);
+      // Still set the user state even if storage fails
+      setUser(userData);
+      setIsSignedIn(true);
     }
   }
 
