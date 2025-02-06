@@ -69,7 +69,24 @@ export default function Home() {
     }
   };
 
-  // Handle Google sign-in callback.
+  // Add new useEffect to check localStorage on initial load
+  useEffect(() => {
+    // Check if user was previously signed in
+    const storedUser = localStorage.getItem('smoothrizz_user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
+      setIsSignedIn(true);
+    }
+
+    // Check anonymous usage count
+    const anonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
+    if (!isSignedIn) {
+      setUsageCount(anonymousCount);
+    }
+  }, []);
+
+  // Update handleSignIn to persist user data
   const handleSignIn = async (response) => {
     if (!response.credential) return;
     const token = response.credential;
@@ -93,19 +110,30 @@ export default function Home() {
       setDailyCount(currentUsage.dailyCount);
       setUser(userData);
       setIsSignedIn(true);
+      
+      // Store user data in localStorage
+      localStorage.setItem('smoothrizz_user', JSON.stringify(userData));
+      // Clear anonymous count when user signs in
+      localStorage.removeItem('smoothrizz_anonymous_count');
     } catch (error) {
       console.error("Error storing user data:", error);
-      setUser(userData);
-      setIsSignedIn(true);
     }
   };
 
+  // Update handleSignOut to clear stored data
   const handleSignOut = () => {
     setUser(null);
     setIsSignedIn(false);
     setSelectedFile(null);
     setPreviewUrl(null);
     setResponses([]);
+    setUsageCount(0);
+    setDailyCount(0);
+    
+    // Clear stored data
+    localStorage.removeItem('smoothrizz_user');
+    localStorage.removeItem('smoothrizz_anonymous_count');
+    
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
     }
@@ -133,38 +161,50 @@ export default function Home() {
     }
   };
 
+  // Update handleSubmit to track anonymous usage
   const handleSubmit = async () => {
     if (!selectedFile) {
       alert("Please select a screenshot first");
       return;
     }
 
-    // If user is not signed in and usage is 3+, do not proceed.
-    if (!isSignedIn && usageCount >= 3) return;
+    const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
+    
+    // Check if user needs to sign in
+    if (!isSignedIn && currentAnonymousCount >= 3) {
+      alert("Please sign in to continue using SmoothRizz");
+      return;
+    }
+    
     if (isSignedIn && dailyCount >= 30) {
       alert("You have reached your daily limit of 30 messages!");
       return;
     }
 
-    // Debug log: Check the current mode before calling analyzeScreenshot.
-    console.log("Submitting mode:", mode);
-
     try {
       setIsLoading(true);
       const result = await analyzeScreenshot(selectedFile, mode);
-      const newTotalCount = usageCount + 1;
-      setUsageCount(newTotalCount);
 
-      if (isSignedIn && user?.email) {
-        const today = new Date().toISOString().split("T")[0];
-        const { error } = await supabase
-          .from("users")
-          .update({
-            usage_count: newTotalCount,
-            daily_usage: { date: today, count: dailyCount + 1 },
-          })
-          .eq("email", user.email);
-        if (error) console.error("Error updating usage count:", error);
+      // Update usage counts
+      if (!isSignedIn) {
+        const newAnonymousCount = currentAnonymousCount + 1;
+        localStorage.setItem('smoothrizz_anonymous_count', newAnonymousCount.toString());
+        setUsageCount(newAnonymousCount);
+      } else {
+        const newTotalCount = usageCount + 1;
+        setUsageCount(newTotalCount);
+
+        if (user?.email) {
+          const today = new Date().toISOString().split("T")[0];
+          const { error } = await supabase
+            .from("users")
+            .update({
+              usage_count: newTotalCount,
+              daily_usage: { date: today, count: dailyCount + 1 },
+            })
+            .eq("email", user.email);
+          if (error) console.error("Error updating usage count:", error);
+        }
       }
 
       if (Array.isArray(result) && result.length > 0) {
