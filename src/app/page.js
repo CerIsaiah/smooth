@@ -207,7 +207,7 @@ export default function Home() {
             window.google.accounts.id.initialize({
               client_id: clientId,
               callback: handleSignIn,
-              auto_select: false,
+              auto_select: true,
             });
             if (googleButtonRef.current) {
               window.google.accounts.id.renderButton(googleButtonRef.current, {
