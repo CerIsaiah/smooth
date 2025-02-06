@@ -139,11 +139,15 @@ export default function Home() {
       return;
     }
 
+    // If user is not signed in and usage is 3+, do not proceed.
     if (!isSignedIn && usageCount >= 3) return;
     if (isSignedIn && dailyCount >= 30) {
       alert("You have reached your daily limit of 30 messages!");
       return;
     }
+
+    // Debug log: Check the current mode before calling analyzeScreenshot.
+    console.log("Submitting mode:", mode);
 
     try {
       setIsLoading(true);
@@ -165,10 +169,7 @@ export default function Home() {
 
       if (Array.isArray(result) && result.length > 0) {
         const firstResponse = result[0];
-        if (
-          typeof firstResponse === "string" &&
-          firstResponse.includes("|")
-        ) {
+        if (typeof firstResponse === "string" && firstResponse.includes("|")) {
           const splitResponses = firstResponse.split("|").map((r) => r.trim());
           setResponses(splitResponses.slice(0, 3));
         } else {
@@ -248,10 +249,7 @@ export default function Home() {
       <Head>
         {/* Basic Meta Tags */}
         <meta charSet="UTF-8" />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights</title>
         <meta
           name="description"
@@ -262,35 +260,23 @@ export default function Home() {
         <link rel="canonical" href="https://www.smoothrizz.com" />
 
         {/* Open Graph Meta Tags */}
-        <meta
-          property="og:title"
-          content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights"
-        />
+        <meta property="og:title" content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights" />
         <meta
           property="og:description"
           content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
         />
         <meta property="og:url" content="https://www.smoothrizz.com" />
         <meta property="og:type" content="website" />
-        <meta
-          property="og:image"
-          content="https://www.smoothrizz.com/your-image.jpg"
-        />
+        <meta property="og:image" content="https://www.smoothrizz.com/your-image.jpg" />
 
         {/* Twitter Card Meta Tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights"
-        />
+        <meta name="twitter:title" content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights" />
         <meta
           name="twitter:description"
           content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
         />
-        <meta
-          name="twitter:image"
-          content="https://www.smoothrizz.com/your-image.jpg"
-        />
+        <meta name="twitter:image" content="https://www.smoothrizz.com/your-image.jpg" />
 
         {/* Structured Data: Website */}
         <script
@@ -356,10 +342,7 @@ export default function Home() {
       />
 
       {/* Google Analytics */}
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-FD93L95WFQ"
-        strategy="afterInteractive"
-      />
+      <Script src="https://www.googletagmanager.com/gtag/js?id=G-FD93L95WFQ" strategy="afterInteractive" />
       <Script
         id="google-analytics"
         strategy="afterInteractive"
@@ -439,12 +422,7 @@ export default function Home() {
               </div>
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
                 <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
+                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                   <Upload className="text-gray-400" size={24} />
                   <span className="text-gray-600 text-center">
                     Upload or paste conversation Screenshot!
@@ -482,9 +460,7 @@ export default function Home() {
                     return (
                       <div
                         key={phase.name}
-                        className={`rounded-xl p-3 md:p-4 text-center cursor-pointer hover:scale-[1.02] transition-all text-white shadow-lg ${
-                          isSelected ? "ring-4 ring-pink-400 ring-opacity-50" : ""
-                        }`}
+                        className={`rounded-xl p-3 md:p-4 text-center cursor-pointer hover:scale-[1.02] transition-all text-white shadow-lg ${isSelected ? "ring-4 ring-pink-400 ring-opacity-50" : ""}`}
                         style={{ backgroundColor: "#121418" }}
                         onClick={() => setMode(phase.name.toLowerCase().replace(" ", "-"))}
                       >
@@ -529,12 +505,7 @@ export default function Home() {
                   Your conversation
                 </h3>
                 {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Preview of uploaded conversation"
-                    className="w-full rounded-xl"
-                    loading="lazy"
-                  />
+                  <img src={previewUrl} alt="Preview of uploaded conversation" className="w-full rounded-xl" loading="lazy" />
                 ) : (
                   <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
                     Your conversation will appear here
@@ -554,10 +525,7 @@ export default function Home() {
                           style={{ backgroundColor: "#FE3C72" }}
                         >
                           {response}
-                          <div
-                            className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45"
-                            style={{ backgroundColor: "#FE3C72" }}
-                          ></div>
+                          <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: "#FE3C72" }}></div>
                         </div>
                       ))
                     : [0, 1, 2].map((index) => (
@@ -567,10 +535,7 @@ export default function Home() {
                           style={{ backgroundColor: "#FE3C72" }}
                         >
                           Suggestion {index + 1}
-                          <div
-                            className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45"
-                            style={{ backgroundColor: "#FE3C72" }}
-                          ></div>
+                          <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: "#FE3C72" }}></div>
                         </div>
                       ))}
                 </div>
@@ -593,9 +558,7 @@ export default function Home() {
                     </div>
                   </div>
                   <button
-                    onClick={() =>
-                      window.scrollTo({ top: 0, behavior: "smooth" })
-                    }
+                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                     className="w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block"
                   >
                     Try new screenshot
@@ -636,7 +599,7 @@ export default function Home() {
             </nav>
           </section>
 
-          {/* FAQ Section for SEO */}
+          {/* FAQ Section */}
           <section id="faq" className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto mt-16">
             <h2 className="text-3xl font-bold mb-4 text-center">Frequently Asked Questions</h2>
             <div className="space-y-6">
@@ -664,10 +627,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="text-center pb-8">
           <div className="max-w-4xl mx-auto px-4">
-            <a
-              href="/privacy-policy"
-              className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base"
-            >
+            <a href="/privacy-policy" className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base">
               Privacy Policy
             </a>
             <p className="text-gray-500 text-sm">
