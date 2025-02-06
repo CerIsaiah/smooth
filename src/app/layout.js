@@ -19,6 +19,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${poppins.variable}`}>
       <head>
         <script src="https://accounts.google.com/gserviceauth/js"></script>
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
       </head>
       <body className="font-poppins">
         {children}

@@ -131,8 +131,8 @@ export default function Home() {
       return;
     }
 
-    // If the user isn't signed in and they've generated 5+ responses, do not proceed.
-    if (!isSignedIn && usageCount >= 5) {
+    // If the user isn't signed in and they've generated 3+ responses, do not proceed.
+    if (!isSignedIn && usageCount >= 3) {
       // The overlay is rendered below to force sign in.
       return;
     }
@@ -285,7 +285,7 @@ export default function Home() {
           </h1>
           <div className="flex gap-3 md:gap-4 items-center">
             {/* Render the Google button in the nav if not signed in.
-                (The overlay will appear later if usageCount >= 5.) */}
+                (The overlay will appear later if usageCount >= 3.) */}
             {!isSignedIn ? (
               <div ref={googleButtonRef} />
             ) : (
@@ -470,7 +470,7 @@ export default function Home() {
                   className="text-xl font-semibold mb-4 text-center"
                   style={{ color: "#121418" }}
                 >
-                  SmoothRizz suggestions ✨
+                  SmoothRizz.com suggestions ✨
                 </h3>
                 <div className="space-y-4">
                   {responses.length > 0
@@ -547,8 +547,8 @@ export default function Home() {
           </div>
         </footer>
 
-        {/* If the user isn't signed in and has generated 5+ responses, show the overlay */}
-        {!isSignedIn && usageCount >= 5 && (
+        {/* If the user isn't signed in and has generated 3+ responses, show the overlay */}
+        {!isSignedIn && usageCount >= 3 && (
           <GoogleSignInOverlay googleLoaded={googleLoaded} />
         )}
       </div>
