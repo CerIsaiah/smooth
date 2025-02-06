@@ -1,17 +1,17 @@
 "use client";
+import Head from "next/head";
 import { useState, useEffect, useRef } from "react";
 import { analyzeScreenshot } from "./openai";
 import { supabase } from "@/utils/supabase";
 import { Upload, ArrowDown } from "lucide-react";
 import Script from "next/script";
 
-// Overlay component that covers the screen and displays only the Google sign in button.
+// Overlay component for Google Sign-In
 function GoogleSignInOverlay({ googleLoaded }) {
   const overlayButtonRef = useRef(null);
 
   useEffect(() => {
     if (googleLoaded && window.google && overlayButtonRef.current) {
-      // Clear any previous content before rendering.
       overlayButtonRef.current.innerHTML = "";
       window.google.accounts.id.renderButton(overlayButtonRef.current, {
         theme: "outline",
@@ -43,26 +43,25 @@ export default function Home() {
   const [usageCount, setUsageCount] = useState(0);
   const [dailyCount, setDailyCount] = useState(0);
   const [googleLoaded, setGoogleLoaded] = useState(false);
-  // Ref for rendering the Google button in the nav (if needed)
   const googleButtonRef = useRef(null);
 
-  // Fetch the current usage count for a given email.
+  // Fetch current usage count for a given email.
   const fetchUsageCount = async (email) => {
     try {
-      const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+      const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("users")
-        .select('usage_count, daily_usage')
+        .select("usage_count, daily_usage")
         .eq("email", email)
         .single();
-      
+
       if (error) throw error;
-      
-      // Check if daily_usage exists and is from today
-      const dailyCount = data.daily_usage?.date === today ? data.daily_usage.count : 0;
-      return { 
+
+      const dailyCount =
+        data.daily_usage?.date === today ? data.daily_usage.count : 0;
+      return {
         totalCount: data.usage_count || 0,
-        dailyCount: dailyCount
+        dailyCount: dailyCount,
       };
     } catch (error) {
       console.error("Error fetching usage count:", error);
@@ -70,7 +69,7 @@ export default function Home() {
     }
   };
 
-  // Called when Google returns a credential.
+  // Handle Google sign-in callback.
   const handleSignIn = async (response) => {
     if (!response.credential) return;
     const token = response.credential;
@@ -96,7 +95,6 @@ export default function Home() {
       setIsSignedIn(true);
     } catch (error) {
       console.error("Error storing user data:", error);
-      // Even if an error occurs, we mark the user as signed in.
       setUser(userData);
       setIsSignedIn(true);
     }
@@ -141,12 +139,7 @@ export default function Home() {
       return;
     }
 
-    // If the user isn't signed in and they've generated 3+ responses, do not proceed.
-    if (!isSignedIn && usageCount >= 3) {
-      // The overlay is rendered below to force sign in.
-      return;
-    }
-
+    if (!isSignedIn && usageCount >= 3) return;
     if (isSignedIn && dailyCount >= 30) {
       alert("You have reached your daily limit of 30 messages!");
       return;
@@ -159,12 +152,12 @@ export default function Home() {
       setUsageCount(newTotalCount);
 
       if (isSignedIn && user?.email) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split("T")[0];
         const { error } = await supabase
           .from("users")
-          .update({ 
+          .update({
             usage_count: newTotalCount,
-            daily_usage: { date: today, count: (dailyCount + 1) }
+            daily_usage: { date: today, count: dailyCount + 1 },
           })
           .eq("email", user.email);
         if (error) console.error("Error updating usage count:", error);
@@ -207,7 +200,7 @@ export default function Home() {
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
-  // Load the Google Identity Services script and initialize it.
+  // Load Google Identity Services script.
   useEffect(() => {
     if (!document.getElementById("google-client-script")) {
       const script = document.createElement("script");
@@ -252,6 +245,101 @@ export default function Home() {
 
   return (
     <>
+      <Head>
+        {/* Basic Meta Tags */}
+        <meta charSet="UTF-8" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0"
+        />
+        <title>SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights</title>
+        <meta
+          name="description"
+          content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
+        />
+        <meta name="keywords" content="ai rizz, ai rizz app, rizz" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://www.smoothrizz.com" />
+
+        {/* Open Graph Meta Tags */}
+        <meta
+          property="og:title"
+          content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights"
+        />
+        <meta
+          property="og:description"
+          content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
+        />
+        <meta property="og:url" content="https://www.smoothrizz.com" />
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:image"
+          content="https://www.smoothrizz.com/your-image.jpg"
+        />
+
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights"
+        />
+        <meta
+          name="twitter:description"
+          content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
+        />
+        <meta
+          name="twitter:image"
+          content="https://www.smoothrizz.com/your-image.jpg"
+        />
+
+        {/* Structured Data: Website */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "SmoothRizz",
+              "url": "https://www.smoothrizz.com",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://www.smoothrizz.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+
+        {/* Structured Data: FAQ */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": [
+                {
+                  "@type": "Question",
+                  "name": "What is AI Rizz?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "AI Rizz is our innovative artificial intelligence solution that enhances digital conversations."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "How does the AI Rizz App work?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The AI Rizz App uses advanced algorithms to analyze conversations and provide insightful suggestions for smoother communication."
+                  }
+                }
+              ]
+            }),
+          }}
+        />
+      </Head>
+
       {/* Google Tag Manager */}
       <Script
         id="google-tag-manager"
@@ -266,6 +354,7 @@ export default function Home() {
           `,
         }}
       />
+
       {/* Google Analytics */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=G-FD93L95WFQ"
@@ -283,6 +372,7 @@ export default function Home() {
           `,
         }}
       />
+
       <div className="min-h-screen bg-white">
         <noscript>
           <iframe
@@ -292,17 +382,13 @@ export default function Home() {
             style={{ display: "none", visibility: "hidden" }}
           />
         </noscript>
-        {/* Top navigation */}
+
+        {/* Top Navigation */}
         <nav className="flex justify-between items-center p-4 md:p-6 lg:p-8">
-          <h1
-            className="text-2xl md:text-3xl font-bold"
-            style={{ color: "#FE3C72" }}
-          >
+          <h1 className="text-2xl md:text-3xl font-bold" style={{ color: "#FE3C72" }}>
             SmoothRizz
           </h1>
           <div className="flex gap-3 md:gap-4 items-center">
-            {/* Render the Google button in the nav if not signed in.
-                (The overlay will appear later if usageCount >= 3.) */}
             {!isSignedIn ? (
               <div ref={googleButtonRef} />
             ) : (
@@ -317,9 +403,9 @@ export default function Home() {
           </div>
         </nav>
 
-        {/* Main content */}
+        {/* Main Content */}
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto">
-          {/* Hero Section with Main Image */}
+          {/* Hero Section */}
           <section className="text-center mb-16 md:mb-24 relative">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight" style={{ color: "#121418" }}>
               It's Your Turn to be the<br />
@@ -330,9 +416,14 @@ export default function Home() {
             <p className="text-gray-600 text-lg md:text-xl mb-12 md:mb-16 max-w-2xl mx-auto">
               With The Smoothest AI Rizz on the Internet
             </p>
-            <img src="/mainpic.png" alt="App demonstration" className="max-w-4xl w-full mx-auto" />
+            <img
+              src="/mainpic.png"
+              alt="App demonstration of SmoothRizz"
+              className="max-w-4xl w-full mx-auto"
+              loading="lazy"
+            />
             <button
-              onClick={() => document.querySelector('#upload-section')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" })}
               className="mt-8 px-8 py-4 rounded-full text-white font-bold shadow-lg transition-all hover:scale-[1.02]"
               style={{ backgroundColor: "#FE3C72" }}
             >
@@ -372,7 +463,7 @@ export default function Home() {
                 )}
               </div>
               <p className="text-gray-500 text-sm text-center italic mt-2 mb-8">
-                  Note: Your screenshots and texts are not stored on our servers and are only used for generating responses.
+                Note: Your screenshots and texts are not stored on our servers and are only used for generating responses.
               </p>
               <div className="mt-1">
                 <h3 className="text-gray-900 text-lg mb-2 font-medium text-center">
@@ -383,46 +474,23 @@ export default function Home() {
                   style={{ backgroundColor: "rgba(254, 60, 114, 0.1)" }}
                 >
                   {[
-                    {
-                      name: "First Move",
-                      desc: "Nail that opener",
-                      emoji: "👋",
-                    },
-                    {
-                      name: "Mid-Game",
-                      desc: "Keep it flowing",
-                      emoji: "💭",
-                    },
-                    {
-                      name: "End Game",
-                      desc: "Bring it home",
-                      emoji: "🎯",
-                    },
+                    { name: "First Move", desc: "Nail that opener", emoji: "👋" },
+                    { name: "Mid-Game", desc: "Keep it flowing", emoji: "💭" },
+                    { name: "End Game", desc: "Bring it home", emoji: "🎯" },
                   ].map((phase) => {
-                    const isSelected =
-                      mode === phase.name.toLowerCase().replace(" ", "-");
+                    const isSelected = mode === phase.name.toLowerCase().replace(" ", "-");
                     return (
                       <div
                         key={phase.name}
                         className={`rounded-xl p-3 md:p-4 text-center cursor-pointer hover:scale-[1.02] transition-all text-white shadow-lg ${
-                          isSelected
-                            ? "ring-4 ring-pink-400 ring-opacity-50"
-                            : ""
+                          isSelected ? "ring-4 ring-pink-400 ring-opacity-50" : ""
                         }`}
                         style={{ backgroundColor: "#121418" }}
-                        onClick={() =>
-                          setMode(phase.name.toLowerCase().replace(" ", "-"))
-                        }
+                        onClick={() => setMode(phase.name.toLowerCase().replace(" ", "-"))}
                       >
-                        <span className="block text-xl mb-1">
-                          {phase.emoji}
-                        </span>
-                        <span className="text-sm font-medium">
-                          {phase.name}
-                        </span>
-                        <span className="block text-xs text-white/60 mt-1">
-                          {phase.desc}
-                        </span>
+                        <span className="block text-xl mb-1">{phase.emoji}</span>
+                        <span className="text-sm font-medium">{phase.name}</span>
+                        <span className="block text-xs text-white/60 mt-1">{phase.desc}</span>
                       </div>
                     );
                   })}
@@ -431,15 +499,9 @@ export default function Home() {
               <div className="flex flex-col gap-4">
                 <button
                   onClick={handleSubmit}
-                  disabled={
-                    isLoading ||
-                    !selectedFile ||
-                    (isSignedIn && dailyCount >= 30)
-                  }
+                  disabled={isLoading || !selectedFile || (isSignedIn && dailyCount >= 30)}
                   className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
-                    isLoading ||
-                    !selectedFile ||
-                    (isSignedIn && dailyCount >= 30)
+                    isLoading || !selectedFile || (isSignedIn && dailyCount >= 30)
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:scale-[1.02]"
                   }`}
@@ -451,12 +513,11 @@ export default function Home() {
                     ? "Daily limit reached"
                     : "Get response"}
                 </button>
-                
               </div>
             </div>
           </section>
 
-          {/* Responses section */}
+          {/* Responses Section */}
           <section id="responses-section" className="mb-16 md:mb-24">
             <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
               <span style={{ color: "#121418" }}>Analyzing texts... </span>
@@ -464,17 +525,15 @@ export default function Home() {
             </h2>
             <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start justify-center">
               <div className="w-full md:w-1/2 max-w-md">
-                <h3
-                  className="text-xl font-semibold mb-4 text-center"
-                  style={{ color: "#121418" }}
-                >
+                <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
                   Your conversation
                 </h3>
                 {previewUrl ? (
                   <img
                     src={previewUrl}
-                    alt="Uploaded conversation"
+                    alt="Preview of uploaded conversation"
                     className="w-full rounded-xl"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
@@ -483,10 +542,7 @@ export default function Home() {
                 )}
               </div>
               <div className="w-full md:w-1/2 max-w-md">
-                <h3
-                  className="text-xl font-semibold mb-4 text-center"
-                  style={{ color: "#121418" }}
-                >
+                <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
                   SmoothRizz.com suggestions ✨
                 </h3>
                 <div className="space-y-4">
@@ -548,8 +604,64 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          {/* Additional SEO Sections */}
+          <section id="seo-content" className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto mt-16">
+            <div className="grid gap-8">
+              <section id="ai-rizz-info" className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold mb-2">Learn More About AI Rizz</h2>
+                <p className="text-gray-700">
+                  Discover the innovative capabilities of <strong>AI Rizz</strong> that are transforming digital communication. Stay updated with trends and insights to maximize your potential.
+                </p>
+              </section>
+              <section id="ai-rizz-app-info" className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold mb-2">Explore the AI Rizz App</h2>
+                <p className="text-gray-700">
+                  The <strong>AI Rizz App</strong> provides a seamless experience to enhance your conversations. Learn about its features, benefits, and latest updates.
+                </p>
+              </section>
+              <section id="rizz-info" className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold mb-2">All About Rizz</h2>
+                <p className="text-gray-700">
+                  Delve into the world of <strong>Rizz</strong> with expert insights, community trends, and innovative strategies. Enhance your digital interactions with our curated content.
+                </p>
+              </section>
+            </div>
+            <nav className="mt-8 text-center">
+              <ul className="flex justify-center gap-6">
+                <li><a href="#ai-rizz-info" className="text-blue-600 hover:underline">AI Rizz</a></li>
+                <li><a href="#ai-rizz-app-info" className="text-blue-600 hover:underline">AI Rizz App</a></li>
+                <li><a href="#rizz-info" className="text-blue-600 hover:underline">Rizz</a></li>
+              </ul>
+            </nav>
+          </section>
+
+          {/* FAQ Section for SEO */}
+          <section id="faq" className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto mt-16">
+            <h2 className="text-3xl font-bold mb-4 text-center">Frequently Asked Questions</h2>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-semibold">What is AI Rizz?</h3>
+                <p className="text-gray-700">
+                  AI Rizz is our innovative artificial intelligence solution designed to enhance digital communication by providing smart suggestions and insights.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-2xl font-semibold">How does the AI Rizz App work?</h3>
+                <p className="text-gray-700">
+                  The AI Rizz App uses advanced algorithms to analyze conversations and provide tailored suggestions that help improve your interaction style.
+                </p>
+              </div>
+            </div>
+            <nav className="mt-8 text-center">
+              <a href="#seo-content" className="text-blue-600 hover:underline">
+                Back to SEO sections
+              </a>
+            </nav>
+          </section>
         </main>
 
+        {/* Footer */}
         <footer className="text-center pb-8">
           <div className="max-w-4xl mx-auto px-4">
             <a
@@ -564,7 +676,7 @@ export default function Home() {
           </div>
         </footer>
 
-        {/* If the user isn't signed in and has generated 3+ responses, show the overlay */}
+        {/* Google Sign-In Overlay */}
         {!isSignedIn && usageCount >= 3 && (
           <GoogleSignInOverlay googleLoaded={googleLoaded} />
         )}
