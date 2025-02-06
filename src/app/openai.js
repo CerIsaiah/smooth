@@ -40,8 +40,16 @@ Remember: EXACTLY 3 responses, 5-15 words each, separated by |
 `;
 
 // Function to analyze text from screenshot
-export async function analyzeScreenshot(imageFile, systemPrompt = systemPromptWritten, mode = 'first-move') {
+export async function analyzeScreenshot(imageFile, mode = 'first-move') {
   try {
+    if (!imageFile || !(imageFile instanceof File)) {
+      throw new Error('Invalid file input');
+    }
+    
+    if (imageFile.size > 5 * 1024 * 1024) { // 5MB limit
+      throw new Error('File size too large. Please use an image under 5MB.');
+    }
+    
     const base64Image = await convertFileToBase64(imageFile);
     const base64String = base64Image.replace(/^data:image\/[a-z]+;base64,/, "");
     
@@ -52,9 +60,9 @@ export async function analyzeScreenshot(imageFile, systemPrompt = systemPromptWr
       },
       body: JSON.stringify({
         imageBase64: base64String,
-        systemPrompt: systemPromptWritten,
         mode: mode
-      })
+      }),
+      signal: AbortSignal.timeout(30000) // 30 second timeout
     });
 
     const data = await response.json();
@@ -62,7 +70,6 @@ export async function analyzeScreenshot(imageFile, systemPrompt = systemPromptWr
       throw new Error(data.error || 'API request failed');
     }
 
-    console.log('Generated responses:', data.responses);
     return data.responses;
 
   } catch (error) {
