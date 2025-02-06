@@ -41,6 +41,7 @@ export default function Home() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [usageCount, setUsageCount] = useState(0);
+  const [dailyCount, setDailyCount] = useState(0);
   const [googleLoaded, setGoogleLoaded] = useState(false);
   // Ref for rendering the Google button in the nav (if needed)
   const googleButtonRef = useRef(null);
@@ -48,16 +49,24 @@ export default function Home() {
   // Fetch the current usage count for a given email.
   const fetchUsageCount = async (email) => {
     try {
+      const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
       const { data, error } = await supabase
         .from("users")
-        .select("usage_count")
+        .select('usage_count, daily_usage')
         .eq("email", email)
         .single();
+      
       if (error) throw error;
-      return data.usage_count || 0;
+      
+      // Check if daily_usage exists and is from today
+      const dailyCount = data.daily_usage?.date === today ? data.daily_usage.count : 0;
+      return { 
+        totalCount: data.usage_count || 0,
+        dailyCount: dailyCount
+      };
     } catch (error) {
       console.error("Error fetching usage count:", error);
-      return 0;
+      return { totalCount: 0, dailyCount: 0 };
     }
   };
 
@@ -81,7 +90,8 @@ export default function Home() {
       if (error) throw error;
 
       const currentUsage = await fetchUsageCount(userData.email);
-      setUsageCount(currentUsage);
+      setUsageCount(currentUsage.totalCount);
+      setDailyCount(currentUsage.dailyCount);
       setUser(userData);
       setIsSignedIn(true);
     } catch (error) {
@@ -137,7 +147,7 @@ export default function Home() {
       return;
     }
 
-    if (isSignedIn && usageCount >= 30) {
+    if (isSignedIn && dailyCount >= 30) {
       alert("You have reached your daily limit of 30 messages!");
       return;
     }
@@ -145,13 +155,17 @@ export default function Home() {
     try {
       setIsLoading(true);
       const result = await analyzeScreenshot(selectedFile, mode);
-      const newUsageCount = usageCount + 1;
-      setUsageCount(newUsageCount);
+      const newTotalCount = usageCount + 1;
+      setUsageCount(newTotalCount);
 
       if (isSignedIn && user?.email) {
+        const today = new Date().toISOString().split('T')[0];
         const { error } = await supabase
           .from("users")
-          .update({ usage_count: newUsageCount })
+          .update({ 
+            usage_count: newTotalCount,
+            daily_usage: { date: today, count: (dailyCount + 1) }
+          })
           .eq("email", user.email);
         if (error) console.error("Error updating usage count:", error);
       }
@@ -229,7 +243,10 @@ export default function Home() {
 
   useEffect(() => {
     if (isSignedIn && user?.email) {
-      fetchUsageCount(user.email).then((count) => setUsageCount(count));
+      fetchUsageCount(user.email).then(({ totalCount, dailyCount }) => {
+        setUsageCount(totalCount);
+        setDailyCount(dailyCount);
+      });
     }
   }, [isSignedIn, user]);
 
@@ -417,12 +434,12 @@ export default function Home() {
                   disabled={
                     isLoading ||
                     !selectedFile ||
-                    (isSignedIn && usageCount >= 30)
+                    (isSignedIn && dailyCount >= 30)
                   }
                   className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
                     isLoading ||
                     !selectedFile ||
-                    (isSignedIn && usageCount >= 30)
+                    (isSignedIn && dailyCount >= 30)
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:scale-[1.02]"
                   }`}
@@ -430,7 +447,7 @@ export default function Home() {
                 >
                   {isLoading
                     ? "Analyzing..."
-                    : isSignedIn && usageCount >= 30
+                    : isSignedIn && dailyCount >= 30
                     ? "Daily limit reached"
                     : "Get response"}
                 </button>
