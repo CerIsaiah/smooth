@@ -35,7 +35,7 @@ FORMAT RULES:
 - 5-15 words each
 - Use | as separator
 - No emojis or extra formatting
-- Format Example: Response one | Response two | Response three 
+- NEEDED Format: Response one | Response two | Response three 
 
 RESPONSE STRATEGY:
 1. First identify the key elements:
@@ -66,7 +66,10 @@ QUALITY CHECKS:
 - Would this make sense to an outsider reading the conversation?
 - Does it maintain the established rapport?
 - Is it moving the conversation forward naturally?
-- Does it avoid overplaying momentary jokes?`,
+- Does it avoid overplaying momentary jokes?
+- NEEDED Format: Response one | Response two | Response three 
+
+`,
 
 
 };

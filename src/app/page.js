@@ -54,6 +54,7 @@ export default function Home() {
   const [context, setContext] = useState('');
   const [lastText, setLastText] = useState('');
   const [inputMode, setInputMode] = useState('screenshot');
+  const [loadingText, setLoadingText] = useState("Analyzing");
 
   // Fetch usage count (DB code unchanged)
   const fetchUsageCount = async (email) => {
@@ -203,6 +204,15 @@ export default function Home() {
     }
   };
 
+  // Function to copy text to clipboard
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Copied to clipboard!");
+    }).catch(err => {
+      console.error("Failed to copy: ", err);
+    });
+  };
+
   // Handle submit – analyzeScreenshot remains exactly as originally written
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
@@ -224,7 +234,14 @@ export default function Home() {
 
     try {
       setIsLoading(true);
+      let loadingInterval = setInterval(() => {
+        setLoadingText((prev) => prev.length < 12 ? prev + "." : "Analyzing");
+      }, 500);
+
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
+
+      clearInterval(loadingInterval);
+      setLoadingText("Analyzing");
 
       if (!isSignedIn) {
         const newAnonymousCount = currentAnonymousCount + 1;
@@ -649,9 +666,9 @@ export default function Home() {
 
           <section id="upload-section" className="mb-16 md:mb-24">
             <div className="flex flex-col gap-4 max-w-md mx-auto w-full">
-              <div className="text-gray-700 text-center mb-3 font-bold">
-                Screenshot full conversation + text to respond to! 📱
-              </div>
+            <div className="text-gray-700 text-center mb-7 font-bold" style={{ fontSize: '24px' }}>
+              Step 1. Screenshot your conversation + text to respond to! 📱
+            </div>
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
                 <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
                   <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
@@ -678,7 +695,7 @@ export default function Home() {
               </p>
               <div className="mt-1">
                 <h3 className="text-gray-900 text-lg mb-2 font-medium text-center">
-                  Choose where you are in the conversation:
+                  Step 2. Choose where you are in the conversation:
                 </h3>
                 <div
                   className="grid grid-cols-3 gap-3 md:gap-4 p-4 rounded-2xl shadow-inner"
@@ -747,8 +764,9 @@ export default function Home() {
                     ? responses.map((response, index) => (
                         <div
                           key={index}
-                          className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative"
+                          className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative cursor-pointer"
                           style={{ backgroundColor: "#FE3C72" }}
+                          onClick={() => copyToClipboard(response)}
                         >
                           {response}
                           <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: "#FE3C72" }}></div>
@@ -773,7 +791,7 @@ export default function Home() {
                       isLoading ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >
-                    {isLoading ? "Analyzing..." : "Get new responses"}
+                    {isLoading ? loadingText : "Get new responses"}
                   </button>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
