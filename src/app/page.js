@@ -12,7 +12,9 @@ function GoogleSignInOverlay({ googleLoaded }) {
 
   useEffect(() => {
     if (googleLoaded && window.google && overlayButtonRef.current) {
+      // Clear previous button
       overlayButtonRef.current.innerHTML = "";
+      // Re-render the Google button
       window.google.accounts.id.renderButton(overlayButtonRef.current, {
         theme: "outline",
         size: "large",
@@ -45,7 +47,7 @@ export default function Home() {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const googleButtonRef = useRef(null);
 
-  // Fetch current usage count for a given email.
+  // Fetch current usage count for a given email
   const fetchUsageCount = async (email) => {
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -120,23 +122,42 @@ export default function Home() {
     }
   };
 
-  // Update handleSignOut to clear stored data
-  const handleSignOut = () => {
-    setUser(null);
-    setIsSignedIn(false);
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    setResponses([]);
-    setUsageCount(0);
-    setDailyCount(0);
-    
-    // Clear stored data
-    localStorage.removeItem('smoothrizz_user');
-    localStorage.removeItem('smoothrizz_anonymous_count');
-    
+  // Update handleSignOut to preserve upload functionality
+  const handleSignOut = async () => {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
+      window.google.accounts.id.revoke();
+      
+      // Re-initialize Google Sign-In with the original configuration
+      fetch("/api/auth/google-client-id")
+        .then((res) => res.json())
+        .then(({ clientId }) => {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleSignIn,
+            auto_select: false,
+          });
+          if (googleButtonRef.current) {
+            googleButtonRef.current.innerHTML = "";
+            window.google.accounts.id.renderButton(googleButtonRef.current, {
+              theme: "outline",
+              size: "large",
+            });
+          }
+        })
+        .catch((err) => console.error("Error reinitializing Google Sign-In:", err));
     }
+    
+    setUser(null);
+    setIsSignedIn(false);
+    setResponses([]);
+    
+    // Just restore the previous anonymous count
+    const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
+    setUsageCount(currentAnonymousCount);
+    setDailyCount(0);
+    
+    localStorage.removeItem('smoothrizz_user');
   };
 
   const handleFileUpload = (event) => {
@@ -170,10 +191,13 @@ export default function Home() {
 
     const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
     
-    // Check if user needs to sign in
-    if (!isSignedIn && currentAnonymousCount >= 3) {
-      alert("Please sign in to continue using SmoothRizz");
-      return;
+    // Update usage count and show overlay if needed
+    if (!isSignedIn) {
+      // If they're already at or over the limit, update state to show overlay
+      if (currentAnonymousCount >= 3) {
+        setUsageCount(currentAnonymousCount);
+        return; // Don't proceed with the API call
+      }
     }
     
     if (isSignedIn && dailyCount >= 30) {
@@ -183,7 +207,7 @@ export default function Home() {
 
     try {
       setIsLoading(true);
-      const result = await analyzeScreenshot(selectedFile, mode);
+      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn);
 
       // Update usage counts
       if (!isSignedIn) {
@@ -230,7 +254,14 @@ export default function Home() {
       });
     } catch (error) {
       console.error("Error:", error);
-      alert("Error analyzing screenshot. Please try again.");
+      if (error.message === 'Anonymous usage limit reached. Please sign in to continue.') {
+        // Update the anonymous count in localStorage to ensure overlay shows
+        const newCount = Math.max(currentAnonymousCount, 3);
+        localStorage.setItem('smoothrizz_anonymous_count', newCount.toString());
+        setUsageCount(newCount);
+      } else {
+        alert("Error analyzing screenshot. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -241,21 +272,45 @@ export default function Home() {
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
-  // Load Google Identity Services script.
+  // Update the Google Sign-In initialization effect
   useEffect(() => {
-    if (!document.getElementById("google-client-script")) {
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.id = "google-client-script";
-      script.onload = () => {
+    const initializeGoogleSignIn = () => {
+      if (!document.getElementById("google-client-script")) {
+        const script = document.createElement("script");
+        script.src = "https://accounts.google.com/gsi/client";
+        script.async = true;
+        script.id = "google-client-script";
+        script.onload = () => {
+          fetch("/api/auth/google-client-id")
+            .then((res) => res.json())
+            .then(({ clientId }) => {
+              window.google.accounts.id.initialize({
+                client_id: clientId,
+                callback: handleSignIn,
+                auto_select: true,
+              });
+              if (googleButtonRef.current) {
+                window.google.accounts.id.renderButton(googleButtonRef.current, {
+                  theme: "outline",
+                  size: "large",
+                });
+              }
+              setGoogleLoaded(true);
+            })
+            .catch((err) =>
+              console.error("Error fetching Google client ID:", err)
+            );
+        };
+        document.body.appendChild(script);
+      } else if (window.google) {
+        // If script already exists but needs reinitialization
         fetch("/api/auth/google-client-id")
           .then((res) => res.json())
           .then(({ clientId }) => {
             window.google.accounts.id.initialize({
               client_id: clientId,
               callback: handleSignIn,
-              auto_select: true,
+              auto_select: !isSignedIn, // Only auto-select when not signed in
             });
             if (googleButtonRef.current) {
               window.google.accounts.id.renderButton(googleButtonRef.current, {
@@ -266,14 +321,13 @@ export default function Home() {
             setGoogleLoaded(true);
           })
           .catch((err) =>
-            console.error("Error fetching Google client ID:", err)
+            console.error("Error reinitializing Google Sign-In:", err)
           );
-      };
-      document.body.appendChild(script);
-    } else {
-      setGoogleLoaded(true);
-    }
-  }, []);
+      }
+    };
+
+    initializeGoogleSignIn();
+  }, [isSignedIn]); // Add isSignedIn as a dependency
 
   useEffect(() => {
     if (isSignedIn && user?.email) {
@@ -287,7 +341,6 @@ export default function Home() {
   return (
     <>
       <Head>
-        {/* Basic Meta Tags */}
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights</title>
@@ -299,7 +352,6 @@ export default function Home() {
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://www.smoothrizz.com" />
 
-        {/* Open Graph Meta Tags */}
         <meta property="og:title" content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights" />
         <meta
           property="og:description"
@@ -309,7 +361,6 @@ export default function Home() {
         <meta property="og:type" content="website" />
         <meta property="og:image" content="https://www.smoothrizz.com/your-image.jpg" />
 
-        {/* Twitter Card Meta Tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights" />
         <meta
@@ -318,7 +369,6 @@ export default function Home() {
         />
         <meta name="twitter:image" content="https://www.smoothrizz.com/your-image.jpg" />
 
-        {/* Structured Data: Website */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -336,7 +386,6 @@ export default function Home() {
           }}
         />
 
-        {/* Structured Data: FAQ */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -366,7 +415,6 @@ export default function Home() {
         />
       </Head>
 
-      {/* Google Tag Manager */}
       <Script
         id="google-tag-manager"
         strategy="afterInteractive"
@@ -381,7 +429,6 @@ export default function Home() {
         }}
       />
 
-      {/* Google Analytics */}
       <Script src="https://www.googletagmanager.com/gtag/js?id=G-FD93L95WFQ" strategy="afterInteractive" />
       <Script
         id="google-analytics"
@@ -406,15 +453,13 @@ export default function Home() {
           />
         </noscript>
 
-        {/* Top Navigation */}
         <nav className="flex justify-between items-center p-4 md:p-6 lg:p-8">
           <h1 className="text-2xl md:text-3xl font-bold" style={{ color: "#FE3C72" }}>
             SmoothRizz
           </h1>
           <div className="flex gap-3 md:gap-4 items-center">
-            {!isSignedIn ? (
-              <div ref={googleButtonRef} />
-            ) : (
+            <div ref={googleButtonRef}></div>
+            {isSignedIn && (
               <button
                 onClick={handleSignOut}
                 className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium"
@@ -426,9 +471,7 @@ export default function Home() {
           </div>
         </nav>
 
-        {/* Main Content */}
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto">
-          {/* Hero Section */}
           <section className="text-center mb-16 md:mb-24 relative">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight" style={{ color: "#121418" }}>
               It's Your Turn to be the<br />
@@ -454,7 +497,6 @@ export default function Home() {
             </button>
           </section>
 
-          {/* Upload Section */}
           <section id="upload-section" className="mb-16 md:mb-24">
             <div className="flex flex-col gap-4 max-w-md mx-auto w-full">
               <div className="text-gray-700 text-center mb-3 font-bold">
@@ -533,7 +575,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Responses Section */}
           <section id="responses-section" className="mb-16 md:mb-24">
             <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
               <span style={{ color: "#121418" }}>Analyzing texts... </span>
@@ -608,8 +649,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Additional SEO Sections */}
-          <section id="seo-content" className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto mt-16">
+          <section id="seo-content" className="mt-16">
             <div className="grid gap-8">
               <section id="ai-rizz-info" className="bg-white p-6 rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold mb-2">Learn More About AI Rizz</h2>
@@ -639,8 +679,7 @@ export default function Home() {
             </nav>
           </section>
 
-          {/* FAQ Section */}
-          <section id="faq" className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto mt-16">
+          <section id="faq" className="mt-16">
             <h2 className="text-3xl font-bold mb-4 text-center">Frequently Asked Questions</h2>
             <div className="space-y-6">
               <div>
@@ -664,7 +703,6 @@ export default function Home() {
           </section>
         </main>
 
-        {/* Footer */}
         <footer className="text-center pb-8">
           <div className="max-w-4xl mx-auto px-4">
             <a href="/privacy-policy" className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base">
@@ -678,7 +716,9 @@ export default function Home() {
 
         {/* Google Sign-In Overlay */}
         {!isSignedIn && usageCount >= 3 && (
-          <GoogleSignInOverlay googleLoaded={googleLoaded} />
+          <GoogleSignInOverlay 
+            googleLoaded={googleLoaded}
+          />
         )}
       </div>
     </>

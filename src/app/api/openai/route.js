@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
@@ -16,7 +17,8 @@ FORMAT REQUIREMENTS:
 4. Responses MUST be separated by the | character
 5. DO NOT number your responses or add any extra formatting
 6. No emoji's allowed
-7. YOU ARE RESPONDING TO THEIR MESSAGES, WHICH ARE ON THE LEFT
+7. YOU ARE RESPONDING TO THEIR MESSAGES, WHICH ARE ON THE LEFT. Consider the entire conversation history before responding.
+8. Make sure the responses are revelant and make sense
 
 Example format:
 This is response one using style A | This is response two using style A different | This is response three using style A different
@@ -54,14 +56,64 @@ function validateInput(imageBase64, mode) {
   }
 }
 
+// Add new function to check IP usage
+async function checkIPUsage(ip, supabase) {
+  const { data, error } = await supabase
+    .from('ip_usage')
+    .select('usage_count')
+    .eq('ip_address', ip)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+    throw error;
+  }
+
+  return data?.usage_count || 0;
+}
+
+// Add new function to update IP usage
+async function updateIPUsage(ip, currentCount, supabase) {
+  const { error } = await supabase
+    .from('ip_usage')
+    .upsert({
+      ip_address: ip,
+      usage_count: currentCount + 1,
+      last_used: new Date().toISOString()
+    }, {
+      onConflict: 'ip_address'
+    });
+
+  if (error) throw error;
+}
+
 export async function POST(request) {
   try {
-    const requestIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
-    const { imageBase64, mode = 'first-move' } = await request.json();
+    const { imageBase64, mode = 'first-move', isSignedIn } = await request.json();
     
     // Validate inputs
     validateInput(imageBase64, mode);
+
+    // Only check IP usage for non-signed-in users
+    if (!isSignedIn) {
+      const supabase = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      );
+
+      const currentUsage = await checkIPUsage(requestIP, supabase);
+      
+      if (currentUsage >= 3) {
+        return NextResponse.json({ 
+          error: 'Anonymous usage limit reached. Please sign in to continue.',
+          requestId: crypto.randomUUID()
+        }, { status: 403 });
+      }
+
+      // Update IP usage count
+      await updateIPUsage(requestIP, currentUsage, supabase);
+    }
     
     const systemPrompt = SYSTEM_PROMPTS[mode];
     
