@@ -5,6 +5,10 @@ import { analyzeScreenshot } from "./openai";
 import { supabase } from "@/utils/supabase";
 import { Upload, ArrowDown } from "lucide-react";
 import Script from "next/script";
+import { loadStripe } from '@stripe/stripe-js';
+
+// Make sure to call `loadStripe` outside of a component's render
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 // Overlay component for Google Sign-In
 function GoogleSignInOverlay({ googleLoaded }) {
@@ -337,6 +341,47 @@ export default function Home() {
       });
     }
   }, [isSignedIn, user]);
+
+  // Add new function to handle Stripe checkout
+  const handleCheckout = async () => {
+    try {
+      const response = await fetch('/api/checkout_sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        alert('Error creating checkout session');
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Something went wrong with the checkout process.');
+    }
+  };
+
+  // Add this useEffect to handle redirect back from Stripe
+  useEffect(() => {
+    // Check to see if this is a redirect back from Checkout
+    const query = new URLSearchParams(window.location.search);
+    
+    if (query.get('success')) {
+      console.log('Order placed! You will receive an email confirmation.');
+      // Handle successful payment here
+    }
+
+    if (query.get('canceled')) {
+      console.log('Order canceled -- continue to shop around and checkout when you\'re ready.');
+      // Handle canceled payment here
+    }
+  }, []);
 
   return (
     <>
@@ -720,6 +765,15 @@ export default function Home() {
             googleLoaded={googleLoaded}
           />
         )}
+
+        {/* Add checkout button where needed */}
+        <button
+          onClick={handleCheckout}
+          className="w-full text-white rounded-full p-4 font-bold shadow-lg transition-all hover:scale-[1.02]"
+          style={{ backgroundColor: "#FE3C72" }}
+        >
+          Upgrade to Premium
+        </button>
       </div>
     </>
   );
