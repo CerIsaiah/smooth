@@ -50,6 +50,9 @@ export default function Home() {
   const [dailyCount, setDailyCount] = useState(0);
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const googleButtonRef = useRef(null);
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [context, setContext] = useState('');
+  const [lastText, setLastText] = useState('');
 
   // Fetch current usage count for a given email
   const fetchUsageCount = async (email) => {
@@ -188,8 +191,8 @@ export default function Home() {
 
   // Update handleSubmit to track anonymous usage
   const handleSubmit = async () => {
-    if (!selectedFile) {
-      alert("Please select a screenshot first");
+    if (!selectedFile && (!context || !lastText)) {
+      alert("Please either upload a screenshot or provide conversation details");
       return;
     }
 
@@ -211,7 +214,7 @@ export default function Home() {
 
     try {
       setIsLoading(true);
-      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn);
+      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
 
       // Update usage counts
       if (!isSignedIn) {
@@ -382,6 +385,55 @@ export default function Home() {
       // Handle canceled payment here
     }
   }, []);
+
+  // Add this section in the JSX after the file upload section:
+  const textInputSection = (
+    <div className="mt-4 transition-all duration-300">
+      <button
+        onClick={() => setShowTextInput(!showTextInput)}
+        className="w-full text-gray-600 py-2 flex items-center justify-center gap-2 hover:text-gray-900"
+      >
+        <span>{showTextInput ? "Hide" : "Show"} text input option</span>
+        <svg
+          className={`w-4 h-4 transform transition-transform ${showTextInput ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {showTextInput && (
+        <div className="space-y-4 mt-4 p-4 border-2 border-dashed border-gray-300 rounded-xl">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Conversation Context
+            </label>
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md"
+              placeholder="Describe the conversation so far..."
+              rows={3}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Their Last Message
+            </label>
+            <input
+              type="text"
+              value={lastText}
+              onChange={(e) => setLastText(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md"
+              placeholder="What was their last message?"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -567,6 +619,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              {textInputSection}
               <p className="text-gray-500 text-sm text-center italic mt-2 mb-8">
                 Note: Your screenshots and texts are not stored on our servers and are only used for generating responses.
               </p>
@@ -602,9 +655,9 @@ export default function Home() {
               <div className="flex flex-col gap-4">
                 <button
                   onClick={handleSubmit}
-                  disabled={isLoading || !selectedFile || (isSignedIn && dailyCount >= 30)}
+                  disabled={isLoading || (!selectedFile && (!context || !lastText)) || (isSignedIn && dailyCount >= 30)}
                   className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
-                    isLoading || !selectedFile || (isSignedIn && dailyCount >= 30)
+                    isLoading || (!selectedFile && (!context || !lastText)) || (isSignedIn && dailyCount >= 30)
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:scale-[1.02]"
                   }`}
@@ -630,13 +683,40 @@ export default function Home() {
                 <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
                   Your conversation
                 </h3>
-                {previewUrl ? (
-                  <img src={previewUrl} alt="Preview of uploaded conversation" className="w-full rounded-xl" loading="lazy" />
-                ) : (
-                  <div className="w-full h-96 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
-                    Your conversation will appear here
-                  </div>
-                )}
+                <div className="w-full min-h-96 bg-gray-100 rounded-xl p-4">
+                  {previewUrl ? (
+                    <img 
+                      src={previewUrl} 
+                      alt="Preview of uploaded conversation" 
+                      className="w-full rounded-xl" 
+                      loading="lazy" 
+                    />
+                  ) : context || lastText ? (
+                    <div className="space-y-4">
+                      {context && (
+                        <div className="text-sm text-gray-500 italic mb-4">
+                          Context: {context}
+                        </div>
+                      )}
+                      {lastText && (
+                        <div className="flex justify-start">
+                          <div 
+                            className="bg-gray-200 rounded-2xl p-4 text-gray-800 max-w-[85%] relative"
+                          >
+                            {lastText}
+                            <div 
+                              className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45 bg-gray-200"
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400">
+                      Your conversation will appear here
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="w-full md:w-1/2 max-w-md">
                 <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>

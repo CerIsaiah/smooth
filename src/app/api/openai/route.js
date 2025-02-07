@@ -81,7 +81,7 @@ export async function POST(request) {
   try {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
-    const { imageBase64, mode = 'first-move', isSignedIn } = await request.json();
+    const { imageBase64, mode = 'first-move', isSignedIn, context, lastText } = await request.json();
     
     // Validate inputs
 
@@ -107,6 +107,47 @@ export async function POST(request) {
     
     const systemPrompt = SYSTEM_PROMPTS['first-move'];
     
+    // Prepare the user message based on input type
+    let userMessage;
+
+    if (imageBase64) {
+      userMessage = [
+        {
+          type: "text",
+          text: `What should I say back?`
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:image/jpeg;base64,${imageBase64}`
+          }
+        }
+      ];
+    } else if (context && lastText) {
+      userMessage = [
+        {
+          type: "text",
+          text: `Context of conversation: ${context}\n\nLast message from them: ${lastText}\n\nWhat should I say back?`
+        }
+      ];
+    }
+
+    // Add input validation
+    if (!imageBase64 && (!context || !lastText)) {
+      return NextResponse.json({ 
+        error: 'Please provide either an image or conversation details',
+        requestId: crypto.randomUUID()
+      }, { status: 400 });
+    }
+
+    // Also validate that we don't receive both inputs
+    if (imageBase64 && (context || lastText)) {
+      return NextResponse.json({ 
+        error: 'Please provide either an image or conversation details, not both',
+        requestId: crypto.randomUUID()
+      }, { status: 400 });
+    }
+
     const response = await openai.chat.completions.create({
       model: "ft:gpt-4o-2024-08-06:personal:usepickup-3:Ax5yhop9",
       temperature: 1.0,
@@ -117,18 +158,7 @@ export async function POST(request) {
         },
         {
           role: "user",
-          content: [
-            {
-              type: "text",
-              text: `What should I say back?`
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`
-              }
-            }
-          ]
+          content: userMessage
         }
       ]
     });
