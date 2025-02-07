@@ -31,7 +31,7 @@ function GoogleSignInOverlay({ googleLoaded }) {
       <div className="bg-white p-8 rounded-md flex flex-col items-center">
         <div ref={overlayButtonRef}></div>
         <p className="mt-4 text-center">
-          Please sign in with Google to continue generating responses.
+          Please sign in with Google to continue generating responses for free.
         </p>
       </div>
     </div>
@@ -53,6 +53,7 @@ export default function Home() {
   const [showTextInput, setShowTextInput] = useState(false);
   const [context, setContext] = useState('');
   const [lastText, setLastText] = useState('');
+  const [inputMode, setInputMode] = useState('screenshot');
 
   // Fetch current usage count for a given email
   const fetchUsageCount = async (email) => {
@@ -172,6 +173,9 @@ export default function Home() {
     if (file) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
+      setInputMode('screenshot');
+      setContext('');
+      setLastText('');
     }
   };
 
@@ -183,9 +187,26 @@ export default function Home() {
           const file = items[i].getAsFile();
           setSelectedFile(file);
           setPreviewUrl(URL.createObjectURL(file));
+          setInputMode('screenshot');
+          setContext('');
+          setLastText('');
           break;
         }
       }
+    }
+  };
+
+  const handleTextInputChange = (type, value) => {
+    if (type === 'context') {
+      setContext(value);
+    } else {
+      setLastText(value);
+    }
+    
+    if (value) {
+      setInputMode('text');
+      setSelectedFile(null);
+      setPreviewUrl(null);
     }
   };
 
@@ -198,13 +219,10 @@ export default function Home() {
 
     const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
     
-    // Update usage count and show overlay if needed
-    if (!isSignedIn) {
-      // If they're already at or over the limit, update state to show overlay
-      if (currentAnonymousCount >= 3) {
-        setUsageCount(currentAnonymousCount);
-        return; // Don't proceed with the API call
-      }
+    // Check anonymous limit for both screenshot and text input cases
+    if (!isSignedIn && currentAnonymousCount >= 3) {
+      setUsageCount(currentAnonymousCount);
+      return; // Don't proceed with the API call
     }
     
     if (isSignedIn && dailyCount >= 30) {
@@ -267,7 +285,7 @@ export default function Home() {
         localStorage.setItem('smoothrizz_anonymous_count', newCount.toString());
         setUsageCount(newCount);
       } else {
-        alert("Error analyzing screenshot. Please try again.");
+        alert("Error analyzing input. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -386,7 +404,45 @@ export default function Home() {
     }
   }, []);
 
-  // Add this section in the JSX after the file upload section:
+  // Update the conversation preview section
+  const conversationPreview = (
+    <div className="w-full min-h-96 bg-gray-100 rounded-xl p-4">
+      {inputMode === 'screenshot' && previewUrl ? (
+        <img 
+          src={previewUrl} 
+          alt="Preview of uploaded conversation" 
+          className="w-full rounded-xl" 
+          loading="lazy" 
+        />
+      ) : inputMode === 'text' && (context || lastText) ? (
+        <div className="space-y-4">
+          {context && (
+            <div className="text-sm text-gray-500 italic mb-4">
+              Context: {context}
+            </div>
+          )}
+          {lastText && (
+            <div className="flex justify-start">
+              <div 
+                className="bg-gray-200 rounded-2xl p-4 text-gray-800 max-w-[85%] relative"
+              >
+                {lastText}
+                <div 
+                  className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45 bg-gray-200"
+                ></div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="h-full flex items-center justify-center text-gray-400">
+          Your conversation will appear here
+        </div>
+      )}
+    </div>
+  );
+
+  // Update textInputSection JSX
   const textInputSection = (
     <div className="mt-4 transition-all duration-300">
       <button
@@ -412,7 +468,7 @@ export default function Home() {
             </label>
             <textarea
               value={context}
-              onChange={(e) => setContext(e.target.value)}
+              onChange={(e) => handleTextInputChange('context', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
               placeholder="Describe the conversation so far..."
               rows={3}
@@ -425,7 +481,7 @@ export default function Home() {
             <input
               type="text"
               value={lastText}
-              onChange={(e) => setLastText(e.target.value)}
+              onChange={(e) => handleTextInputChange('lastText', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
               placeholder="What was their last message?"
             />
@@ -683,40 +739,7 @@ export default function Home() {
                 <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
                   Your conversation
                 </h3>
-                <div className="w-full min-h-96 bg-gray-100 rounded-xl p-4">
-                  {previewUrl ? (
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview of uploaded conversation" 
-                      className="w-full rounded-xl" 
-                      loading="lazy" 
-                    />
-                  ) : context || lastText ? (
-                    <div className="space-y-4">
-                      {context && (
-                        <div className="text-sm text-gray-500 italic mb-4">
-                          Context: {context}
-                        </div>
-                      )}
-                      {lastText && (
-                        <div className="flex justify-start">
-                          <div 
-                            className="bg-gray-200 rounded-2xl p-4 text-gray-800 max-w-[85%] relative"
-                          >
-                            {lastText}
-                            <div 
-                              className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45 bg-gray-200"
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400">
-                      Your conversation will appear here
-                    </div>
-                  )}
-                </div>
+                {conversationPreview}
               </div>
               <div className="w-full md:w-1/2 max-w-md">
                 <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
@@ -753,7 +776,7 @@ export default function Home() {
                       isLoading ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >
-                    {isLoading ? "Analyzing..." : "Regenerate responses"}
+                    {isLoading ? "Analyzing..." : "Get new responses"}
                   </button>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
