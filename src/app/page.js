@@ -79,24 +79,21 @@ export default function Home() {
     }
   };
 
-  // Add new useEffect to check localStorage on initial load
+  // Check localStorage on initial load
   useEffect(() => {
-    // Check if user was previously signed in
     const storedUser = localStorage.getItem('smoothrizz_user');
     if (storedUser) {
       const userData = JSON.parse(storedUser);
       setUser(userData);
       setIsSignedIn(true);
     }
-
-    // Check anonymous usage count
     const anonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
     if (!isSignedIn) {
       setUsageCount(anonymousCount);
     }
   }, []);
 
-  // Update handleSignIn to persist user data
+  // Persist user data on sign-in
   const handleSignIn = async (response) => {
     if (!response.credential) return;
     const token = response.credential;
@@ -121,22 +118,19 @@ export default function Home() {
       setUser(userData);
       setIsSignedIn(true);
       
-      // Store user data in localStorage
       localStorage.setItem('smoothrizz_user', JSON.stringify(userData));
-      // Clear anonymous count when user signs in
       localStorage.removeItem('smoothrizz_anonymous_count');
     } catch (error) {
       console.error("Error storing user data:", error);
     }
   };
 
-  // Update handleSignOut to preserve upload functionality
+  // Preserve upload functionality on sign-out
   const handleSignOut = async () => {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
       window.google.accounts.id.revoke();
       
-      // Re-initialize Google Sign-In with the original configuration
       fetch("/api/auth/google-client-id")
         .then((res) => res.json())
         .then(({ clientId }) => {
@@ -160,7 +154,6 @@ export default function Home() {
     setIsSignedIn(false);
     setResponses([]);
     
-    // Just restore the previous anonymous count
     const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
     setUsageCount(currentAnonymousCount);
     setDailyCount(0);
@@ -210,7 +203,7 @@ export default function Home() {
     }
   };
 
-  // Update handleSubmit to track anonymous usage
+  // Handle submit and track anonymous usage
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
       alert("Please either upload a screenshot or provide conversation details");
@@ -219,10 +212,9 @@ export default function Home() {
 
     const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
     
-    // Check anonymous limit for both screenshot and text input cases
     if (!isSignedIn && currentAnonymousCount >= 3) {
       setUsageCount(currentAnonymousCount);
-      return; // Don't proceed with the API call
+      return;
     }
     
     if (isSignedIn && dailyCount >= 30) {
@@ -234,7 +226,6 @@ export default function Home() {
       setIsLoading(true);
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
 
-      // Update usage counts
       if (!isSignedIn) {
         const newAnonymousCount = currentAnonymousCount + 1;
         localStorage.setItem('smoothrizz_anonymous_count', newAnonymousCount.toString());
@@ -280,7 +271,6 @@ export default function Home() {
     } catch (error) {
       console.error("Error:", error);
       if (error.message === 'Anonymous usage limit reached. Please sign in to continue.') {
-        // Update the anonymous count in localStorage to ensure overlay shows
         const newCount = Math.max(currentAnonymousCount, 3);
         localStorage.setItem('smoothrizz_anonymous_count', newCount.toString());
         setUsageCount(newCount);
@@ -297,7 +287,7 @@ export default function Home() {
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
-  // Update the Google Sign-In initialization effect
+  // Google Sign-In initialization effect
   useEffect(() => {
     const initializeGoogleSignIn = () => {
       if (!document.getElementById("google-client-script")) {
@@ -328,14 +318,13 @@ export default function Home() {
         };
         document.body.appendChild(script);
       } else if (window.google) {
-        // If script already exists but needs reinitialization
         fetch("/api/auth/google-client-id")
           .then((res) => res.json())
           .then(({ clientId }) => {
             window.google.accounts.id.initialize({
               client_id: clientId,
               callback: handleSignIn,
-              auto_select: !isSignedIn, // Only auto-select when not signed in
+              auto_select: !isSignedIn,
             });
             if (googleButtonRef.current) {
               window.google.accounts.id.renderButton(googleButtonRef.current, {
@@ -352,7 +341,7 @@ export default function Home() {
     };
 
     initializeGoogleSignIn();
-  }, [isSignedIn]); // Add isSignedIn as a dependency
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (isSignedIn && user?.email) {
@@ -363,7 +352,7 @@ export default function Home() {
     }
   }, [isSignedIn, user]);
 
-  // Add new function to handle Stripe checkout
+  // Handle Stripe checkout
   const handleCheckout = async () => {
     try {
       const response = await fetch('/api/checkout_sessions', {
@@ -380,7 +369,6 @@ export default function Home() {
         return;
       }
 
-      // Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (error) {
       console.error('Error:', error);
@@ -388,23 +376,20 @@ export default function Home() {
     }
   };
 
-  // Add this useEffect to handle redirect back from Stripe
+  // Handle redirect back from Stripe
   useEffect(() => {
-    // Check to see if this is a redirect back from Checkout
     const query = new URLSearchParams(window.location.search);
     
     if (query.get('success')) {
       console.log('Order placed! You will receive an email confirmation.');
-      // Handle successful payment here
     }
 
     if (query.get('canceled')) {
       console.log('Order canceled -- continue to shop around and checkout when you\'re ready.');
-      // Handle canceled payment here
     }
   }, []);
 
-  // Update the conversation preview section
+  // Conversation preview section
   const conversationPreview = (
     <div className="w-full min-h-96 bg-gray-100 rounded-xl p-4">
       {inputMode === 'screenshot' && previewUrl ? (
@@ -442,7 +427,7 @@ export default function Home() {
     </div>
   );
 
-  // Update textInputSection JSX
+  // Text input section JSX
   const textInputSection = (
     <div className="mt-4 transition-all duration-300">
       <button
@@ -470,7 +455,7 @@ export default function Home() {
               value={context}
               onChange={(e) => handleTextInputChange('context', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
-              placeholder="Describe the conversation so far..."
+              placeholder="Describe things to talk about in the conversation. Inside jokes, names, any context..."
               rows={3}
             />
           </div>
@@ -496,29 +481,38 @@ export default function Home() {
       <Head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights</title>
+        {/* Preconnect for performance */}
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.google-analytics.com" />
+        <link rel="preconnect" href="https://accounts.google.com" />
+        {/* Alternate/Hreflang */}
+        <link rel="alternate" hrefLang="en" href="https://www.smoothrizz.com" />
+        {/* Apple Touch Icon */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+        <title>SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights</title>
         <meta
           name="description"
-          content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
+          content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with the innovative AI Rizz App. Boost your digital charisma, improve conversation skills, and discover expert insights on Rizz App strategies."
         />
-        <meta name="keywords" content="ai rizz, ai rizz app, rizz" />
+        <meta name="keywords" content="ai rizz, AI Rizz App, Rizz App, rizz, digital charisma, smooth talker, AI communication" />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://www.smoothrizz.com" />
 
-        <meta property="og:title" content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights" />
+        <meta property="og:title" content="SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights" />
         <meta
           property="og:description"
-          content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
+          content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with our innovative AI Rizz App. Enhance your digital conversations and discover proven strategies for Rizz App success."
         />
         <meta property="og:url" content="https://www.smoothrizz.com" />
         <meta property="og:type" content="website" />
         <meta property="og:image" content="https://www.smoothrizz.com/your-image.jpg" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SmoothRizz - AI Rizz, AI Rizz App, Rizz Insights" />
+        <meta name="twitter:title" content="SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights" />
         <meta
           name="twitter:description"
-          content="SmoothRizz offers the smoothest AI Rizz experience online. Explore the AI Rizz App, learn about AI Rizz, and dive deep into rizz strategies."
+          content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with our innovative AI Rizz App. Boost your digital charisma and learn proven Rizz App strategies."
         />
         <meta name="twitter:image" content="https://www.smoothrizz.com/your-image.jpg" />
 
@@ -551,7 +545,7 @@ export default function Home() {
                   "name": "What is AI Rizz?",
                   "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "AI Rizz is our innovative artificial intelligence solution that enhances digital conversations."
+                    "text": "AI Rizz is our innovative artificial intelligence solution designed to enhance digital communication by providing smart suggestions and insights."
                   }
                 },
                 {
@@ -559,7 +553,7 @@ export default function Home() {
                   "name": "How does the AI Rizz App work?",
                   "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "The AI Rizz App uses advanced algorithms to analyze conversations and provide insightful suggestions for smoother communication."
+                    "text": "The AI Rizz App uses advanced algorithms to analyze conversations and provide tailored suggestions that help improve your interaction style."
                   }
                 }
               ]
@@ -606,12 +600,13 @@ export default function Home() {
           />
         </noscript>
 
-        <nav className="flex justify-between items-center p-4 md:p-6 lg:p-8">
+        {/* Responsive Navigation */}
+        <nav className="flex flex-col md:flex-row justify-between items-center p-4 md:p-6 lg:p-8">
           <h1 className="text-2xl md:text-3xl font-bold" style={{ color: "#FE3C72" }}>
-            SmoothRizz
+            SmoothRizz – Master Digital Charisma
           </h1>
-          <div className="flex gap-3 md:gap-4 items-center">
-            <div ref={googleButtonRef}></div>
+          <div className="flex flex-col md:flex-row items-center gap-3 mt-4 md:mt-0">
+            <div ref={googleButtonRef} className="flex justify-center"></div>
             {isSignedIn && (
               <button
                 onClick={handleSignOut}
@@ -625,6 +620,7 @@ export default function Home() {
         </nav>
 
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto">
+          {/* Hero Section */}
           <section className="text-center mb-16 md:mb-24 relative">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight" style={{ color: "#121418" }}>
               It's Your Turn to be the<br />
@@ -797,24 +793,25 @@ export default function Home() {
             </div>
           </section>
 
+          {/* Bottom SEO Section with a more refined, subtle design */}
           <section id="seo-content" className="mt-16">
-            <div className="grid gap-8">
-              <section id="ai-rizz-info" className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-bold mb-2">Learn More About AI Rizz</h2>
+            <div className="grid gap-8 md:grid-cols-3">
+              <section id="ai-rizz-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
+                <h2 className="text-xl font-bold mb-2">Learn More About AI Rizz</h2>
                 <p className="text-gray-700">
-                  Discover the innovative capabilities of <strong>AI Rizz</strong> that are transforming digital communication. Stay updated with trends and insights to maximize your potential.
+                  Discover how <strong>AI Rizz</strong> enhances digital communication with smart insights. Learn tips and strategies to boost your online charisma.
                 </p>
               </section>
-              <section id="ai-rizz-app-info" className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-bold mb-2">Explore the AI Rizz App</h2>
+              <section id="ai-rizz-app-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
+                <h2 className="text-xl font-bold mb-2">Explore the AI Rizz App</h2>
                 <p className="text-gray-700">
-                  The <strong>AI Rizz App</strong> provides a seamless experience to enhance your conversations. Learn about its features, benefits, and latest updates.
+                  The <strong>AI Rizz App</strong> and <strong>Rizz App</strong> deliver an innovative experience to improve your conversation skills. Explore its features and benefits.
                 </p>
               </section>
-              <section id="rizz-info" className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-bold mb-2">All About Rizz</h2>
+              <section id="rizz-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
+                <h2 className="text-xl font-bold mb-2">All About Rizz</h2>
                 <p className="text-gray-700">
-                  Delve into the world of <strong>Rizz</strong> with expert insights, community trends, and innovative strategies. Enhance your digital interactions with our curated content.
+                  Dive into the world of <strong>Rizz</strong> with expert insights and community trends. Discover proven strategies for mastering digital interactions.
                 </p>
               </section>
             </div>
@@ -869,7 +866,7 @@ export default function Home() {
           />
         )}
 
-        {/* Add checkout button where needed */}
+        {/* Checkout button */}
         <button
           onClick={handleCheckout}
           className="w-full text-white rounded-full p-4 font-bold shadow-lg transition-all hover:scale-[1.02]"
