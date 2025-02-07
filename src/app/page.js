@@ -10,7 +10,7 @@ import { loadStripe } from '@stripe/stripe-js';
 // Make sure to call `loadStripe` outside of a component's render
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
-// Overlay component for Google Sign-In
+// Overlay component for Google Sign-In (unchanged)
 function GoogleSignInOverlay({ googleLoaded }) {
   const overlayButtonRef = useRef(null);
 
@@ -55,7 +55,7 @@ export default function Home() {
   const [lastText, setLastText] = useState('');
   const [inputMode, setInputMode] = useState('screenshot');
 
-  // Fetch current usage count for a given email
+  // Fetch usage count (DB code unchanged)
   const fetchUsageCount = async (email) => {
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -79,7 +79,7 @@ export default function Home() {
     }
   };
 
-  // Check localStorage on initial load
+  // Check localStorage on initial load (unchanged)
   useEffect(() => {
     const storedUser = localStorage.getItem('smoothrizz_user');
     if (storedUser) {
@@ -93,7 +93,7 @@ export default function Home() {
     }
   }, []);
 
-  // Persist user data on sign-in
+  // Handle sign in (unchanged)
   const handleSignIn = async (response) => {
     if (!response.credential) return;
     const token = response.credential;
@@ -125,7 +125,7 @@ export default function Home() {
     }
   };
 
-  // Preserve upload functionality on sign-out
+  // Handle sign out (unchanged)
   const handleSignOut = async () => {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
@@ -203,7 +203,7 @@ export default function Home() {
     }
   };
 
-  // Handle submit and track anonymous usage
+  // Handle submit – analyzeScreenshot remains exactly as originally written
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
       alert("Please either upload a screenshot or provide conversation details");
@@ -287,7 +287,7 @@ export default function Home() {
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
-  // Google Sign-In initialization effect
+  // Initialize Google Sign-In (unchanged functionality)
   useEffect(() => {
     const initializeGoogleSignIn = () => {
       if (!document.getElementById("google-client-script")) {
@@ -352,7 +352,7 @@ export default function Home() {
     }
   }, [isSignedIn, user]);
 
-  // Handle Stripe checkout
+  // Handle Stripe checkout (unchanged)
   const handleCheckout = async () => {
     try {
       const response = await fetch('/api/checkout_sessions', {
@@ -376,7 +376,7 @@ export default function Home() {
     }
   };
 
-  // Handle redirect back from Stripe
+  // Handle redirect back from Stripe (unchanged)
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     
@@ -389,7 +389,7 @@ export default function Home() {
     }
   }, []);
 
-  // Conversation preview section
+  // Conversation preview section (unchanged)
   const conversationPreview = (
     <div className="w-full min-h-96 bg-gray-100 rounded-xl p-4">
       {inputMode === 'screenshot' && previewUrl ? (
@@ -427,7 +427,7 @@ export default function Home() {
     </div>
   );
 
-  // Text input section JSX
+  // Text input section (unchanged)
   const textInputSection = (
     <div className="mt-4 transition-all duration-300">
       <button
@@ -455,13 +455,13 @@ export default function Home() {
               value={context}
               onChange={(e) => handleTextInputChange('context', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
-              placeholder="Describe things to talk about in the conversation. Inside jokes, names, any context..."
+              placeholder="Describe things to help context. Inside jokes, where you met, things they like etc..."
               rows={3}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Their Last Message
+              Their Last Message 
             </label>
             <input
               type="text"
@@ -490,6 +490,7 @@ export default function Home() {
         {/* Apple Touch Icon */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
+        {/* Updated SEO Meta Tags */}
         <title>SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights</title>
         <meta
           name="description"
@@ -793,7 +794,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Bottom SEO Section with a more refined, subtle design */}
+          {/* Bottom SEO Section with refined styling */}
           <section id="seo-content" className="mt-16">
             <div className="grid gap-8 md:grid-cols-3">
               <section id="ai-rizz-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
@@ -861,9 +862,7 @@ export default function Home() {
 
         {/* Google Sign-In Overlay */}
         {!isSignedIn && usageCount >= 3 && (
-          <GoogleSignInOverlay 
-            googleLoaded={googleLoaded}
-          />
+          <GoogleSignInOverlay googleLoaded={googleLoaded} />
         )}
 
         {/* Checkout button */}
