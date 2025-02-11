@@ -18,9 +18,7 @@ function GoogleSignInOverlay({ googleLoaded }) {
 
   useEffect(() => {
     if (googleLoaded && window.google && overlayButtonRef.current) {
-      // Clear previous button
       overlayButtonRef.current.innerHTML = "";
-      // Re-render the Google button
       window.google.accounts.id.renderButton(overlayButtonRef.current, {
         theme: "outline",
         size: "large",
@@ -29,10 +27,10 @@ function GoogleSignInOverlay({ googleLoaded }) {
   }, [googleLoaded]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-8 rounded-md flex flex-col items-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div className="bg-white p-4 sm:p-8 rounded-xl w-full max-w-sm mx-auto flex flex-col items-center">
         <div ref={overlayButtonRef}></div>
-        <p className="mt-4 text-center">
+        <p className="mt-4 text-center text-sm sm:text-base">
           Please sign in with Google to continue generating responses for free.
         </p>
       </div>
@@ -61,10 +59,7 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
   }, [responses, currentIndex, childRefs]);
 
   return (
-    <div 
-      className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col items-center"
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col items-center">
       {/* Header */}
       <div className="bg-white/95 backdrop-blur-sm p-3 sm:p-4 flex justify-between items-center w-full border-b border-pink-100">
         <div className="text-base sm:text-lg font-bold mx-auto" style={{ color: "#FE3C72" }}>
@@ -97,9 +92,9 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
         </div>
       </div>
 
-      {/* Cards Container - Takes up remaining space */}
+      {/* Cards Container */}
       <div className="flex-1 w-full overflow-hidden flex items-center justify-center">
-        <div className="cardContainer w-full max-w-[85vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-2xl mx-auto relative px-2 sm:px-4 h-[60vh] sm:h-[65vh] md:h-[70vh]">
+        <div className="cardContainer w-full max-w-[90vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-xl mx-auto relative px-2 sm:px-4 h-[50vh] sm:h-[60vh] md:h-[65vh]">
           {responses.map((response, index) => (
             response && (
               <TinderCard
@@ -110,19 +105,12 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
                 preventSwipe={["up", "down"]}
                 ref={childRefs[index]}
               >
-                <div className='card rounded-xl sm:rounded-2xl shadow-lg w-full h-full p-3 sm:p-4 md:p-6 flex flex-col justify-center items-center transform transition-transform hover:scale-[1.02]' style={{ backgroundColor: "#FE3C72" }}>
-                  <div className="swipe-indicator left">
-                    <span className="icon">👎</span>
-                    <span className="text">Skip</span>
-                  </div>
-                  
-                  <div className="swipe-indicator right">
-                    <span className="icon">👍</span>
-                    <span className="text">Copy</span>
-                  </div>
-                  
-                  <div className='card-content bg-white/90 text-base sm:text-lg md:text-xl text-center font-medium text-gray-800 max-w-[90%] mx-auto rounded-lg sm:rounded-xl shadow-sm'>
+                <div className='card rounded-xl sm:rounded-2xl shadow-lg w-full h-full p-3 sm:p-4 md:p-6 flex flex-col justify-center items-center' style={{ backgroundColor: "#FE3C72" }}>
+                  <div className='card-content bg-white/90 text-base sm:text-lg md:text-xl text-center font-medium text-gray-800 w-full max-w-[95%] mx-auto rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-6'>
                     {response}
+                  </div>
+                  <div className="absolute bottom-2 left-0 right-0 text-center text-white text-xs sm:text-sm opacity-75">
+                    Swipe ← to Skip • Swipe → to Copy
                   </div>
                 </div>
               </TinderCard>
@@ -735,12 +723,12 @@ export default function Home() {
 
   // Conversation preview section (unchanged)
   const conversationPreview = (
-    <div className="w-full min-h-96 bg-gray-100 rounded-xl p-4">
+    <div className="w-full max-w-lg mx-auto min-h-[200px] sm:min-h-[300px] bg-gray-100 rounded-xl p-4">
       {inputMode === 'screenshot' && previewUrl ? (
         <img 
           src={previewUrl} 
           alt="Preview of uploaded conversation" 
-          className="w-full rounded-xl" 
+          className="w-full max-h-[400px] object-contain rounded-xl" 
           loading="lazy" 
         />
       ) : inputMode === 'text' && (context || lastText) ? (
