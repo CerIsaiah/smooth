@@ -44,20 +44,19 @@ INSTRUCTIONS###
    - EXACTLY 10 responses 
    - No emojis
    - 5 different styles 2 of each
-   - The 10 responses Pipe-separated (|)
-   - No emojis/formatting
+   - Return as array of strings
+   - No emojis
+   - [[...], [...],  [...],  [...],  [...],  [...],  [...],  [...],[...],[...] ]
    - Avoid: forced continuations, aggression, dismissiveness
 
 STRATEGY EXAMPLES###
 My input: "Thanks daddy" → Their input: "I'm your daddy?"
 Acceptable Responses:
-1. Ig we'll see after the dinner | 2. Or I can take on the role, if you want | [...] | 10. Hmm, you'll have to earn that title | [...] 
+["Ig we'll see after the dinner", "Or I can take on the role, if you want", [...],  [...],  [...],  [...],  [...],  [...],  [...], "Hmm, you'll have to earn that title", ]
 
-BAD Input: "Nice smile" → Previous Context: First compliment
-Unacceptable Responses:
 
 OUTPUT TEMPLATE###
-{Response 1} | {Response 2} | {Response 3} | [...] | {Response 10}
+Return exactly 10 responses in an array format suitable for JSON parsing.
 """ 
 `}
 

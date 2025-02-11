@@ -1209,11 +1209,11 @@ export default function Home() {
             <div className="max-w-md mx-auto">
               <button
                 onClick={handleSubmit}
-                disabled={isLoading || (!selectedFile && (!context || !lastText))}
+                disabled={isLoading || isGenerating || (!selectedFile && (!context || !lastText))}
                 className="w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#FE3C72" }}
               >
-                {isLoading ? (
+                {isLoading || isGenerating ? (
                   <div className="flex items-center justify-center gap-2">
                     <span>Generating</span>
                     <div className="flex gap-1">
