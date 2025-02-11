@@ -49,6 +49,7 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
       }
     }
 
+    // The response is now guaranteed to be an array of exactly 10 strings
     return data.responses;
   } catch (error) {
     // Re-throw with more specific error message if possible

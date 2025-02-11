@@ -209,17 +209,8 @@ export default function Home() {
   const canSwipe = currentIndex >= 0;
 
   const swiped = async (direction, responseToDelete) => {
-    console.log('Debug - Swipe initiated:', {
-      direction,
-      currentUsageCount: usageCount,
-      isSignedIn,
-      userEmail: isSignedIn ? user?.email : null,
-      timestamp: new Date().toISOString()
-    });
-
     try {
       if (!direction) {
-        console.error('Debug - Missing direction');
         return;
       }
 
@@ -234,43 +225,23 @@ export default function Home() {
         }),
       });
       
-      console.log('Debug - Swipe API call made:', {
-        status: response.status,
-        timestamp: new Date().toISOString()
-      });
-      
       const data = await response.json();
       
       if (!response.ok) {
-        console.error('Debug - API error:', {
-          status: response.status,
-          data,
-          timestamp: new Date().toISOString()
-        });
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
       
-      // Update local state with new count
       setUsageCount(data.swipeCount);
       
       if (!isSignedIn && data.limitReached) {
-        console.log('Debug - Limit reached, closing overlay');
         setTimeout(() => {
           setShowResponseOverlay(false);
         }, 500);
       }
 
-      // Remove the swiped response from the list
       setResponses(prev => prev.filter(response => response !== responseToDelete));
       
     } catch (error) {
-      console.error('Debug - Error in swipe:', {
-        error,
-        stack: error.stack,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Don't show alert for limit reached errors
       if (!error.message.includes('limit reached')) {
         alert('Error tracking response. Please try again.');
       }
@@ -278,7 +249,6 @@ export default function Home() {
   };
 
   const outOfFrame = (response) => {
-    console.log(response + ' left the screen!');
     setResponses(prev => prev.filter(r => r !== response));
     
     if (responses.length === 2 && !isGenerating) {
@@ -456,12 +426,6 @@ export default function Home() {
         const response = await fetch('/api/swipes');
         const data = await response.json();
         
-        console.log('Debug - Usage count check:', {
-          currentCount: data.swipeCount,
-          limitReached: data.limitReached,
-          timestamp: new Date().toISOString()
-        });
-        
         if (data.limitReached) {
           setShowResponseOverlay(false);
           return true;
@@ -496,15 +460,6 @@ export default function Home() {
 
   // Update handleSubmit to reset responses
   const handleSubmit = async () => {
-    console.log('Debug - Submit clicked:', {
-      hasFile: !!selectedFile,
-      hasContext: !!context,
-      hasLastText: !!lastText,
-      isSignedIn,
-      usageCount,
-      ANONYMOUS_USAGE_LIMIT
-    });
-
     if (!selectedFile && (!context || !lastText)) {
       alert("Please either upload a screenshot or provide conversation details");
       return;
@@ -514,44 +469,20 @@ export default function Home() {
       setIsLoading(true);
       setShowRegeneratePopup(false);
       
-      // Clear existing responses
       setResponses([]);
       
-      // Check usage limit before generating
       const limitReached = await checkUsageCount();
       if (limitReached) {
         throw new Error('Anonymous usage limit reached. Please sign in to continue.');
       }
       
-      console.log('Debug - Starting analysis');
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-      console.log('Debug - Analysis result:', result);
 
-      if (Array.isArray(result) && result.length > 0) {
-        const firstResponse = result[0];
-        if (typeof firstResponse === "string" && firstResponse.includes("|")) {
-          const splitResponses = firstResponse.split("|").map((r) => r.trim());
-          setResponses(splitResponses);
-          setCurrentIndex(splitResponses.length - 1);
-        } else {
-          setResponses(result);
-          setCurrentIndex(result.length - 1);
-        }
-      } else if (typeof result === "string") {
-        if (result.includes("|")) {
-          const splitResponses = result.split("|").map((r) => r.trim());
-          setResponses(splitResponses);
-          setCurrentIndex(splitResponses.length - 1);
-        } else {
-          setResponses([result]);
-          setCurrentIndex(0);
-        }
-      }
-
+      setResponses(result);
+      setCurrentIndex(result.length - 1);
       setShowResponseOverlay(true);
 
     } catch (error) {
-      console.error("Error:", error);
       if (error.message.includes('usage limit')) {
         alert("You've reached the anonymous usage limit. Please sign in to continue.");
       } else {
@@ -564,46 +495,25 @@ export default function Home() {
 
   // Update generateMoreResponses
   const generateMoreResponses = async () => {
-    console.log('Debug - Generate More clicked:', {
-      isGenerating,
-      usageCount,
-      isSignedIn,
-      ANONYMOUS_USAGE_LIMIT
-    });
-
     if (isGenerating) return;
     
     try {
       setIsGenerating(true);
       setShowRegeneratePopup(false);
       
-      // Check usage limit before generating
       const limitReached = await checkUsageCount();
       if (limitReached) {
         throw new Error('Anonymous usage limit reached. Please sign in to continue.');
       }
       
-      // Clear existing responses
       setResponses([]);
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
       
-      if (Array.isArray(result) && result.length > 0) {
-        const newResponses = result[0].includes("|") 
-          ? result[0].split("|").map(r => r.trim())
-          : result;
-        setResponses(newResponses);
-        setCurrentIndex(newResponses.length - 1);
-      } else if (typeof result === "string") {
-        const newResponses = result.includes("|")
-          ? result.split("|").map(r => r.trim())
-          : [result];
-        setResponses(newResponses);
-        setCurrentIndex(newResponses.length - 1);
-      }
+      setResponses(result);
+      setCurrentIndex(result.length - 1);
       
     } catch (error) {
-      console.error("Error generating more responses:", error);
       if (error.message.includes('usage limit')) {
         setShowResponseOverlay(false);
       } else {
@@ -994,11 +904,6 @@ export default function Home() {
         try {
           const response = await fetch('/api/swipes');
           const data = await response.json();
-          
-          console.log('Debug - Initial swipe count:', {
-            data,
-            timestamp: new Date().toISOString()
-          });
           
           if (response.ok && !data.error) {
             setUsageCount(data.swipeCount);

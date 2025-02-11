@@ -225,12 +225,32 @@ export async function POST(request) {
           role: "user",
           content: userMessage
         }
-      ]
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "response_format",
+          schema: {
+            type: "object",
+            properties: {
+              responses: {
+                type: "array",
+                items: {
+                  type: "string"
+                }
+              }
+            },
+            required: ["responses"],
+            additionalProperties: false
+          },
+          strict: true
+        }
+      }
     });
     
-    const result = response.choices[0].message.content.trim();
-    return NextResponse.json({ 
-      responses: [result],
+    const result = response.choices[0].message.content;
+    return NextResponse.json({
+      responses: JSON.parse(result).responses,
       requestId: crypto.randomUUID()
     });
   } catch (error) {
