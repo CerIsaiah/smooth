@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-spring/web": "^9.7.5",
     "@stripe/stripe-js": "^5.6.0",
     "@supabase/supabase-js": "^2.48.1",
     "@vercel/analytics": "^1.4.1",
@@ -17,8 +18,11 @@
     "lucide-react": "^0.474.0",
     "next": "15.1.6",
     "openai": "^4.82.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-swipeable": "^7.0.2",
+    "react-tinder-card": "^1.6.4",
+    "react-tinder-card-customized": "^1.1.0",
     "stripe": "^17.6.0",
     "tailwindcss-animate": "^1.0.7"
   },

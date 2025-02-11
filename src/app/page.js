@@ -1,11 +1,13 @@
 "use client";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Head from "next/head";
-import { useState, useEffect, useRef } from "react";
 import { analyzeScreenshot } from "./openai";
 import { supabase } from "@/utils/supabase";
 import { Upload, ArrowDown } from "lucide-react";
 import Script from "next/script";
 import { loadStripe } from '@stripe/stripe-js';
+import TinderCard from 'react-tinder-card';
+import { ANONYMOUS_USAGE_LIMIT } from './constants';
 
 // Make sure to call `loadStripe` outside of a component's render
 const stripePromise = loadStripe(process.env.STRIPE_PUBLISHABLE_KEY);
@@ -38,6 +40,146 @@ function GoogleSignInOverlay({ googleLoaded }) {
   );
 }
 
+// Add this new component near the top of the file, after other component definitions
+function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, outOfFrame, onGenerateMore, isGenerating }) {
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!responses.length) return;
+      
+      if (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        
+        const direction = e.key.toLowerCase() === 'a' ? 'left' : 'right';
+        if (childRefs[currentIndex]?.current) {
+          childRefs[currentIndex].current.swipe(direction);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [responses, currentIndex, childRefs]);
+
+  return (
+    <div 
+      className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col items-center"
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="bg-white/95 backdrop-blur-sm p-3 sm:p-4 flex justify-between items-center w-full border-b border-pink-100">
+        <div className="text-base sm:text-lg font-bold mx-auto" style={{ color: "#FE3C72" }}>
+          Your Suggestions ✨
+        </div>
+        <button 
+          onClick={onClose}
+          className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition-colors absolute right-3 sm:right-4"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-white px-3 sm:px-4 pb-3 sm:pb-4 text-center w-full">
+        <div className="flex flex-col items-center space-y-2 sm:space-y-3">
+          <div className="inline-block bg-gray-100 rounded-full px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm shadow-sm">
+            <span className="mr-2 sm:mr-3">👆 Swipe</span>
+            <kbd className="mx-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white rounded shadow text-xs">←</kbd> 
+            <span className="mx-1 sm:mx-2 text-gray-500">Skip</span>
+            <kbd className="mx-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white rounded shadow text-xs">→</kbd> 
+            <span className="mx-1 sm:mx-2 text-gray-500">Copy</span>
+          </div>
+          <div className="text-xs sm:text-sm text-gray-500">
+            {responses.length} suggested responses
+          </div>
+        </div>
+      </div>
+
+      {/* Cards Container - Takes up remaining space */}
+      <div className="flex-1 w-full overflow-hidden flex items-center justify-center">
+        <div className="cardContainer w-full max-w-[85vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-2xl mx-auto relative px-2 sm:px-4 h-[60vh] sm:h-[65vh] md:h-[70vh]">
+          {responses.map((response, index) => (
+            response && (
+              <TinderCard
+                className='swipe absolute w-full h-full'
+                key={`${response}-${index}`}
+                onSwipe={(dir) => swiped(dir, response)}
+                onCardLeftScreen={() => outOfFrame(response)}
+                preventSwipe={["up", "down"]}
+                ref={childRefs[index]}
+              >
+                <div className='card rounded-xl sm:rounded-2xl shadow-lg w-full h-full p-3 sm:p-4 md:p-6 flex flex-col justify-center items-center transform transition-transform hover:scale-[1.02]' style={{ backgroundColor: "#FE3C72" }}>
+                  <div className="swipe-indicator left">
+                    <span className="icon">👎</span>
+                    <span className="text">Skip</span>
+                  </div>
+                  
+                  <div className="swipe-indicator right">
+                    <span className="icon">👍</span>
+                    <span className="text">Copy</span>
+                  </div>
+                  
+                  <div className='card-content bg-white/90 text-base sm:text-lg md:text-xl text-center font-medium text-gray-800 max-w-[90%] mx-auto rounded-lg sm:rounded-xl shadow-sm'>
+                    {response}
+                  </div>
+                </div>
+              </TinderCard>
+            )
+          )).filter(Boolean)}
+        </div>
+
+        {/* Need More Responses Popup - Only show when no cards are left */}
+        {responses.length <= 1 && !isGenerating && (
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-6 m-4 max-w-sm w-full text-center">
+              <h3 className="text-xl font-bold mb-4">Need more options?</h3>
+              <p className="text-gray-600 mb-6">
+                Generate 10 new responses to find the perfect reply!
+              </p>
+              <button
+                onClick={onGenerateMore}
+                disabled={isGenerating}
+                className="w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: "#FE3C72" }}
+              >
+                {isGenerating ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <span>Generating</span>
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                    </div>
+                  </div>
+                ) : (
+                  "Generate More Responses ✨"
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Actions */}
+      <div className="bg-white/95 backdrop-blur-sm p-3 sm:p-4 w-full border-t border-pink-100">
+        <div className="max-w-[85vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-2xl mx-auto">
+          <button
+            onClick={() => {
+              onClose();
+              document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-full font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm sm:text-base"
+          >
+            Upload Another Screenshot
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState([]);
@@ -54,29 +196,144 @@ export default function Home() {
   const [context, setContext] = useState('');
   const [lastText, setLastText] = useState('');
   const [inputMode, setInputMode] = useState('screenshot');
-  const [loadingText, setLoadingText] = useState("Analyzing");
+  const [currentIndex, setCurrentIndex] = useState(responses.length - 1);
+  const [lastDirection, setLastDirection] = useState();
+  const currentIndexRef = useRef(currentIndex);
+  const [showRegeneratePopup, setShowRegeneratePopup] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showResponseOverlay, setShowResponseOverlay] = useState(false);
+  const [isPollingCount, setIsPollingCount] = useState(false);
+
+  const childRefs = useMemo(
+    () =>
+      Array(responses.length)
+        .fill(0)
+        .map(() => React.createRef()),
+    [responses.length]
+  );
+
+  const updateCurrentIndex = (val) => {
+    setCurrentIndex(val);
+    currentIndexRef.current = val;
+  };
+
+  const canGoBack = currentIndex < responses.length - 1;
+  const canSwipe = currentIndex >= 0;
+
+  const swiped = async (direction, responseToDelete) => {
+    console.log('Debug - Swipe initiated:', {
+      direction,
+      currentUsageCount: usageCount,
+      isSignedIn,
+      userEmail: isSignedIn ? user?.email : null,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      if (!direction) {
+        console.error('Debug - Missing direction');
+        return;
+      }
+
+      const response = await fetch('/api/swipes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          direction,
+          userEmail: isSignedIn ? user?.email : null 
+        }),
+      });
+      
+      console.log('Debug - Swipe API call made:', {
+        status: response.status,
+        timestamp: new Date().toISOString()
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Debug - API error:', {
+          status: response.status,
+          data,
+          timestamp: new Date().toISOString()
+        });
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      // Update local state with new count
+      setUsageCount(data.swipeCount);
+      
+      if (!isSignedIn && data.limitReached) {
+        console.log('Debug - Limit reached, closing overlay');
+        setTimeout(() => {
+          setShowResponseOverlay(false);
+        }, 500);
+      }
+
+      // Remove the swiped response from the list
+      setResponses(prev => prev.filter(response => response !== responseToDelete));
+      
+    } catch (error) {
+      console.error('Debug - Error in swipe:', {
+        error,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Don't show alert for limit reached errors
+      if (!error.message.includes('limit reached')) {
+        alert('Error tracking response. Please try again.');
+      }
+    }
+  };
+
+  const outOfFrame = (response) => {
+    console.log(response + ' left the screen!');
+    setResponses(prev => prev.filter(r => r !== response));
+    
+    if (responses.length === 2 && !isGenerating) {
+      setShowRegeneratePopup(true);
+    }
+  };
+
+  const swipe = async (dir) => {
+    if (canSwipe && currentIndex < responses.length) {
+      await childRefs[currentIndex].current.swipe(dir);
+    }
+  };
+
+  const goBack = async () => {
+    if (!canGoBack) return;
+    const newIndex = currentIndex + 1;
+    updateCurrentIndex(newIndex);
+    await childRefs[newIndex].current.restoreCard();
+  };
 
   // Fetch usage count (DB code unchanged)
-  const fetchUsageCount = async (email) => {
+  const fetchUsageCount = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const { data, error } = await supabase
-        .from("users")
-        .select("usage_count, daily_usage")
-        .eq("email", email)
-        .single();
-
-      if (error) throw error;
-
-      const dailyCount =
-        data.daily_usage?.date === today ? data.daily_usage.count : 0;
-      return {
-        totalCount: data.usage_count || 0,
-        dailyCount: dailyCount,
+      const headers = {
+        'Content-Type': 'application/json',
       };
+      
+      if (isSignedIn && user?.email) {
+        headers['x-user-email'] = user.email;
+      }
+      
+      const response = await fetch('/api/swipes', { headers });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsageCount(data.swipeCount);
+        return data;
+      }
+      
+      throw new Error('Failed to fetch usage count');
     } catch (error) {
-      console.error("Error fetching usage count:", error);
-      return { totalCount: 0, dailyCount: 0 };
+      console.error('Error fetching usage count:', error);
+      return { swipeCount: 0, limitReached: false };
     }
   };
 
@@ -113,7 +370,7 @@ export default function Home() {
         .upsert([userData], { onConflict: "email", returning: "minimal" });
       if (error) throw error;
 
-      const currentUsage = await fetchUsageCount(userData.email);
+      const currentUsage = await fetchUsageCount();
       setUsageCount(currentUsage.totalCount);
       setDailyCount(currentUsage.dailyCount);
       setUser(userData);
@@ -204,98 +461,168 @@ export default function Home() {
     }
   };
 
-  // Function to copy text to clipboard
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert("Copied to clipboard!");
-    }).catch(err => {
-      console.error("Failed to copy: ", err);
-    });
+  // Add this function to check count
+  const checkUsageCount = async () => {
+    if (!isSignedIn) {
+      try {
+        const response = await fetch('/api/swipes');
+        const data = await response.json();
+        
+        console.log('Debug - Usage count check:', {
+          currentCount: data.swipeCount,
+          limitReached: data.limitReached,
+          timestamp: new Date().toISOString()
+        });
+        
+        if (data.limitReached) {
+          setShowResponseOverlay(false);
+          return true;
+        }
+        
+        setUsageCount(data.swipeCount);
+        return false;
+      } catch (error) {
+        console.error('Error checking usage count:', error);
+        return false;
+      }
+    }
+    return false;
   };
 
-  // Handle submit – analyzeScreenshot remains exactly as originally written
+  // Add polling effect
+  useEffect(() => {
+    let pollInterval;
+    
+    if (!isSignedIn && !isPollingCount) {
+      setIsPollingCount(true);
+      pollInterval = setInterval(checkUsageCount, 5000); // Check every 5 seconds
+    }
+
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        setIsPollingCount(false);
+      }
+    };
+  }, [isSignedIn]);
+
+  // Update handleSubmit to reset responses
   const handleSubmit = async () => {
+    console.log('Debug - Submit clicked:', {
+      hasFile: !!selectedFile,
+      hasContext: !!context,
+      hasLastText: !!lastText,
+      isSignedIn,
+      usageCount,
+      ANONYMOUS_USAGE_LIMIT
+    });
+
     if (!selectedFile && (!context || !lastText)) {
       alert("Please either upload a screenshot or provide conversation details");
       return;
     }
 
-    const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
-    
-    if (!isSignedIn && currentAnonymousCount >= 3) {
-      setUsageCount(currentAnonymousCount);
-      return;
-    }
-    
-    if (isSignedIn && dailyCount >= 30) {
-      alert("You have reached your daily limit of 30 messages!");
-      return;
-    }
-
     try {
       setIsLoading(true);
-      let loadingInterval = setInterval(() => {
-        setLoadingText((prev) => prev.length < 12 ? prev + "." : "Analyzing");
-      }, 500);
-
-      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-
-      clearInterval(loadingInterval);
-      setLoadingText("Analyzing");
-
-      if (!isSignedIn) {
-        const newAnonymousCount = currentAnonymousCount + 1;
-        localStorage.setItem('smoothrizz_anonymous_count', newAnonymousCount.toString());
-        setUsageCount(newAnonymousCount);
-      } else {
-        const newTotalCount = usageCount + 1;
-        setUsageCount(newTotalCount);
-
-        if (user?.email) {
-          const today = new Date().toISOString().split("T")[0];
-          const { error } = await supabase
-            .from("users")
-            .update({
-              usage_count: newTotalCount,
-              daily_usage: { date: today, count: dailyCount + 1 },
-            })
-            .eq("email", user.email);
-          if (error) console.error("Error updating usage count:", error);
-        }
+      setShowRegeneratePopup(false);
+      
+      // Clear existing responses
+      setResponses([]);
+      
+      // Check usage limit before generating
+      const limitReached = await checkUsageCount();
+      if (limitReached) {
+        throw new Error('Anonymous usage limit reached. Please sign in to continue.');
       }
+      
+      console.log('Debug - Starting analysis');
+      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
+      console.log('Debug - Analysis result:', result);
 
       if (Array.isArray(result) && result.length > 0) {
         const firstResponse = result[0];
         if (typeof firstResponse === "string" && firstResponse.includes("|")) {
           const splitResponses = firstResponse.split("|").map((r) => r.trim());
-          setResponses(splitResponses.slice(0, 3));
+          setResponses(splitResponses);
+          setCurrentIndex(splitResponses.length - 1);
         } else {
-          setResponses(result.slice(0, 3));
+          setResponses(result);
+          setCurrentIndex(result.length - 1);
         }
       } else if (typeof result === "string") {
         if (result.includes("|")) {
           const splitResponses = result.split("|").map((r) => r.trim());
-          setResponses(splitResponses.slice(0, 3));
+          setResponses(splitResponses);
+          setCurrentIndex(splitResponses.length - 1);
         } else {
           setResponses([result]);
+          setCurrentIndex(0);
         }
       }
 
-      document.querySelector("#responses-section")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      setShowResponseOverlay(true);
+
     } catch (error) {
       console.error("Error:", error);
-      if (error.message === 'Anonymous usage limit reached. Please sign in to continue.') {
-        const newCount = Math.max(currentAnonymousCount, 3);
-        localStorage.setItem('smoothrizz_anonymous_count', newCount.toString());
-        setUsageCount(newCount);
+      if (error.message.includes('usage limit')) {
+        alert("You've reached the anonymous usage limit. Please sign in to continue.");
       } else {
         alert("Error analyzing input. Please try again.");
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Update generateMoreResponses
+  const generateMoreResponses = async () => {
+    console.log('Debug - Generate More clicked:', {
+      isGenerating,
+      usageCount,
+      isSignedIn,
+      ANONYMOUS_USAGE_LIMIT
+    });
+
+    if (isGenerating) return;
+    
+    try {
+      setIsGenerating(true);
+      setShowRegeneratePopup(false);
+      
+      // Check usage limit before generating
+      const limitReached = await checkUsageCount();
+      if (limitReached) {
+        throw new Error('Anonymous usage limit reached. Please sign in to continue.');
+      }
+      
+      // Clear existing responses
+      setResponses([]);
+      
+      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
+      
+      if (Array.isArray(result) && result.length > 0) {
+        const newResponses = result[0].includes("|") 
+          ? result[0].split("|").map(r => r.trim())
+          : result;
+        setResponses(newResponses);
+        setCurrentIndex(newResponses.length - 1);
+      } else if (typeof result === "string") {
+        const newResponses = result.includes("|")
+          ? result.split("|").map(r => r.trim())
+          : [result];
+        setResponses(newResponses);
+        setCurrentIndex(newResponses.length - 1);
+      }
+      
+    } catch (error) {
+      console.error("Error generating more responses:", error);
+      if (error.message.includes('usage limit')) {
+        setShowResponseOverlay(false);
+      } else {
+        alert("Error generating new responses. Please try again.");
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -493,8 +820,214 @@ export default function Home() {
     </div>
   );
 
+  // Update the styles for cleaner cards
+  const styles = `
+    .swipe {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.2s ease;
+      cursor: grab;
+    }
+
+    .card:active {
+      cursor: grabbing;
+    }
+
+    .card-content {
+      font-size: 1rem;
+      line-height: 1.5;
+      text-align: center;
+      font-weight: 500;
+      color: #1a1a1a;
+      padding: 1rem 1.25rem;
+      margin: 0 auto;
+      width: 90%;
+    }
+
+    @media (min-width: 640px) {
+      .card-content {
+        font-size: 1.125rem;
+        padding: 1.25rem 1.5rem;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .card-content {
+        font-size: 1.25rem;
+        padding: 1.5rem 1.75rem;
+      }
+    }
+
+    .swipe-indicator {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .swipe-indicator.left {
+      left: 0.75rem;
+    }
+
+    .swipe-indicator.right {
+      right: 0.75rem;
+    }
+
+    .swipe-indicator .icon {
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .swipe-indicator .text {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .card:hover .swipe-indicator {
+      opacity: 0.9;
+    }
+
+    .card-number {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      color: #666;
+    }
+  `;
+
+  // Add this useEffect for cleanup
+  useEffect(() => {
+    const cleanup = () => {
+      // Reset any stuck cards
+      responses.forEach((_, index) => {
+        if (childRefs[index].current) {
+          childRefs[index].current.restoreCard();
+        }
+      });
+    };
+
+    // Cleanup on unmount or when responses change
+    return cleanup;
+  }, [responses]);
+
+  // Update the handleMouseUp function to be more robust
+  const handleMouseUp = (event) => {
+    // Prevent any default browser behavior
+    event.preventDefault();
+    
+    // Restore all cards that might be stuck
+    responses.forEach((_, index) => {
+      if (childRefs[index].current) {
+        childRefs[index].current.restoreCard();
+      }
+    });
+  };
+
+  // Add these new event handlers
+  const handleTouchStart = (event) => {
+    // Prevent scrolling while swiping
+    event.preventDefault();
+  };
+
+  const handleDragEnd = (event) => {
+    // Prevent any default drag behavior
+    event.preventDefault();
+    handleMouseUp(event);
+  };
+
+  // Add the regenerate popup component
+  const RegeneratePopup = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full mx-4">
+        <h3 className="text-xl font-bold mb-4 text-center">Need more options?</h3>
+        <p className="text-gray-600 mb-6 text-center">
+          Generate 10 new responses to find the perfect reply!
+        </p>
+        <div className="flex gap-4">
+          <button
+            onClick={() => setShowRegeneratePopup(false)}
+            className="flex-1 px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={generateMoreResponses}
+            disabled={isGenerating}
+            className="flex-1 px-4 py-2 rounded-full text-white hover:opacity-90 transition"
+            style={{ backgroundColor: "#FE3C72" }}
+          >
+            {isGenerating ? "Generating..." : "Generate More"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Add this to your useEffect for scrolling
+  useEffect(() => {
+    if (responses.length > 0) {
+      document.querySelector("#responses-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [responses]);
+
+  // Add this useEffect to fetch initial swipe count
+  useEffect(() => {
+    const fetchInitialSwipeCount = async () => {
+      if (!isSignedIn) {
+        try {
+          const response = await fetch('/api/swipes');
+          const data = await response.json();
+          
+          console.log('Debug - Initial swipe count:', {
+            data,
+            timestamp: new Date().toISOString()
+          });
+          
+          if (response.ok && !data.error) {
+            setUsageCount(data.swipeCount);
+          }
+        } catch (error) {
+          console.error('Error fetching initial swipe count:', error);
+        }
+      }
+    };
+
+    fetchInitialSwipeCount();
+  }, [isSignedIn]);
+
   return (
     <>
+      <style jsx global>{styles}</style>
+
       <Head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -664,151 +1197,142 @@ export default function Home() {
             </button>
           </section>
 
-          <section id="upload-section" className="mb-16 md:mb-24">
-            <div className="flex flex-col gap-4 max-w-md mx-auto w-full">
-            <div className="text-gray-700 text-center mb-7 font-bold" style={{ fontSize: '24px' }}>
-              Step 1. Screenshot your conversation + text to respond to! 📱
-            </div>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
-                <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
-                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                  <Upload className="text-gray-400" size={24} />
-                  <span className="text-gray-600 text-center">
-                    Upload or paste conversation Screenshot!
-                  </span>
-                  <span className="text-gray-400 text-sm">
-                    Click to upload or Ctrl+V to paste
-                  </span>
-                </label>
-                {selectedFile && (
-                  <div
-                    className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white"
-                    style={{ backgroundColor: "#FE3C72" }}
-                  >
-                    File uploaded ✨
-                  </div>
-                )}
+          {/* Step Dividers and Input Sections */}
+          <section className="space-y-16">
+            {/* Step 1 */}
+            <div className="relative">
+              <div className="flex items-center mb-8">
+                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
+                  <span className="text-2xl" style={{ color: "#FE3C72" }}>1</span>
+                </div>
+                <div className="ml-4">
+                  <h2 className="text-2xl font-bold" style={{ color: "#121418" }}>
+                    Share Your Conversation
+                  </h2>
+                  <p className="text-gray-600">Upload a screenshot or type out the conversation</p>
+                </div>
               </div>
-              {textInputSection}
-              <p className="text-gray-500 text-sm text-center italic mt-2 mb-8">
-                Note: Your screenshots and texts are not stored on our servers and are only used for generating responses.
-              </p>
-              <div className="mt-1">
-                <h3 className="text-gray-900 text-lg mb-2 font-medium text-center">
-                  Step 2. Choose where you are in the conversation:
-                </h3>
-                <div
-                  className="grid grid-cols-3 gap-3 md:gap-4 p-4 rounded-2xl shadow-inner"
-                  style={{ backgroundColor: "rgba(254, 60, 114, 0.1)" }}
-                >
-                  {[
-                    { name: "First Move", desc: "Nail that opener", emoji: "👋" },
-                    { name: "Mid-Game", desc: "Keep it flowing", emoji: "💭" },
-                    { name: "End Game", desc: "Bring it home", emoji: "🎯" },
-                  ].map((phase) => {
-                    const isSelected = mode === phase.name.toLowerCase().replace(" ", "-");
-                    return (
+              
+              <div id="upload-section" className="bg-gray-50 rounded-2xl p-8">
+                <div className="max-w-md mx-auto">
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
+                    <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      <Upload className="text-gray-400" size={24} />
+                      <span className="text-gray-600 text-center">
+                        Upload or paste conversation Screenshot!
+                      </span>
+                      <span className="text-gray-400 text-sm">
+                        Click to upload or Ctrl+V to paste
+                      </span>
+                    </label>
+                    {selectedFile && (
                       <div
-                        key={phase.name}
-                        className={`rounded-xl p-3 md:p-4 text-center cursor-pointer hover:scale-[1.02] transition-all text-white shadow-lg ${isSelected ? "ring-4 ring-pink-400 ring-opacity-50" : ""}`}
-                        style={{ backgroundColor: "#121418" }}
-                        onClick={() => setMode(phase.name.toLowerCase().replace(" ", "-"))}
+                        className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white"
+                        style={{ backgroundColor: "#FE3C72" }}
                       >
-                        <span className="block text-xl mb-1">{phase.emoji}</span>
-                        <span className="text-sm font-medium">{phase.name}</span>
-                        <span className="block text-xs text-white/60 mt-1">{phase.desc}</span>
+                        File uploaded ✨
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+                  {textInputSection}
                 </div>
-              </div>
-              <div className="flex flex-col gap-4">
-                <button
-                  onClick={handleSubmit}
-                  disabled={isLoading || (!selectedFile && (!context || !lastText)) || (isSignedIn && dailyCount >= 30)}
-                  className={`w-full text-white rounded-full p-4 font-bold shadow-lg transition-all ${
-                    isLoading || (!selectedFile && (!context || !lastText)) || (isSignedIn && dailyCount >= 30)
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:scale-[1.02]"
-                  }`}
-                  style={{ backgroundColor: "#FE3C72" }}
-                >
-                  {isLoading
-                    ? "Analyzing..."
-                    : isSignedIn && dailyCount >= 30
-                    ? "Daily limit reached"
-                    : "Get response"}
-                </button>
               </div>
             </div>
-          </section>
 
-          <section id="responses-section" className="mb-16 md:mb-24">
-            <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
-              <span style={{ color: "#121418" }}>Analyzing texts... </span>
-              <span style={{ color: "#FE3C72" }}>Predicting success...</span>
-            </h2>
-            <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start justify-center">
-              <div className="w-full md:w-1/2 max-w-md">
-                <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
-                  Your conversation
-                </h3>
-                {conversationPreview}
-              </div>
-              <div className="w-full md:w-1/2 max-w-md">
-                <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: "#121418" }}>
-                  SmoothRizz.com suggestions ✨
-                </h3>
-                <div className="space-y-4">
-                  {responses.length > 0
-                    ? responses.map((response, index) => (
-                        <div
-                          key={index}
-                          className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative cursor-pointer"
-                          style={{ backgroundColor: "#FE3C72" }}
-                          onClick={() => copyToClipboard(response)}
-                        >
-                          {response}
-                          <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: "#FE3C72" }}></div>
-                        </div>
-                      ))
-                    : [0, 1, 2].map((index) => (
-                        <div
-                          key={index}
-                          className="rounded-2xl p-4 text-white transform transition-all hover:scale-[1.01] max-w-[85%] relative"
-                          style={{ backgroundColor: "#FE3C72" }}
-                        >
-                          Suggestion {index + 1}
-                          <div className="absolute -left-2 bottom-[45%] w-4 h-4 transform rotate-45" style={{ backgroundColor: "#FE3C72" }}></div>
-                        </div>
-                      ))}
+            {/* Step 2 */}
+            <div className="relative">
+              <div className="flex items-center mb-8">
+                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
+                  <span className="text-2xl" style={{ color: "#FE3C72" }}>2</span>
                 </div>
-                <div className="mt-8 space-y-4">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isLoading}
-                    className={`w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block ${
-                      isLoading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                <div className="ml-4">
+                  <h2 className="text-2xl font-bold" style={{ color: "#121418" }}>
+                    Choose Your Stage
+                  </h2>
+                  <p className="text-gray-600">Select where you are in the conversation</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-2xl p-8">
+                <div className="max-w-md mx-auto">
+                  <div
+                    className="grid grid-cols-3 gap-4 p-4 rounded-2xl shadow-lg"
+                    style={{ backgroundColor: "white" }}
                   >
-                    {isLoading ? loadingText : "Get new responses"}
-                  </button>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-gray-500">or</span>
+                    {[
+                      { name: "First Move", desc: "Nail that opener", emoji: "👋" },
+                      { name: "Mid-Game", desc: "Keep it flowing", emoji: "💭" },
+                      { name: "End Game", desc: "Bring it home", emoji: "🎯" },
+                    ].map((phase) => {
+                      const isSelected = mode === phase.name.toLowerCase().replace(" ", "-");
+                      return (
+                        <div
+                          key={phase.name}
+                          className={`rounded-xl p-4 text-center cursor-pointer hover:scale-[1.02] transition-all ${
+                            isSelected 
+                              ? "ring-4 ring-pink-400 ring-opacity-50 shadow-lg" 
+                              : "hover:shadow-md"
+                          }`}
+                          style={{ 
+                            backgroundColor: isSelected ? "#FE3C72" : "#f8f9fa",
+                            color: isSelected ? "white" : "#121418"
+                          }}
+                          onClick={() => setMode(phase.name.toLowerCase().replace(" ", "-"))}
+                        >
+                          <span className="block text-2xl mb-2">{phase.emoji}</span>
+                          <span className="block font-medium">{phase.name}</span>
+                          <span className="block text-xs mt-1 opacity-75">{phase.desc}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3 - Preview */}
+            <div className="relative">
+              <div className="flex items-center mb-8">
+                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
+                  <span className="text-2xl" style={{ color: "#FE3C72" }}>3</span>
+                </div>
+                <div className="ml-4">
+                  <h2 className="text-2xl font-bold" style={{ color: "#121418" }}>
+                    Preview
+                  </h2>
+                  <p className="text-gray-600">Review your conversation</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-2xl p-8">
+                <div className="max-w-2xl mx-auto">
+                  {conversationPreview}
+                </div>
+              </div>
+            </div>
+
+            {/* Generate Button */}
+            <div className="max-w-md mx-auto">
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading || (!selectedFile && (!context || !lastText))}
+                className="w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: "#FE3C72" }}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <span>Generating</span>
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                    className="w-[90%] mx-auto text-gray-900 rounded-full py-3 font-bold transition-all hover:scale-[1.02] border-2 border-gray-200 block"
-                  >
-                    Try new screenshot
-                  </button>
-                </div>
-              </div>
+                ) : (
+                  "Generate Responses ✨"
+                )}
+              </button>
             </div>
           </section>
 
@@ -879,7 +1403,7 @@ export default function Home() {
         </footer>
 
         {/* Google Sign-In Overlay */}
-        {!isSignedIn && usageCount >= 3 && (
+        {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
           <GoogleSignInOverlay googleLoaded={googleLoaded} />
         )}
 
@@ -891,6 +1415,23 @@ export default function Home() {
         >
           Upgrade to Premium
         </button>
+
+        {/* Add the popup */}
+        {showRegeneratePopup && <RegeneratePopup />}
+
+        {/* Response Overlay */}
+        {showResponseOverlay && responses.length > 0 && (
+          <ResponseOverlay
+            responses={responses}
+            onClose={() => setShowResponseOverlay(false)}
+            childRefs={childRefs}
+            currentIndex={currentIndex}
+            swiped={swiped}
+            outOfFrame={outOfFrame}
+            onGenerateMore={generateMoreResponses}
+            isGenerating={isGenerating}
+          />
+        )}
       </div>
     </>
   );

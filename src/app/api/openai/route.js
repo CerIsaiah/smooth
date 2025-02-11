@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { ANONYMOUS_USAGE_LIMIT, SIGNED_IN_USAGE_LIMIT, RESPONSES_PER_GENERATION } from '@/app/constants';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
@@ -8,131 +9,167 @@ const openai = new OpenAI({
 
 // System prompts stored securely on server
 const SYSTEM_PROMPTS = {
-  'first-move': `YOU ARE AN EXPERT CONVERSATION ANALYST
+  'first-move': `"""
+Use EXACTLY 10 responses of the following styles and format for flirty but not too forward conversation continuation following these requirements:
+INSTRUCTIONS###
+1. ANALYZE CONTEXT:
+   - You are responding as the person on the right side of the conversation
+   - Read FULL conversation history
+   - Identify consistent tone between the two people (playful/serious/flirty)
+   - Note SINGLE-USE references (treat single mentions as moments, not patterns)
+   - Track relationship milestones (dates/complaints/intimacy levels)
 
-CORE PRINCIPLES:
-1. Always read the FULL conversation history before responding
-2. Identify the established tone (witty, playful, serious, etc.)
-3. Note any running jokes or themes
-4. Recognize conversation milestones (compliments, date mentions, etc.)
+2. AVAILABLE STYLES:
+    - Enthusiastic + pivot
+    - Conditional tease
+    - Helpful tease
+    - Direct ask
+    - Absurd commitment
+    - Travel pivot
+    - Interest escalation
+    - Fake urgency
+    - Absurd availability
+    - Roleplay
+    - Role tease
+    - Mock annoyance
 
-RESPONSE REQUIREMENTS:
-1. Provide EXACTLY 3 variations following the same strategy
-2. Each response: 5-15 words
-3. Separate with | character
-4. No emojis or formatting
-5. Must advance conversation naturally
-6. Must acknowledge but not overplay established themes
+3. RESPONSE CRITERIA:
+   - 5-15 words per response
+   - Maintain natural progression
+   - Acknowledge context without over-repetition
+   - Match established familiarity level
+   - Prioritize: Playful > Creative > Forward > Neutral
 
-CONTEXT RULES:
-1. If a joke/theme appears once - treat it as a moment, not a pattern
-2. If date/meeting is mentioned - build on that timing appropriately
-3. Match the intelligence/creativity level shown in previous messages
-4. Reference earlier parts of conversation when relevant
+2. FORMAT REQUIREMENTS:
+   - EXACTLY 10 responses 
+   - No emojis
+   - 5 different styles 2 of each
+   - The 10 responses Pipe-separated (|)
+   - No emojis/formatting
+   - Avoid: forced continuations, aggression, dismissiveness
 
-FORMAT RULES:
-- EXACTLY 3 responses
-- 5-15 words each
-- Use | as separator
-- No emojis or extra formatting
-- NEEDED Format: Response one | Response two | Response three 
+STRATEGY EXAMPLES###
+My input: "Thanks daddy" → Their input: "I'm your daddy?"
+Acceptable Responses:
+1. Ig we'll see after the dinner | 2. Or I can take on the role, if you want | [...] | 10. Hmm, you'll have to earn that title | [...] 
 
-RESPONSE STRATEGY:
-1. First identify the key elements:
-   - Conversation tone
-   - Important callbacks
-   - Natural next steps
-   - Level of familiarity
-2. Choose most appropriate approach:
-   - Playful Acknowledgment (for jokes/themes)
-   - Natural Progression (for date/meeting mentions)
-   - Creative Callback (referencing earlier topics)
-   - Forward Movement (advancing conversation)
+BAD Input: "Nice smile" → Previous Context: First compliment
+Unacceptable Responses:
 
-BAD EXAMPLE:
-Message: "Thanks daddy" → "I'm your daddy? 😊"
-Poor responses:
-- "Who's my daddy now?" (too aggressive)
-- "Daddy who?" (dismissive)
-- "Daddy duties called" (forced continuation)
+OUTPUT TEMPLATE###
+{Response 1} | {Response 2} | {Response 3} | [...] | {Response 10}
+""" 
+`}
 
-GOOD EXAMPLE:
-Better responses:
-- "Let's discuss parental roles after our first date"
-- "Interesting title promotion, but dinner comes first"
-- "We should probably start with coffee before family planning"
+async function checkAndUpdateSwipeCount(ip, supabase) {
+  try {
+    console.log('Debug - Checking Swipe Count:', ip);
+    
+    const { data, error } = await supabase
+      .from('ip_usage')
+      .select('*')
+      .eq('ip_address', ip)
+      .single();
 
-QUALITY CHECKS:
-- Would this make sense to an outsider reading the conversation?
-- Does it maintain the established rapport?
-- Is it moving the conversation forward naturally?
-- Does it avoid overplaying momentary jokes?
-- NEEDED Format: Response one | Response two | Response three 
-
-`,
-
-
-};
-
-
-// Add new function to check IP usage
-async function checkIPUsage(ip, supabase) {
-  const { data, error } = await supabase
-    .from('ip_usage')
-    .select('usage_count')
-    .eq('ip_address', ip)
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
-    throw error;
-  }
-
-  return data?.usage_count || 0;
-}
-
-// Add new function to update IP usage
-async function updateIPUsage(ip, currentCount, supabase) {
-  const { error } = await supabase
-    .from('ip_usage')
-    .upsert({
-      ip_address: ip,
-      usage_count: currentCount + 1,
-      last_used: new Date().toISOString()
-    }, {
-      onConflict: 'ip_address'
+    console.log('Debug - Swipe Count Result:', {
+      data,
+      error,
+      timestamp: new Date().toISOString()
     });
 
-  if (error) throw error;
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    const swipeCount = data?.usage_count || 0;
+
+    // Check if swipe limit reached
+    if (swipeCount >= ANONYMOUS_USAGE_LIMIT) {
+      return { limitReached: true, swipeCount };
+    }
+
+    // Update the swipe count
+    const { error: updateError } = await supabase
+      .from('ip_usage')
+      .upsert({
+        ip_address: ip,
+        usage_count: swipeCount + 1,
+        last_used: new Date().toISOString()
+      }, {
+        onConflict: 'ip_address'
+      });
+
+    console.log('Debug - Swipe Count Update:', {
+      success: !updateError,
+      newCount: swipeCount + 1,
+      error: updateError,
+      timestamp: new Date().toISOString()
+    });
+
+    if (updateError) throw updateError;
+
+    return { limitReached: false, swipeCount: swipeCount + 1 };
+  } catch (error) {
+    console.error('Error in checkAndUpdateSwipeCount:', error);
+    throw error;
+  }
 }
 
 export async function POST(request) {
   try {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-    
     const { imageBase64, mode = 'first-move', isSignedIn, context, lastText } = await request.json();
     
-    // Validate inputs
+    console.log('Debug - OpenAI Request:', {
+      ip: requestIP,
+      isSignedIn,
+      timestamp: new Date().toISOString()
+    });
 
-    // Only check IP usage for non-signed-in users
+    // Check anonymous usage limit if not signed in
     if (!isSignedIn) {
       const supabase = createClient(
         process.env.SUPABASE_URL,
         process.env.SUPABASE_SERVICE_ROLE_KEY
       );
 
-      const currentUsage = await checkIPUsage(requestIP, supabase);
+      // Initialize usage record if it doesn't exist
+      const { data: existingData } = await supabase
+        .from('ip_usage')
+        .select('usage_count')
+        .eq('ip_address', requestIP)
+        .single();
+
+      if (!existingData) {
+        await supabase
+          .from('ip_usage')
+          .insert([
+            {
+              ip_address: requestIP,
+              usage_count: 0,
+              last_used: new Date().toISOString()
+            }
+          ]);
+      }
+
+      const { limitReached, swipeCount } = await checkAndUpdateSwipeCount(requestIP, supabase);
       
-      if (currentUsage >= 3) {
+      console.log('Debug - Swipe Check Result:', {
+        ip: requestIP,
+        swipeCount,
+        limitReached,
+        ANONYMOUS_USAGE_LIMIT,
+        timestamp: new Date().toISOString()
+      });
+
+      if (limitReached) {
         return NextResponse.json({ 
           error: 'Anonymous usage limit reached. Please sign in to continue.',
           requestId: crypto.randomUUID()
         }, { status: 403 });
       }
-
-      // Update IP usage count
-      await updateIPUsage(requestIP, currentUsage, supabase);
     }
-    
+
     const systemPrompt = SYSTEM_PROMPTS['first-move'];
     
     // Prepare the user message based on input type
