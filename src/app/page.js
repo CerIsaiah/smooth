@@ -8,6 +8,7 @@ import Script from "next/script";
 import { loadStripe } from '@stripe/stripe-js';
 import TinderCard from 'react-tinder-card';
 import { ANONYMOUS_USAGE_LIMIT } from './constants';
+import { useRouter } from 'next/navigation';
 
 // Make sure to call `loadStripe` outside of a component's render
 const stripePromise = loadStripe(process.env.STRIPE_PUBLISHABLE_KEY);
@@ -31,7 +32,7 @@ function GoogleSignInOverlay({ googleLoaded }) {
       <div className="bg-white p-4 sm:p-8 rounded-xl w-full max-w-sm mx-auto flex flex-col items-center">
         <div ref={overlayButtonRef}></div>
         <p className="mt-4 text-center text-sm sm:text-base">
-          Please sign in with Google to continue generating responses for free.
+          Please sign in with Google to view your saved responses/generate more.
         </p>
       </div>
     </div>
@@ -39,7 +40,18 @@ function GoogleSignInOverlay({ googleLoaded }) {
 }
 
 // Add this new component near the top of the file, after other component definitions
-function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, outOfFrame, onGenerateMore, isGenerating }) {
+function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, outOfFrame, onGenerateMore, isGenerating, isSignedIn, router, setUsageCount }) {
+  const handleSavedResponsesClick = () => {
+    if (isSignedIn) {
+      router.push('/saved');
+    } else {
+      // Close the response overlay and show the sign-in overlay
+      onClose();
+      // This will trigger the sign-in overlay since we're setting count above limit
+      setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+    }
+  };
+
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (!responses.length) return;
@@ -76,7 +88,7 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
         </button>
       </div>
 
-      {/* Instructions */}
+      {/* Instructions with Saved Responses Button */}
       <div className="bg-white px-3 sm:px-4 pb-3 sm:pb-4 text-center w-full">
         <div className="flex flex-col items-center space-y-2 sm:space-y-3">
           <div className="inline-block bg-gray-100 rounded-full px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm shadow-sm">
@@ -86,8 +98,17 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
             <kbd className="mx-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white rounded shadow text-xs">→</kbd> 
             <span className="mx-1 sm:mx-2 text-gray-500">Copy</span>
           </div>
-          <div className="text-xs sm:text-sm text-gray-500">
-            {responses.length} suggested responses
+          <div className="flex items-center gap-4">
+            <div className="text-xs sm:text-sm text-gray-500">
+              {responses.length} suggested responses
+            </div>
+            <button
+              onClick={handleSavedResponsesClick}
+              className="text-xs sm:text-sm px-3 py-1 rounded-full text-white hover:opacity-90 transition"
+              style={{ backgroundColor: "#FE3C72" }}
+            >
+              View Saved Responses
+            </button>
           </div>
         </div>
       </div>
@@ -190,7 +211,7 @@ export default function Home() {
   const [showRegeneratePopup, setShowRegeneratePopup] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResponseOverlay, setShowResponseOverlay] = useState(false);
-  const [isPollingCount, setIsPollingCount] = useState(false);
+  const router = useRouter();
 
   const childRefs = useMemo(
     () =>
@@ -212,6 +233,35 @@ export default function Home() {
     try {
       if (!direction) {
         return;
+      }
+
+      // Save right swipes (copies) but don't navigate
+      if (direction === 'right') {
+        if (isSignedIn && user?.email) {
+          // Save to database for signed in users
+          await fetch('/api/saved-responses', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              response: responseToDelete,
+              userEmail: user.email,
+              context: context || null,
+              lastMessage: lastText || null,
+            }),
+          });
+        } else {
+          // Save to localStorage for anonymous users
+          const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
+          savedResponses.push({
+            response: responseToDelete,
+            context: context || null,
+            lastMessage: lastText || null,
+            created_at: new Date().toISOString(),
+          });
+          localStorage.setItem('anonymous_saved_responses', JSON.stringify(savedResponses));
+        }
       }
 
       const response = await fetch('/api/swipes', {
@@ -242,9 +292,7 @@ export default function Home() {
       setResponses(prev => prev.filter(response => response !== responseToDelete));
       
     } catch (error) {
-      if (!error.message.includes('limit reached')) {
-        alert('Error tracking response. Please try again.');
-      }
+      console.error('Error in swiped function:', error);
     }
   };
 
@@ -309,35 +357,54 @@ export default function Home() {
     }
   }, []);
 
-  // Handle sign in (unchanged)
+  // Add this function to handle the Google sign-in callback
   const handleSignIn = async (response) => {
-    if (!response.credential) return;
-    const token = response.credential;
-    const decodedToken = JSON.parse(atob(token.split(".")[1]));
-
-    const userData = {
-      email: decodedToken.email,
-      name: decodedToken.name,
-      picture: decodedToken.picture,
-      usage_count: 0,
-    };
-
     try {
-      const { error } = await supabase
-        .from("users")
-        .upsert([userData], { onConflict: "email", returning: "minimal" });
-      if (error) throw error;
-
-      const currentUsage = await fetchUsageCount();
-      setUsageCount(currentUsage.totalCount);
-      setDailyCount(currentUsage.dailyCount);
-      setUser(userData);
-      setIsSignedIn(true);
+      const { credential } = response;
       
-      localStorage.setItem('smoothrizz_user', JSON.stringify(userData));
-      localStorage.removeItem('smoothrizz_anonymous_count');
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ credential }),
+      });
+
+      const data = await res.json();
+      
+      if (res.ok) {
+        setUser(data.user);
+        setIsSignedIn(true);
+        localStorage.setItem('smoothrizz_user', JSON.stringify(data.user));
+
+        // Migrate anonymous saved responses to database
+        const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
+        if (savedResponses.length > 0) {
+          await Promise.all(
+            savedResponses.map(async (item) => {
+              await fetch('/api/saved-responses', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  response: item.response,
+                  userEmail: data.user.email,
+                  context: item.context,
+                  lastMessage: item.lastMessage,
+                  created_at: item.created_at,
+                }),
+              });
+            })
+          );
+          // Clear localStorage after successful migration
+          localStorage.removeItem('anonymous_saved_responses');
+        }
+      } else {
+        throw new Error(data.error || 'Failed to sign in');
+      }
     } catch (error) {
-      console.error("Error storing user data:", error);
+      console.error('Error signing in:', error);
     }
   };
 
@@ -419,45 +486,6 @@ export default function Home() {
     }
   };
 
-  // Add this function to check count
-  const checkUsageCount = async () => {
-    if (!isSignedIn) {
-      try {
-        const response = await fetch('/api/swipes');
-        const data = await response.json();
-        
-        if (data.limitReached) {
-          setShowResponseOverlay(false);
-          return true;
-        }
-        
-        setUsageCount(data.swipeCount);
-        return false;
-      } catch (error) {
-        console.error('Error checking usage count:', error);
-        return false;
-      }
-    }
-    return false;
-  };
-
-  // Add polling effect
-  useEffect(() => {
-    let pollInterval;
-    
-    if (!isSignedIn && !isPollingCount) {
-      setIsPollingCount(true);
-      pollInterval = setInterval(checkUsageCount, 5000); // Check every 5 seconds
-    }
-
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        setIsPollingCount(false);
-      }
-    };
-  }, [isSignedIn]);
-
   // Update handleSubmit to reset responses
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
@@ -470,11 +498,6 @@ export default function Home() {
       setShowRegeneratePopup(false);
       
       setResponses([]);
-      
-      const limitReached = await checkUsageCount();
-      if (limitReached) {
-        throw new Error('Anonymous usage limit reached. Please sign in to continue.');
-      }
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
 
@@ -501,11 +524,6 @@ export default function Home() {
       setIsGenerating(true);
       setShowRegeneratePopup(false);
       
-      const limitReached = await checkUsageCount();
-      if (limitReached) {
-        throw new Error('Anonymous usage limit reached. Please sign in to continue.');
-      }
-      
       setResponses([]);
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
@@ -529,7 +547,7 @@ export default function Home() {
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
-  // Initialize Google Sign-In (unchanged functionality)
+  // Update the Google Sign-In initialization useEffect
   useEffect(() => {
     const initializeGoogleSignIn = () => {
       if (!document.getElementById("google-client-script")) {
@@ -544,7 +562,7 @@ export default function Home() {
               window.google.accounts.id.initialize({
                 client_id: clientId,
                 callback: handleSignIn,
-                auto_select: true,
+                auto_select: !isSignedIn,
               });
               if (googleButtonRef.current) {
                 window.google.accounts.id.renderButton(googleButtonRef.current, {
@@ -899,7 +917,7 @@ export default function Home() {
 
   // Add this useEffect to fetch initial swipe count
   useEffect(() => {
-    const fetchInitialSwipeCount = async () => {
+    const fetchInitialCount = async () => {
       if (!isSignedIn) {
         try {
           const response = await fetch('/api/swipes');
@@ -914,7 +932,8 @@ export default function Home() {
       }
     };
 
-    fetchInitialSwipeCount();
+    // Only fetch once on component mount
+    fetchInitialCount();
   }, [isSignedIn]);
 
   return (
@@ -1050,7 +1069,16 @@ export default function Home() {
             SmoothRizz – Master Digital Charisma
           </h1>
           <div className="flex flex-col md:flex-row items-center gap-3 mt-4 md:mt-0">
-            <div ref={googleButtonRef} className="flex justify-center"></div>
+            {!isSignedIn && <div ref={googleButtonRef} className="flex justify-center"></div>}
+            {isSignedIn && (
+              <button
+                onClick={() => router.push('/saved')}
+                className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium"
+                style={{ backgroundColor: "#FE3C72" }}
+              >
+                Saved Responses
+              </button>
+            )}
             {isSignedIn && (
               <button
                 onClick={handleSignOut}
@@ -1323,6 +1351,9 @@ export default function Home() {
             outOfFrame={outOfFrame}
             onGenerateMore={generateMoreResponses}
             isGenerating={isGenerating}
+            isSignedIn={isSignedIn}
+            router={router}
+            setUsageCount={setUsageCount}
           />
         )}
       </div>
