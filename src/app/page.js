@@ -357,7 +357,7 @@ export default function Home() {
     }
   }, []);
 
-  // Add this function to handle the Google sign-in callback
+  // Update the handleSignIn function
   const handleSignIn = async (response) => {
     try {
       const { credential } = response;
@@ -400,6 +400,9 @@ export default function Home() {
           // Clear localStorage after successful migration
           localStorage.removeItem('anonymous_saved_responses');
         }
+
+        // Redirect to saved responses page after successful sign in
+        router.push('/saved');
       } else {
         throw new Error(data.error || 'Failed to sign in');
       }
