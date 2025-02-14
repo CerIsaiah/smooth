@@ -22,12 +22,16 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
         const today = new Date().toISOString().split('T')[0];
         const newRecord = isEmail ? {
           email: identifier,
-          usage_count: 0,
-          daily_usage: { date: today, count: 0 }
+          total_usage: 0,
+          daily_usage: 0,
+          last_used: new Date().toISOString(),
+          last_reset: today
         } : {
           ip_address: identifier,
-          usage_count: 0,
-          last_used: new Date().toISOString()
+          total_usage: 0,
+          daily_usage: 0,
+          last_used: new Date().toISOString(),
+          last_reset: today
         };
         
         const { data: newData, error: insertError } = await supabase
@@ -97,32 +101,48 @@ export async function POST(request) {
 
     try {
       const record = await getOrCreateUsageRecord(supabase, identifier, isEmail);
-      const currentCount = record?.usage_count || 0;
-      const newCount = currentCount + 1;
+      const today = new Date().toISOString().split('T')[0];
       
-      console.log('Debug - Usage counts:', {
-        currentCount,
-        newCount,
-        timestamp: new Date().toISOString()
-      });
-
-      // Update the count in the appropriate table
+      // Add these lines to define table and idField
       const table = isEmail ? 'users' : 'ip_usage';
       const idField = isEmail ? 'email' : 'ip_address';
       
-      // Different update objects for users vs IP-based records
-      const updateData = isEmail ? {
-        usage_count: newCount,
-        daily_usage: { date: new Date().toISOString().split('T')[0], count: newCount }
-      } : {
-        usage_count: newCount,
-        last_used: new Date().toISOString()
+      // Reset daily usage if it's a new day
+      const shouldResetDaily = record.last_reset !== today;
+      const newDailyCount = shouldResetDaily ? 1 : (record.daily_usage + 1);
+      const newTotalCount = record.total_usage + 1;
+      
+      console.log('Debug - Usage counts:', {
+        currentDailyCount: record.daily_usage,
+        newDailyCount,
+        currentTotalCount: record.total_usage,
+        newTotalCount,
+        shouldResetDaily,
+        timestamp: new Date().toISOString()
+      });
+
+      // Update both daily and total usage
+      const updateData = {
+        daily_usage: newDailyCount,
+        total_usage: newTotalCount,
+        last_used: new Date().toISOString(),
+        last_reset: shouldResetDaily ? today : record.last_reset
       };
 
       const { error: updateError } = await supabase
         .from(table)
         .update(updateData)
         .eq(idField, identifier);
+
+      // Add this logging
+      console.log('Debug - Update operation:', {
+        table,
+        idField,
+        identifier,
+        updateData,
+        error: updateError,
+        timestamp: new Date().toISOString()
+      });
 
       if (updateError) {
         console.error('Debug - Error updating usage count:', {
@@ -134,17 +154,19 @@ export async function POST(request) {
         throw updateError;
       }
 
-      const limitReached = !isEmail && newCount >= ANONYMOUS_USAGE_LIMIT;
+      const limitReached = !isEmail && newDailyCount >= ANONYMOUS_USAGE_LIMIT;
       
       console.log('Debug - Successful swipe update:', {
-        newCount,
+        newDailyCount,
+        newTotalCount,
         limitReached,
         timestamp: new Date().toISOString()
       });
 
       return NextResponse.json({
         success: true,
-        swipeCount: newCount,
+        dailySwipes: newDailyCount,
+        totalSwipes: newTotalCount,
         limitReached
       });
 
@@ -188,12 +210,33 @@ export async function GET(request) {
     // Get or create usage record based on whether user is signed in
     const identifier = userEmail || requestIP;
     const isEmail = !!userEmail;
+    const table = isEmail ? 'users' : 'ip_usage';
+    const idField = isEmail ? 'email' : 'ip_address';
     const record = await getOrCreateUsageRecord(supabase, identifier, isEmail);
-    const count = record.usage_count;
-    const limitReached = !isEmail && count >= ANONYMOUS_USAGE_LIMIT;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Reset daily count if it's a new day
+    if (record.last_reset !== today) {
+      const { error: resetError } = await supabase
+        .from(table)
+        .update({
+          daily_usage: 0,
+          last_reset: today
+        })
+        .eq(idField, identifier);
+
+      if (resetError) {
+        console.error('Error resetting daily usage:', resetError);
+      }
+      
+      record.daily_usage = 0;
+    }
+
+    const limitReached = !isEmail && record.daily_usage >= ANONYMOUS_USAGE_LIMIT;
 
     return NextResponse.json({ 
-      swipeCount: count,
+      dailySwipes: record.daily_usage,
+      totalSwipes: record.total_usage,
       limitReached
     });
 
