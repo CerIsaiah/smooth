@@ -13,9 +13,9 @@ const SYSTEM_PROMPTS = {
 Use EXACTLY 10 responses of the following styles and format for flirty but not too forward conversation continuation following these requirements:
 INSTRUCTIONS###
 1. ANALYZE CONTEXT:
-   - You are responding as the person on the right side of the conversation
+   - IMPORTANT! You are responding as the person on the right side of the conversation
    - Read FULL conversation history
-   - Identify consistent tone between the two people (playful/serious/flirty)
+   - Identify consistent tone between the you as the responder and the person on the left (playful/serious/flirty)
    - Note SINGLE-USE references (treat single mentions as moments, not patterns)
    - Track relationship milestones (dates/complaints/intimacy levels)
 
