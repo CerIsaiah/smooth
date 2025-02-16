@@ -196,47 +196,38 @@ export async function GET(request) {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     const userEmail = request.headers.get('x-user-email');
     
-    console.log('Debug - GET Swipe Count:', {
-      ip: requestIP,
-      userEmail,
-      timestamp: new Date().toISOString()
-    });
-
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // Get or create usage record based on whether user is signed in
+    // Only look up existing records, don't create new ones
+    const table = userEmail ? 'users' : 'ip_usage';
+    const idField = userEmail ? 'email' : 'ip_address';
     const identifier = userEmail || requestIP;
-    const isEmail = !!userEmail;
-    const table = isEmail ? 'users' : 'ip_usage';
-    const idField = isEmail ? 'email' : 'ip_address';
-    const record = await getOrCreateUsageRecord(supabase, identifier, isEmail);
-    const today = new Date().toISOString().split('T')[0];
     
-    // Reset daily count if it's a new day
-    if (record.last_reset !== today) {
-      const { error: resetError } = await supabase
-        .from(table)
-        .update({
-          daily_usage: 0,
-          last_reset: today
-        })
-        .eq(idField, identifier);
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq(idField, identifier)
+      .single();
 
-      if (resetError) {
-        console.error('Error resetting daily usage:', resetError);
-      }
-      
-      record.daily_usage = 0;
+    if (error) {
+      // If no record exists, return 0 counts instead of creating a record
+      return NextResponse.json({ 
+        dailySwipes: 0,
+        totalSwipes: 0,
+        limitReached: false
+      });
     }
 
-    const limitReached = !isEmail && record.daily_usage >= ANONYMOUS_USAGE_LIMIT;
+    const today = new Date().toISOString().split('T')[0];
+    const dailySwipes = data.last_reset !== today ? 0 : data.daily_usage;
+    const limitReached = !userEmail && dailySwipes >= ANONYMOUS_USAGE_LIMIT;
 
     return NextResponse.json({ 
-      dailySwipes: record.daily_usage,
-      totalSwipes: record.total_usage,
+      dailySwipes,
+      totalSwipes: data.total_usage,
       limitReached
     });
 
