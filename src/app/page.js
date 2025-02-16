@@ -88,27 +88,35 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
         </button>
       </div>
 
-      {/* Instructions with Saved Responses Button */}
-      <div className="bg-white px-3 sm:px-4 pb-3 sm:pb-4 text-center w-full">
-        <div className="flex flex-col items-center space-y-2 sm:space-y-3">
-          <div className="inline-block bg-gray-100 rounded-full px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm shadow-sm">
-            <span className="mr-2 sm:mr-3">👆 Swipe</span>
-            <kbd className="mx-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white rounded shadow text-xs">←</kbd> 
-            <span className="mx-1 sm:mx-2 text-gray-500">Skip</span>
-            <kbd className="mx-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white rounded shadow text-xs">→</kbd> 
-            <span className="mx-1 sm:mx-2 text-gray-500">Copy</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-xs sm:text-sm text-gray-500">
-              {responses.length} suggested responses
+      {/* Saved Responses Button - Now more prominent */}
+      <div className="bg-white w-full px-4 py-3 border-b border-pink-100">
+        <button
+          onClick={handleSavedResponsesClick}
+          className="w-full max-w-md mx-auto flex items-center justify-center gap-2 px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02]"
+          style={{ backgroundColor: "#FE3C72" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          View Saved Responses
+        </button>
+      </div>
+
+      {/* Enhanced Swipe Instructions */}
+      <div className="bg-white px-4 py-3 w-full border-b border-pink-100">
+        <div className="flex flex-col items-center space-y-2">
+          <div className="flex items-center justify-center gap-6 w-full max-w-md">
+            <div className="flex-1 text-center p-3 rounded-lg bg-red-50">
+              <div className="font-medium text-red-600 mb-1">← Swipe Left</div>
+              <div className="text-sm text-red-500">to Delete</div>
             </div>
-            <button
-              onClick={handleSavedResponsesClick}
-              className="text-xs sm:text-sm px-3 py-1 rounded-full text-white hover:opacity-90 transition"
-              style={{ backgroundColor: "#FE3C72" }}
-            >
-              View Saved Responses
-            </button>
+            <div className="flex-1 text-center p-3 rounded-lg bg-green-50">
+              <div className="font-medium text-green-600 mb-1">Swipe Right →</div>
+              <div className="text-sm text-green-500">to Save</div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {responses.length} suggested responses remaining
           </div>
         </div>
       </div>
@@ -126,12 +134,28 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
                 preventSwipe={["up", "down"]}
                 ref={childRefs[index]}
               >
-                <div className='card rounded-xl sm:rounded-2xl shadow-lg w-full h-full p-3 sm:p-4 md:p-6 flex flex-col justify-center items-center' style={{ backgroundColor: "#FE3C72" }}>
-                  <div className='card-content bg-white/90 text-base sm:text-lg md:text-xl text-center font-medium text-gray-800 w-full max-w-[95%] mx-auto rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-6'>
+                <div className='card rounded-xl sm:rounded-2xl shadow-lg w-full h-full p-3 sm:p-4 md:p-6 flex flex-col justify-center items-center bg-white border-2 border-gray-100'>
+                  {/* Swipe Indicators */}
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="text-red-600 font-medium">← Delete</span>
+                  </div>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-green-100 px-3 py-2 rounded-lg opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="text-green-600 font-medium">Save →</span>
+                  </div>
+                  
+                  <div className='card-content text-base sm:text-lg md:text-xl text-center font-medium text-gray-800 w-full max-w-[95%] mx-auto p-4 sm:p-6'>
                     {response}
                   </div>
-                  <div className="absolute bottom-2 left-0 right-0 text-center text-white text-xs sm:text-sm opacity-75">
-                    Swipe ← to Skip • Swipe → to Copy
+                  
+                  {/* Swipe Hint at Bottom */}
+                  <div className="absolute bottom-3 left-0 right-0 text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-xs text-gray-500">
+                      <span>←</span>
+                      <span className="text-red-500">Delete</span>
+                      <span className="mx-1">•</span>
+                      <span className="text-green-500">Save</span>
+                      <span>→</span>
+                    </div>
                   </div>
                 </div>
               </TinderCard>
