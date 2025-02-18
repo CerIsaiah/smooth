@@ -1231,7 +1231,7 @@ export default function Home() {
           <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
             SmoothRizz
           </h1>
-          <div className="scale-90 origin-right sm:scale-100">
+          <div className="scale-78 origin-right sm:scale-100">
             {!isSignedIn && <div ref={googleButtonRef} className="!min-w-[120px]"></div>}
             {isSignedIn && (
               <button
@@ -1247,20 +1247,19 @@ export default function Home() {
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-b from-gray-900 to-gray-700 bg-clip-text text-transparent">
-              Be the <span className="text-pink-500">Smooth</span> Talker
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6">
+              Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">Smooth</span> Talker
             </h2>
             <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto">
-              With The Smoothest AI Rizz on the Internet
+              Get Smooth Inspiration For Witty Responses
             </p>
             <div className="relative max-w-xl mx-auto">
               <img
                 src="/mainpic.png"
                 alt="App demonstration"
-                className="w-full rounded-2xl shadow-xl transform transition-all duration-300 hover:scale-[1.02]"
+                className="w-full rounded-2xl shadow-xl"
                 loading="lazy"
               />
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-pink-500/10 to-transparent pointer-events-none"></div>
             </div>
           </section>
 
