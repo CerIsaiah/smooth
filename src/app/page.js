@@ -401,29 +401,11 @@ export default function Home() {
     }
   };
 
-  // Handle sign out (unchanged)
+  // Update the handleSignOut function
   const handleSignOut = async () => {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
       window.google.accounts.id.revoke();
-      
-      fetch("/api/auth/google-client-id")
-        .then((res) => res.json())
-        .then(({ clientId }) => {
-          window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleSignIn,
-            auto_select: false,
-          });
-          if (googleButtonRef.current) {
-            googleButtonRef.current.innerHTML = "";
-            window.google.accounts.id.renderButton(googleButtonRef.current, {
-              theme: "outline",
-              size: "large",
-            });
-          }
-        })
-        .catch((err) => console.error("Error reinitializing Google Sign-In:", err));
     }
     
     setUser(null);
@@ -435,6 +417,25 @@ export default function Home() {
     setDailyCount(0);
     
     localStorage.removeItem('smoothrizz_user');
+
+    // Re-initialize Google Sign-In button
+    if (googleButtonRef.current) {
+      fetch("/api/auth/google-client-id")
+        .then((res) => res.json())
+        .then(({ clientId }) => {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleSignIn,
+            auto_select: false,
+          });
+          googleButtonRef.current.innerHTML = "";
+          window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: "outline",
+            size: "large",
+          });
+        })
+        .catch((err) => console.error("Error reinitializing Google Sign-In:", err));
+    }
   };
 
   // Add this function to handle file upload with feedback
