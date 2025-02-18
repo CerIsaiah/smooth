@@ -734,7 +734,7 @@ export default function Home() {
         onClick={() => setShowTextInput(!showTextInput)}
         className="w-full text-gray-600 py-2 flex items-center justify-center gap-2 hover:text-gray-900"
       >
-        <span>{showTextInput ? "Hide" : "Show"} text input option</span>
+        <span>{showTextInput ? "Hide" : "Use"} text input option</span>
         <svg
           className={`w-4 h-4 transform transition-transform ${showTextInput ? "rotate-180" : ""}`}
           fill="none"
@@ -1013,7 +1013,7 @@ export default function Home() {
           ? "bg-gradient-to-r from-pink-500 to-rose-500"
           : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
     >
-      Continue to Stage Selection →
+      Continue to next step
     </button>
   </div>
 
@@ -1078,7 +1078,7 @@ export default function Home() {
               ? "bg-gradient-to-r from-pink-500 to-rose-500" 
               : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
         >
-          Choose Your Stage →
+          Choose Your Context →
         </button>
       );
     }
@@ -1293,10 +1293,10 @@ export default function Home() {
                       <Upload className="text-pink-500" size={28} />
                       <div className="text-center">
                         <p className="text-gray-700 font-medium mb-1">
-                          Upload or paste conversation Screenshot!
+                          Upload Conversation Screenshot!
                         </p>
                         <p className="text-gray-500 text-sm">
-                          Click to upload or Ctrl+V to paste
+                          Press This or Ctrl+V to paste
                         </p>
                       </div>
                     </label>
@@ -1314,7 +1314,7 @@ export default function Home() {
                       ? "bg-gradient-to-r from-pink-500 to-rose-500"
                       : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
                 >
-                  Continue to Stage Selection →
+                  Continue to next step
                 </button>
               </div>
             </div>
@@ -1326,7 +1326,7 @@ export default function Home() {
                   <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
                     <span className="text-xl font-semibold text-pink-500">2</span>
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Choose Your Stage</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Choose Your Context</h2>
                 </div>
               </div>
 
@@ -1375,7 +1375,7 @@ export default function Home() {
                       ? "bg-gradient-to-r from-pink-500 to-rose-500"
                       : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
                 >
-                  Continue to Preview →
+                  Continue to next step
                 </button>
               </div>
             </div>
@@ -1437,7 +1437,24 @@ export default function Home() {
                         Advanced algorithms analyze conversations for perfect responses
                       </p>
                     </div>
-                    {/* Add more feature cards */}
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-2xl">⚡️</span>
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-2">Match their energy</h3>
+                      <p className="text-gray-600 text-sm">
+                        Get instant suggestions to match their freak
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-2xl">🎯</span>
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-2">We get your vibe</h3>
+                      <p className="text-gray-600 text-sm">
+                        Personalized responses that match YOUR style
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
