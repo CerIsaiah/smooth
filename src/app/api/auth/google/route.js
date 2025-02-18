@@ -37,7 +37,7 @@ export async function POST(request) {
           {
             email,
             name,
-            avatar_url: picture,
+            picture: picture,
             saved_responses: [],
             daily_usage: 0,
             total_usage: 0,
@@ -57,7 +57,7 @@ export async function POST(request) {
       user: {
         email: user.email,
         name: user.name,
-        avatar_url: user.avatar_url,
+        avatar_url: user.picture,
       },
     });
 
