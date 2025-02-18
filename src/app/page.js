@@ -216,7 +216,7 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState([]);
-  const [mode, setMode] = useState("first-move");
+  const [mode, setMode] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -236,6 +236,13 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResponseOverlay, setShowResponseOverlay] = useState(false);
   const router = useRouter();
+
+  // Add this state for tracking steps
+  const [completedSteps, setCompletedSteps] = useState({
+    upload: false,
+    stage: false,
+    preview: false
+  });
 
   const childRefs = useMemo(
     () =>
@@ -424,9 +431,6 @@ export default function Home() {
           // Clear localStorage after successful migration
           localStorage.removeItem('anonymous_saved_responses');
         }
-
-        // Redirect to saved responses page after successful sign in
-        router.push('/saved');
       } else {
         throw new Error(data.error || 'Failed to sign in');
       }
@@ -471,6 +475,7 @@ export default function Home() {
     localStorage.removeItem('smoothrizz_user');
   };
 
+  // Add this function to handle file upload with feedback
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -479,9 +484,11 @@ export default function Home() {
       setInputMode('screenshot');
       setContext('');
       setLastText('');
+      setCompletedSteps(prev => ({ ...prev, upload: true }));
     }
   };
 
+  // Update handlePaste similarly
   const handlePaste = (event) => {
     const items = event.clipboardData?.items;
     if (items) {
@@ -493,6 +500,7 @@ export default function Home() {
           setInputMode('screenshot');
           setContext('');
           setLastText('');
+          setCompletedSteps(prev => ({ ...prev, upload: true }));
           break;
         }
       }
@@ -517,6 +525,11 @@ export default function Home() {
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
       alert("Please either upload a screenshot or provide conversation details");
+      return;
+    }
+
+    if (!mode) {
+      alert("Please select a conversation stage");
       return;
     }
 
@@ -963,6 +976,129 @@ export default function Home() {
     fetchInitialCount();
   }, [isSignedIn]);
 
+  // Update mode selection to track completion
+  const handleModeSelection = (selectedMode) => {
+    setMode(selectedMode);
+    setCompletedSteps(prev => ({ ...prev, stage: true }));
+  };
+
+  // Update preview completion
+  useEffect(() => {
+    if (selectedFile || (context && lastText)) {
+      setCompletedSteps(prev => ({ ...prev, preview: true }));
+    }
+  }, [selectedFile, context, lastText]);
+
+  // Add this helper function to check if a step is accessible
+  const canAccessStep = (stepNumber) => {
+    switch (stepNumber) {
+      case 1: // Upload
+        return true; // Always accessible
+      case 2: // Stage
+        return completedSteps.upload;
+      case 3: // Preview
+        return completedSteps.upload && completedSteps.stage;
+      default:
+        return false;
+    }
+  };
+
+  // Update the step buttons in each section
+  <div className="p-4 border-t border-gray-100">
+    <button
+      onClick={() => document.querySelector("#step-2")?.scrollIntoView({ behavior: "smooth" })}
+      disabled={!canAccessStep(2)}
+      className={`w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
+        ${canAccessStep(2)
+          ? "bg-gradient-to-r from-pink-500 to-rose-500"
+          : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
+    >
+      Continue to Stage Selection →
+    </button>
+  </div>
+
+  // Update the DynamicFooterButton component
+  const DynamicFooterButton = () => {
+    const scrollToSection = (id) => {
+      const element = document.querySelector(id);
+      if (element) {
+        const offset = 80;
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - offset;
+        
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth"
+        });
+      }
+    };
+
+    // All steps completed, show generate responses button
+    if (completedSteps.upload && completedSteps.stage && completedSteps.preview) {
+      return (
+        <button
+          onClick={handleSubmit}
+          disabled={isLoading || (!selectedFile && (!context || !lastText))}
+          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2">
+              <span>Generating</span>
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+              </div>
+            </div>
+          ) : (
+            "Generate Responses ✨"
+          )}
+        </button>
+      );
+    }
+
+    if (!completedSteps.upload) {
+      return (
+        <button
+          onClick={() => scrollToSection("#step-1")}
+          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500"
+        >
+          Upload Your Screenshot →
+        </button>
+      );
+    }
+    
+    if (!completedSteps.stage) {
+      return (
+        <button
+          onClick={() => scrollToSection("#step-2")}
+          disabled={!canAccessStep(2)}
+          className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
+            ${canAccessStep(2) 
+              ? "bg-gradient-to-r from-pink-500 to-rose-500" 
+              : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
+        >
+          Choose Your Stage →
+        </button>
+      );
+    }
+    
+    if (!completedSteps.preview) {
+      return (
+        <button
+          onClick={() => scrollToSection("#step-3")}
+          disabled={!canAccessStep(3)}
+          className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
+            ${canAccessStep(3)
+              ? "bg-gradient-to-r from-pink-500 to-rose-500"
+              : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
+        >
+          Preview Your Message →
+        </button>
+      );
+    }
+  };
+
   return (
     <>
       <style jsx global>{styles}</style>
@@ -980,7 +1116,7 @@ export default function Home() {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
         {/* Updated SEO Meta Tags */}
-        <title>SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights</title>
+        <title>SmoothRizz</title>
         <meta
           name="description"
           content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with the innovative AI Rizz App. Boost your digital charisma, improve conversation skills, and discover expert insights on Rizz App strategies."
@@ -1090,253 +1226,231 @@ export default function Home() {
           />
         </noscript>
 
-        {/* Responsive Navigation */}
-        <nav className="flex flex-col md:flex-row justify-between items-center p-4 md:p-6 lg:p-8">
-          <h1 className="text-2xl md:text-3xl font-bold" style={{ color: "#FE3C72" }}>
-            SmoothRizz – Master Digital Charisma
+        {/* Header - Professional & Responsive */}
+        <div className="flex justify-between items-center p-3 sm:p-4 bg-white/95 backdrop-blur-sm border-b border-pink-100">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
+            SmoothRizz
           </h1>
-          <div className="flex flex-col md:flex-row items-center gap-3 mt-4 md:mt-0">
-            {!isSignedIn && <div ref={googleButtonRef} className="flex justify-center"></div>}
-            {isSignedIn && (
-              <button
-                onClick={() => router.push('/saved')}
-                className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium"
-                style={{ backgroundColor: "#FE3C72" }}
-              >
-                Saved Responses
-              </button>
-            )}
+          <div className="scale-90 origin-right sm:scale-100">
+            {!isSignedIn && <div ref={googleButtonRef} className="!min-w-[120px]"></div>}
             {isSignedIn && (
               <button
                 onClick={handleSignOut}
-                className="px-4 py-2 rounded-full text-white hover:opacity-90 transition text-sm md:text-base font-medium"
-                style={{ backgroundColor: "#121418" }}
+                className="px-4 py-2 rounded-full text-white text-sm font-medium bg-gray-900 hover:bg-gray-800 transition-colors shadow-sm"
               >
                 Sign Out
               </button>
             )}
           </div>
-        </nav>
+        </div>
 
-        <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto">
-          {/* Hero Section */}
-          <section className="text-center mb-16 md:mb-24 relative">
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight" style={{ color: "#121418" }}>
-              It's Your Turn to be the<br />
-              <span style={{ color: "#FE3C72" }} className="drop-shadow-sm">
-                <i>Smooth</i> Talker
-              </span>
+        <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
+          {/* Hero Section - Enhanced */}
+          <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-b from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              Be the <span className="text-pink-500">Smooth</span> Talker
             </h2>
-            <p className="text-gray-600 text-lg md:text-xl mb-12 md:mb-16 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto">
               With The Smoothest AI Rizz on the Internet
             </p>
-            <img
-              src="/mainpic.png"
-              alt="App demonstration of SmoothRizz"
-              className="max-w-4xl w-full mx-auto"
-              loading="lazy"
-            />
-            <button
-              onClick={() => document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" })}
-              className="mt-8 px-8 py-4 rounded-full text-white font-bold shadow-lg transition-all hover:scale-[1.02]"
-              style={{ backgroundColor: "#FE3C72" }}
-            >
-              Get Started <ArrowDown className="inline ml-2" size={20} />
-            </button>
+            <div className="relative max-w-xl mx-auto">
+              <img
+                src="/mainpic.png"
+                alt="App demonstration"
+                className="w-full rounded-2xl shadow-xl transform transition-all duration-300 hover:scale-[1.02]"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-pink-500/10 to-transparent pointer-events-none"></div>
+            </div>
           </section>
 
-          {/* Step Dividers and Input Sections */}
-          <section className="space-y-16">
-            {/* Step 1 */}
-            <div className="relative">
-              <div className="flex items-center mb-8">
-                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
-                  <span className="text-2xl" style={{ color: "#FE3C72" }}>1</span>
-                </div>
-                <div className="ml-4">
-                  <h2 className="text-2xl font-bold" style={{ color: "#121418" }}>
-                    Share Your Conversation
-                  </h2>
-                  <p className="text-gray-600">Upload a screenshot or type out the conversation</p>
+          {/* Steps Section - Professional Cards */}
+          <section className="space-y-12 sm:space-y-16 px-4 sm:px-0 max-w-3xl mx-auto">
+            {/* Step 1 - Upload */}
+            <div id="step-1" className="bg-white rounded-xl shadow-lg border border-gray-100 transform transition-all hover:scale-[1.01] hover:shadow-xl">
+              <div className="p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-pink-50 to-rose-50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    <span className="text-xl font-semibold text-pink-500">1</span>
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Share Your Conversation</h2>
                 </div>
               </div>
               
-              <div id="upload-section" className="bg-gray-50 rounded-2xl p-8">
-                <div className="max-w-md mx-auto">
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 bg-white relative hover:border-pink-300 transition-colors">
-                    <label className="flex flex-col items-center justify-center gap-2 cursor-pointer">
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                      <Upload className="text-gray-400" size={24} />
-                      <span className="text-gray-600 text-center">
-                        Upload or paste conversation Screenshot!
-                      </span>
-                      <span className="text-gray-400 text-sm">
-                        Click to upload or Ctrl+V to paste
-                      </span>
-                    </label>
-                    {selectedFile && (
-                      <div
-                        className="absolute top-2 right-2 px-3 py-1 rounded-full text-xs text-white"
-                        style={{ backgroundColor: "#FE3C72" }}
-                      >
-                        File uploaded ✨
+              <div className="p-4 sm:p-6">
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/50 relative hover:border-pink-200 transition-colors">
+                  {completedSteps.upload ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="bg-green-50 p-2 rounded-full">
+                        <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                       </div>
-                    )}
-                  </div>
-                  {textInputSection}
+                      <p className="text-green-600 font-medium">Upload Complete!</p>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center gap-3 cursor-pointer">
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      <Upload className="text-pink-500" size={28} />
+                      <div className="text-center">
+                        <p className="text-gray-700 font-medium mb-1">
+                          Upload or paste conversation Screenshot!
+                        </p>
+                        <p className="text-gray-500 text-sm">
+                          Click to upload or Ctrl+V to paste
+                        </p>
+                      </div>
+                    </label>
+                  )}
                 </div>
+                {textInputSection}
+              </div>
+              
+              <div className="p-4 border-t border-gray-100">
+                <button
+                  onClick={() => document.querySelector("#step-2")?.scrollIntoView({ behavior: "smooth" })}
+                  disabled={!canAccessStep(2)}
+                  className={`w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
+                    ${canAccessStep(2)
+                      ? "bg-gradient-to-r from-pink-500 to-rose-500"
+                      : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
+                >
+                  Continue to Stage Selection →
+                </button>
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="relative">
-              <div className="flex items-center mb-8">
-                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
-                  <span className="text-2xl" style={{ color: "#FE3C72" }}>2</span>
-                </div>
-                <div className="ml-4">
-                  <h2 className="text-2xl font-bold" style={{ color: "#121418" }}>
-                    Choose Your Stage
-                  </h2>
-                  <p className="text-gray-600">Select where you are in the conversation</p>
+            {/* Step 2 - Stage Selection */}
+            <div id="step-2" className="bg-white rounded-xl shadow-lg border border-gray-100 transform transition-all hover:scale-[1.01] hover:shadow-xl">
+              <div className="p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-pink-50 to-rose-50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    <span className="text-xl font-semibold text-pink-500">2</span>
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Choose Your Stage</h2>
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-8">
-                <div className="max-w-md mx-auto">
-                  <div
-                    className="grid grid-cols-3 gap-4 p-4 rounded-2xl shadow-lg"
-                    style={{ backgroundColor: "white" }}
-                  >
-                    {[
-                      { name: "First Move", desc: "Nail that opener", emoji: "👋" },
-                      { name: "Mid-Game", desc: "Keep it flowing", emoji: "💭" },
-                      { name: "End Game", desc: "Bring it home", emoji: "🎯" },
-                    ].map((phase) => {
-                      const isSelected = mode === phase.name.toLowerCase().replace(" ", "-");
-                      return (
-                        <div
-                          key={phase.name}
-                          className={`rounded-xl p-4 text-center cursor-pointer hover:scale-[1.02] transition-all ${
-                            isSelected 
-                              ? "ring-4 ring-pink-400 ring-opacity-50 shadow-lg" 
-                              : "hover:shadow-md"
-                          }`}
-                          style={{ 
-                            backgroundColor: isSelected ? "#FE3C72" : "#f8f9fa",
-                            color: isSelected ? "white" : "#121418"
-                          }}
-                          onClick={() => setMode(phase.name.toLowerCase().replace(" ", "-"))}
-                        >
-                          <span className="block text-2xl mb-2">{phase.emoji}</span>
-                          <span className="block font-medium">{phase.name}</span>
-                          <span className="block text-xs mt-1 opacity-75">{phase.desc}</span>
+              <div className="p-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {[
+                    { name: "First Move", desc: "Nail that opener", emoji: "👋" },
+                    { name: "Mid-Game", desc: "Keep it flowing", emoji: "💭" },
+                    { name: "End Game", desc: "Bring it home", emoji: "🎯" },
+                  ].map((phase) => {
+                    const isSelected = mode === phase.name.toLowerCase().replace(" ", "-");
+                    return (
+                      <button
+                        key={phase.name}
+                        className={`flex items-center gap-3 p-4 rounded-xl transition-all ${
+                          isSelected 
+                            ? "bg-pink-50 border-2 border-pink-200" 
+                            : "bg-gray-50 hover:bg-gray-100 border-2 border-transparent"
+                        }`}
+                        onClick={() => handleModeSelection(phase.name.toLowerCase().replace(" ", "-"))}
+                      >
+                        <span className="text-2xl">{phase.emoji}</span>
+                        <div className="text-left">
+                          <div className="font-medium">{phase.name}</div>
+                          <div className="text-sm text-gray-500">{phase.desc}</div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        {isSelected && (
+                          <div className="ml-auto">
+                            <svg className="w-6 h-6 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
+
+              <div className="p-4 border-t border-gray-100">
+                <button
+                  onClick={() => document.querySelector("#step-3")?.scrollIntoView({ behavior: "smooth" })}
+                  disabled={!canAccessStep(3)}
+                  className={`w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
+                    ${canAccessStep(3)
+                      ? "bg-gradient-to-r from-pink-500 to-rose-500"
+                      : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
+                >
+                  Continue to Preview →
+                </button>
               </div>
             </div>
 
             {/* Step 3 - Preview */}
-            <div className="relative">
-              <div className="flex items-center mb-8">
-                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
-                  <span className="text-2xl" style={{ color: "#FE3C72" }}>3</span>
-                </div>
-                <div className="ml-4">
-                  <h2 className="text-2xl font-bold" style={{ color: "#121418" }}>
-                    Preview
-                  </h2>
-                  <p className="text-gray-600">Review your conversation</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-2xl p-8">
-                <div className="max-w-2xl mx-auto">
-                  {conversationPreview}
-                </div>
-              </div>
-            </div>
-
-            {/* Generate Button */}
-            <div className="max-w-md mx-auto">
-              <button
-                onClick={handleSubmit}
-                disabled={isLoading || isGenerating || (!selectedFile && (!context || !lastText))}
-                className="w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: "#FE3C72" }}
-              >
-                {isLoading || isGenerating ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Generating</span>
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
-                    </div>
+            <div id="step-3" className="bg-white rounded-xl shadow-lg border border-gray-100 transform transition-all hover:scale-[1.01] hover:shadow-xl">
+              <div className="p-4 sm:p-5 border-b border-gray-100 bg-gradient-to-r from-pink-50 to-rose-50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                    <span className="text-xl font-semibold text-pink-500">3</span>
                   </div>
-                ) : (
-                  "Generate Responses ✨"
-                )}
-              </button>
+                  <h2 className="text-xl font-semibold text-gray-900">Preview</h2>
+                </div>
+              </div>
+
+              <div className="p-4">
+                {conversationPreview}
+              </div>
+
+              <div className="p-4 border-t border-gray-100">
+                <button
+                  onClick={handleSubmit}
+                  disabled={isLoading || (!selectedFile && (!context || !lastText))}
+                  className="w-full px-4 py-2.5 rounded-full text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: "#FE3C72" }}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <span>Generating</span>
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                      </div>
+                    </div>
+                  ) : (
+                    "Generate Responses ✨"
+                  )}
+                </button>
+              </div>
             </div>
           </section>
 
-          {/* Bottom SEO Section with refined styling */}
-          <section id="seo-content" className="mt-16">
-            <div className="grid gap-8 md:grid-cols-3">
-              <section id="ai-rizz-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
-                <h2 className="text-xl font-bold mb-2">Learn More About AI Rizz</h2>
-                <p className="text-gray-700">
-                  Discover how <strong>AI Rizz</strong> enhances digital communication with smart insights. Learn tips and strategies to boost your online charisma.
-                </p>
-              </section>
-              <section id="ai-rizz-app-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
-                <h2 className="text-xl font-bold mb-2">Explore the AI Rizz App</h2>
-                <p className="text-gray-700">
-                  The <strong>AI Rizz App</strong> and <strong>Rizz App</strong> deliver an innovative experience to improve your conversation skills. Explore its features and benefits.
-                </p>
-              </section>
-              <section id="rizz-info" className="bg-gray-50 p-6 rounded-md border border-gray-200">
-                <h2 className="text-xl font-bold mb-2">All About Rizz</h2>
-                <p className="text-gray-700">
-                  Dive into the world of <strong>Rizz</strong> with expert insights and community trends. Discover proven strategies for mastering digital interactions.
-                </p>
-              </section>
+          {/* SEO Section - Professional Cards */}
+          <section className="mt-16 sm:mt-24 px-4 sm:px-0 mb-24 sm:mb-16">
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                <div className="p-6 sm:p-8 text-center">
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-gray-900">
+                    Why Choose AI Rizz?
+                  </h2>
+                  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8">
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-2xl">🤖</span>
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-2">Smart AI Technology</h3>
+                      <p className="text-gray-600 text-sm">
+                        Advanced algorithms analyze conversations for perfect responses
+                      </p>
+                    </div>
+                    {/* Add more feature cards */}
+                  </div>
+                </div>
+              </div>
             </div>
-            <nav className="mt-8 text-center">
-              <ul className="flex justify-center gap-6">
-                <li><a href="#ai-rizz-info" className="text-blue-600 hover:underline">AI Rizz</a></li>
-                <li><a href="#ai-rizz-app-info" className="text-blue-600 hover:underline">AI Rizz App</a></li>
-                <li><a href="#rizz-info" className="text-blue-600 hover:underline">Rizz</a></li>
-              </ul>
-            </nav>
           </section>
 
-          <section id="faq" className="mt-16">
-            <h2 className="text-3xl font-bold mb-4 text-center">Frequently Asked Questions</h2>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-2xl font-semibold">What is AI Rizz?</h3>
-                <p className="text-gray-700">
-                  AI Rizz is our innovative artificial intelligence solution designed to enhance digital communication by providing smart suggestions and insights.
-                </p>
-              </div>
-              <div>
-                <h3 className="text-2xl font-semibold">How does the AI Rizz App work?</h3>
-                <p className="text-gray-700">
-                  The AI Rizz App uses advanced algorithms to analyze conversations and provide tailored suggestions that help improve your interaction style.
-                </p>
-              </div>
+          {/* Premium Button - Fixed on mobile, normal on desktop */}
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-pink-100">
+            <div className="max-w-3xl mx-auto">
+              <DynamicFooterButton />
             </div>
-            <nav className="mt-8 text-center">
-              <a href="#seo-content" className="text-blue-600 hover:underline">
-                Back to SEO sections
-              </a>
-            </nav>
-          </section>
+          </div>
         </main>
 
         <footer className="text-center pb-8">
@@ -1354,15 +1468,6 @@ export default function Home() {
         {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
           <GoogleSignInOverlay googleLoaded={googleLoaded} />
         )}
-
-        {/* Checkout button */}
-        <button
-          onClick={handleCheckout}
-          className="w-full text-white rounded-full p-4 font-bold shadow-lg transition-all hover:scale-[1.02]"
-          style={{ backgroundColor: "#FE3C72" }}
-        >
-          Upgrade to Premium
-        </button>
 
         {/* Add the popup */}
         {showRegeneratePopup && <RegeneratePopup />}
