@@ -71,15 +71,15 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
   }, [responses, currentIndex, childRefs]);
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col items-center">
-      {/* Header */}
-      <div className="bg-white/95 backdrop-blur-sm p-3 sm:p-4 flex justify-between items-center w-full border-b border-pink-100">
-        <div className="text-base sm:text-lg font-bold mx-auto" style={{ color: "#FE3C72" }}>
+    <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col">
+      {/* Simplified Header */}
+      <div className="bg-white/95 backdrop-blur-sm p-3 flex items-center border-b border-pink-100">
+        <div className="text-base font-bold mx-auto" style={{ color: "#FE3C72" }}>
           Your Suggestions ✨
         </div>
         <button 
           onClick={onClose}
-          className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition-colors absolute right-3 sm:right-4"
+          className="p-1.5 hover:bg-gray-100 rounded-full transition-colors absolute right-3"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -88,42 +88,41 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
         </button>
       </div>
 
-      {/* Saved Responses Button - Now more prominent */}
-      <div className="bg-white w-full px-4 py-3 border-b border-pink-100">
+      {/* Compact Saved Responses Button - Updated for better desktop view */}
+      <div className="bg-white px-3 py-2 border-b border-pink-100">
         <button
           onClick={handleSavedResponsesClick}
-          className="w-full max-w-md mx-auto flex items-center justify-center gap-2 px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02]"
+          className="w-full sm:w-auto sm:mx-auto flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all hover:scale-[1.02]"
           style={{ backgroundColor: "#FE3C72" }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
-          View Saved Responses
+          <span className="text-sm sm:text-base">View Saved Responses</span>
         </button>
       </div>
 
       {/* Enhanced Swipe Instructions */}
-      <div className="bg-white px-4 py-3 w-full border-b border-pink-100">
-        <div className="flex flex-col items-center space-y-2">
-          <div className="flex items-center justify-center gap-6 w-full max-w-md">
-            <div className="flex-1 text-center p-3 rounded-lg bg-red-50">
-              <div className="font-medium text-red-600 mb-1">← Swipe Left</div>
-              <div className="text-sm text-red-500">to Delete</div>
-            </div>
-            <div className="flex-1 text-center p-3 rounded-lg bg-green-50">
-              <div className="font-medium text-green-600 mb-1">Swipe Right →</div>
-              <div className="text-sm text-green-500">to Save</div>
-            </div>
+      <div className="bg-white px-3 py-2 sm:py-4 border-b border-pink-100">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <div className="flex items-center gap-2 text-xs sm:text-base font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+              <path d="M19 12H5M5 12L12 19M5 12L12 5"/>
+            </svg>
+            <span className="text-red-500">Swipe Left to Delete</span>
           </div>
-          <div className="text-xs text-gray-500">
-            {responses.length} suggested responses remaining
+          <div className="flex items-center gap-2 text-xs sm:text-base font-medium">
+            <span className="text-green-500">Swipe Right to Save</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
+              <path d="M5 12h14M19 12l-7 7M19 12l-7-7"/>
+            </svg>
           </div>
         </div>
       </div>
 
-      {/* Cards Container */}
-      <div className="flex-1 w-full overflow-hidden flex items-center justify-center">
-        <div className="cardContainer w-full max-w-[90vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-xl mx-auto relative px-2 sm:px-4 h-[50vh] sm:h-[60vh] md:h-[65vh]">
+      {/* Cards Container - Optimized for Mobile */}
+      <div className="flex-1 w-full overflow-hidden flex items-center justify-center bg-gray-50/50">
+        <div className="cardContainer w-[95vw] sm:w-[85vw] md:w-[75vw] lg:w-[500px] relative h-[60vh] sm:h-[65vh]">
           {responses.map((response, index) => (
             response && (
               <TinderCard
@@ -134,27 +133,15 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
                 preventSwipe={["up", "down"]}
                 ref={childRefs[index]}
               >
-                <div className='card rounded-xl sm:rounded-2xl shadow-lg w-full h-full p-3 sm:p-4 md:p-6 flex flex-col justify-center items-center bg-white border-2 border-gray-100'>
-                  {/* Swipe Indicators */}
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="text-red-600 font-medium">← Delete</span>
-                  </div>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-green-100 px-3 py-2 rounded-lg opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="text-green-600 font-medium">Save →</span>
-                  </div>
-                  
-                  <div className='card-content text-base sm:text-lg md:text-xl text-center font-medium text-gray-800 w-full max-w-[95%] mx-auto p-4 sm:p-6'>
+                <div className='card rounded-lg shadow-md w-full h-full p-4 flex flex-col justify-center items-center bg-white border border-gray-100'>
+                  <div className='card-content text-base font-medium text-gray-800 text-center w-full max-w-[90%] mx-auto'>
                     {response}
                   </div>
                   
-                  {/* Swipe Hint at Bottom */}
+                  {/* Minimal Swipe Hint */}
                   <div className="absolute bottom-3 left-0 right-0 text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-xs text-gray-500">
-                      <span>←</span>
-                      <span className="text-red-500">Delete</span>
-                      <span className="mx-1">•</span>
-                      <span className="text-green-500">Save</span>
-                      <span>→</span>
+                    <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-50 text-xs text-gray-400">
+                      ← Delete • Save →
                     </div>
                   </div>
                 </div>
@@ -163,51 +150,35 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
           )).filter(Boolean)}
         </div>
 
-        {/* Need More Responses Popup - Only show when no cards are left */}
+        {/* Simplified Need More Responses Popup */}
         {responses.length <= 1 && !isGenerating && (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-            <div className="bg-white rounded-2xl p-6 m-4 max-w-sm w-full text-center">
-              <h3 className="text-xl font-bold mb-4">Need more options?</h3>
-              <p className="text-gray-600 mb-6">
-                Generate 10 new responses to find the perfect reply!
-              </p>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl p-4 w-full max-w-xs text-center">
+              <h3 className="text-lg font-bold mb-2">Need more options?</h3>
               <button
                 onClick={onGenerateMore}
                 disabled={isGenerating}
-                className="w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all disabled:opacity-50"
                 style={{ backgroundColor: "#FE3C72" }}
               >
-                {isGenerating ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Generating</span>
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                      <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
-                    </div>
-                  </div>
-                ) : (
-                  "Generate More Responses ✨"
-                )}
+                {isGenerating ? "Generating..." : "Generate More ✨"}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer Actions */}
-      <div className="bg-white/95 backdrop-blur-sm p-3 sm:p-4 w-full border-t border-pink-100">
-        <div className="max-w-[85vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-2xl mx-auto">
-          <button
-            onClick={() => {
-              onClose();
-              document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-full font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm sm:text-base"
-          >
-            Upload Another Screenshot
-          </button>
-        </div>
+      {/* Simplified Footer */}
+      <div className="bg-white/95 backdrop-blur-sm p-3 border-t border-pink-100">
+        <button
+          onClick={() => {
+            onClose();
+            document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="w-full px-4 py-2 rounded-full font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
+        >
+          Upload Another Screenshot
+        </button>
       </div>
     </div>
   );
