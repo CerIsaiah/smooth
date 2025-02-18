@@ -1257,7 +1257,7 @@ export default function Home() {
               <img
                 src="/mainpic.png"
                 alt="App demonstration"
-                className="w-full rounded-2xl shadow-xl"
+                className="w-full rounded-2xl"
                 loading="lazy"
               />
             </div>
