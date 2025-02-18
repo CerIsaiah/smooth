@@ -1248,7 +1248,7 @@ export default function Home() {
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
             <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6">
-              Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">Smooth</span> Talker
+              Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent italic">Smooth</span> Talker
             </h2>
             <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto">
               Get Smooth Inspiration For Witty Responses
