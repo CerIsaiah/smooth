@@ -1003,20 +1003,6 @@ export default function Home() {
     }
   };
 
-  // Update the step buttons in each section
-  <div className="p-4 border-t border-gray-100">
-    <button
-      onClick={() => document.querySelector("#step-2")?.scrollIntoView({ behavior: "smooth" })}
-      disabled={!canAccessStep(2)}
-      className={`w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
-        ${canAccessStep(2)
-          ? "bg-gradient-to-r from-pink-500 to-rose-500"
-          : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
-    >
-      Continue to next step
-    </button>
-  </div>
-
   // Update the DynamicFooterButton component
   const DynamicFooterButton = () => {
     const scrollToSection = (id) => {
@@ -1228,7 +1214,7 @@ export default function Home() {
 
         {/* Header - Professional & Responsive */}
         <div className="flex justify-between items-center p-3 sm:p-4 bg-white/95 backdrop-blur-sm border-b border-pink-100">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
+          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
             SmoothRizz
           </h1>
           <div className="scale-78 origin-right sm:scale-100">
@@ -1304,19 +1290,6 @@ export default function Home() {
                 </div>
                 {textInputSection}
               </div>
-              
-              <div className="p-4 border-t border-gray-100">
-                <button
-                  onClick={() => document.querySelector("#step-2")?.scrollIntoView({ behavior: "smooth" })}
-                  disabled={!canAccessStep(2)}
-                  className={`w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
-                    ${canAccessStep(2)
-                      ? "bg-gradient-to-r from-pink-500 to-rose-500"
-                      : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
-                >
-                  Continue to next step
-                </button>
-              </div>
             </div>
 
             {/* Step 2 - Stage Selection */}
@@ -1365,19 +1338,6 @@ export default function Home() {
                   })}
                 </div>
               </div>
-
-              <div className="p-4 border-t border-gray-100">
-                <button
-                  onClick={() => document.querySelector("#step-3")?.scrollIntoView({ behavior: "smooth" })}
-                  disabled={!canAccessStep(3)}
-                  className={`w-full px-6 py-3 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
-                    ${canAccessStep(3)
-                      ? "bg-gradient-to-r from-pink-500 to-rose-500"
-                      : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
-                >
-                  Continue to next step
-                </button>
-              </div>
             </div>
 
             {/* Step 3 - Preview */}
@@ -1393,28 +1353,6 @@ export default function Home() {
 
               <div className="p-4">
                 {conversationPreview}
-              </div>
-
-              <div className="p-4 border-t border-gray-100">
-                <button
-                  onClick={handleSubmit}
-                  disabled={isLoading || (!selectedFile && (!context || !lastText))}
-                  className="w-full px-4 py-2.5 rounded-full text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: "#FE3C72" }}
-                >
-                  {isLoading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <span>Generating</span>
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
-                      </div>
-                    </div>
-                  ) : (
-                    "Generate Responses ✨"
-                  )}
-                </button>
               </div>
             </div>
           </section>
