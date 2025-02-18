@@ -1081,6 +1081,28 @@ export default function Home() {
     };
   }, []);
 
+  // Add this useEffect near the other useEffects
+  useEffect(() => {
+    const updateOnlineUsers = () => {
+      const randomUsers = Math.floor(Math.random() * (32 - 14 + 1)) + 14;
+      const element = document.getElementById('online-users');
+      if (element) {
+        element.textContent = `${randomUsers} users online`;
+      }
+    };
+
+    // Update initially
+    updateOnlineUsers();
+
+    // Update every 20-39 seconds
+    const interval = setInterval(() => {
+      const randomDelay = Math.floor(Math.random() * (39000 - 20000 + 1)) + 20000;
+      setTimeout(updateOnlineUsers, randomDelay);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <>
       <style jsx global>{styles}</style>
@@ -1242,6 +1264,17 @@ export default function Home() {
                 className="w-full rounded-2xl"
                 loading="lazy"
               />
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-pink-200 to-transparent my-8 sm:my-10" />
+              <img
+                src="/creds.png"
+                alt="Trust indicators and credentials"
+                className="w-full max-w-[95%] mx-auto"
+                loading="lazy"
+              />
+              <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/90 text-white/90 text-sm shadow-lg">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span id="online-users">12 users online</span>
+              </div>
             </div>
           </section>
 
