@@ -88,35 +88,25 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
         </button>
       </div>
 
-      {/* Compact Saved Responses Button - Updated for better desktop view */}
+      {/* Compact Saved Responses Button */}
       <div className="bg-white px-3 py-2 border-b border-pink-100">
         <button
           onClick={handleSavedResponsesClick}
-          className="w-full sm:w-auto sm:mx-auto flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all hover:scale-[1.02]"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all"
           style={{ backgroundColor: "#FE3C72" }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
-          <span className="text-sm sm:text-base">View Saved Responses</span>
+          View Saved
         </button>
       </div>
 
-      {/* Enhanced Swipe Instructions */}
-      <div className="bg-white px-3 py-2 sm:py-4 border-b border-pink-100">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-2 text-xs sm:text-base font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
-              <path d="M19 12H5M5 12L12 19M5 12L12 5"/>
-            </svg>
-            <span className="text-red-500">Swipe Left to Delete</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs sm:text-base font-medium">
-            <span className="text-green-500">Swipe Right to Save</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
-              <path d="M5 12h14M19 12l-7 7M19 12l-7-7"/>
-            </svg>
-          </div>
+      {/* Simplified Swipe Instructions */}
+      <div className="bg-white px-3 py-2 border-b border-pink-100">
+        <div className="flex items-center justify-between text-xs">
+          <div className="text-red-500">← Swipe Left to Delete</div>
+          <div className="text-green-500">Swipe Right to Save →</div>
         </div>
       </div>
 
@@ -206,6 +196,7 @@ export default function Home() {
   const [showRegeneratePopup, setShowRegeneratePopup] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResponseOverlay, setShowResponseOverlay] = useState(false);
+  const [isOnPreview, setIsOnPreview] = useState(false);
   const router = useRouter();
 
   // Add this state for tracking steps
@@ -987,29 +978,34 @@ export default function Home() {
           top: offsetPosition,
           behavior: "smooth"
         });
+        
+        if (id === "#step-3") {
+          setIsOnPreview(true);
+        }
       }
     };
 
-    // All steps completed, show generate responses button
-    if (completedSteps.upload && completedSteps.stage && completedSteps.preview) {
+    // Show generate responses button when on preview section
+    if (completedSteps.upload && completedSteps.stage && completedSteps.preview && isOnPreview) {
       return (
         <button
           onClick={handleSubmit}
           disabled={isLoading || (!selectedFile && (!context || !lastText))}
           className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? (
-            <div className="flex items-center justify-center gap-2">
-              <span>Generating</span>
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
-              </div>
-            </div>
-          ) : (
-            "Generate Responses ✨"
-          )}
+          {isLoading ? "Generating..." : "Generate Responses ✨"}
+        </button>
+      );
+    }
+
+    // All steps completed but not on preview, show preview button
+    if (completedSteps.upload && completedSteps.stage && completedSteps.preview) {
+      return (
+        <button
+          onClick={() => scrollToSection("#step-3")}
+          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500"
+        >
+          See Preview →
         </button>
       );
     }
@@ -1055,6 +1051,34 @@ export default function Home() {
       );
     }
   };
+
+  // Add this useEffect to detect when user scrolls to preview section
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsOnPreview(true);
+          }
+        });
+      },
+      {
+        threshold: 0.3, // Trigger when 30% of the element is visible
+        rootMargin: '-100px', // Adjust based on your header height
+      }
+    );
+
+    const previewSection = document.querySelector('#step-3');
+    if (previewSection) {
+      observer.observe(previewSection);
+    }
+
+    return () => {
+      if (previewSection) {
+        observer.unobserve(previewSection);
+      }
+    };
+  }, []);
 
   return (
     <>
