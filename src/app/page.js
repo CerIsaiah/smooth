@@ -1087,7 +1087,7 @@ export default function Home() {
       const randomUsers = Math.floor(Math.random() * (32 - 14 + 1)) + 14;
       const element = document.getElementById('online-users');
       if (element) {
-        element.textContent = `${randomUsers} users online`;
+        element.textContent = `${randomUsers} users swiping`;
       }
     };
 
@@ -1257,7 +1257,7 @@ export default function Home() {
             <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto">
               Get Smooth Inspiration For Witty Responses
             </p>
-            <div className="relative max-w-xl mx-auto">
+            <div className="relative max-w-[95%] sm:max-w-xl mx-auto">
               <img
                 src="/mainpic.png"
                 alt="App demonstration"
