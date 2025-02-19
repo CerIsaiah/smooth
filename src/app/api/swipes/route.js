@@ -25,13 +25,15 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
           total_usage: 0,
           daily_usage: 0,
           last_used: new Date().toISOString(),
-          last_reset: today
+          last_reset: today,
+          login_count: 0
         } : {
           ip_address: identifier,
           total_usage: 0,
           daily_usage: 0,
           last_used: new Date().toISOString(),
-          last_reset: today
+          last_reset: today,
+          login_count: 0
         };
         
         const { data: newData, error: insertError } = await supabase
@@ -128,6 +130,11 @@ export async function POST(request) {
         last_used: new Date().toISOString(),
         last_reset: shouldResetDaily ? today : record.last_reset
       };
+
+      // If this is an IP address and the user is logged in, increment login count
+      if (!isEmail && userEmail) {
+        updateData.login_count = (record.login_count || 0) + 1;
+      }
 
       const { error: updateError } = await supabase
         .from(table)
