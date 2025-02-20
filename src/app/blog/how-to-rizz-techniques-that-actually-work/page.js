@@ -6,6 +6,21 @@ export default function RizzTechniquesPost() {
   
   return (
     <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+      {/* Advertisement Banner */}
+      <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white p-4 rounded-lg mb-10 shadow-md">
+        <div className="flex flex-col sm:flex-row items-center justify-between">
+          <div className="mb-4 sm:mb-0">
+            <h3 className="font-bold text-lg mb-1">Want Ideas to Boost Your Rizz Game?</h3>
+            <p className="text-white/90">Try out our  new free tool!</p>
+          </div>
+          <Link 
+            href="/"
+            className="bg-white text-pink-500 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+          >
+            Try now →
+          </Link>
+        </div>
+      </div>
       {/* Hero Section */}
       <header className="mb-10 sm:mb-16">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-900 leading-tight tracking-tight">
