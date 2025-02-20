@@ -9,7 +9,7 @@ export default function RizzTechniquesPost() {
       {/* Hero Section */}
       <header className="mb-10 sm:mb-16">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-900 leading-tight tracking-tight">
-          How to Master <span className="text-pink-500">Rizz</span>: Modern Messaging Techniques That Actually Work
+          How to <span className="text-pink-500">Rizz</span>: Techniques That Actually Work
         </h1>
         <div className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8 font-medium">
           <time dateTime={publishDate}>Published {new Date(publishDate).toLocaleDateString()}</time>
@@ -62,7 +62,7 @@ export default function RizzTechniquesPost() {
           </h2>
           <div className="prose prose-lg max-w-none prose-headings:font-bold prose-p:text-gray-700 prose-p:leading-relaxed space-y-6">
             <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-              Let's be real—sliding into DMs in 2024 is an art form. Gone are the days of "hey" messages and basic small talk. 
+              Let's be real—sliding into DMs in 2025 is an art form. Gone are the days of "hey" messages and basic small talk. 
               Today's digital communication landscape requires finesse, authenticity, and a deep understanding of human psychology.
             </p>
             <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
@@ -312,12 +312,14 @@ export default function RizzTechniquesPost() {
 }
 
 export const metadata = {
-  title: 'How to Master Rizz: Modern Messaging Techniques That Actually Work | SmoothRizz',
-  description: 'Learn proven messaging techniques to improve your dating game. Master three conversation methods, build natural connections, and develop your authentic messaging style.',
+  metadataBase: new URL('https://smoothrizz.com'),
+  title: 'How to Rizz: Techniques That Actually Work',
+  description: 'Learn 3 proven messaging techniques to improve your texting game.',
   openGraph: {
-    title: 'How to Master Rizz: Modern Messaging Techniques That Actually Work',
-    description: 'Learn proven messaging techniques to improve your dating game. Master three conversation methods, build natural connections, and develop your authentic messaging style.',
+    title: 'How to Rizz: Techniques That Actually Work',
+    description: 'Learn 3 proven messaging techniques to improve your texting game.',
     type: 'article',
+    url: 'https://smoothrizz.com/blog/post1',
     images: [
       {
         url: '/pics/smoothrizz-logo.png',
@@ -326,7 +328,15 @@ export const metadata = {
         alt: 'Modern messaging techniques illustration',
       },
     ],
-    publishedTime: '2024-03-20',
+    publishedTime: '2025-02-20',
     authors: ['SmoothRizz Team'],
+    siteName: 'SmoothRizz',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'How to Master Rizz: Modern Messaging Techniques That Actually Work',
+    description: 'Learn proven messaging techniques to improve your dating game. Master three conversation methods, build natural connections, and develop your authentic messaging style.',
+    images: ['/pics/smoothrizz-logo.png'],
+    creator: '@smoothrizz',
   },
 };

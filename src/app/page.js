@@ -1430,7 +1430,7 @@ export default function Home() {
                       </div>
                       <div className="p-4 bg-gradient-to-r from-pink-50 to-rose-50">
                         <h3 className="font-semibold text-lg group-hover:text-pink-500 transition-colors">
-                          How to Master Rizz: Modern Messaging Techniques
+                          How to Rizz: Techniques that actually work
                         </h3>
                         <p className="text-gray-600 mt-2 text-sm">
                           Learn proven techniques to improve your messaging game and build better connections.
