@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export default function RizzTechniquesPost() {
-  const publishDate = '2024-03-20';
+  const publishDate = '2025-02-20';
   
   return (
     <article className="max-w-4xl mx-auto px-4 py-12">
