@@ -9,6 +9,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import TinderCard from 'react-tinder-card';
 import { ANONYMOUS_USAGE_LIMIT } from './constants';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 
 // Make sure to call `loadStripe` outside of a component's render
 const stripePromise = loadStripe(process.env.STRIPE_PUBLISHABLE_KEY);
@@ -1401,41 +1403,57 @@ export default function Home() {
             </div>
           </section>
 
-          {/* SEO Section - Professional Cards */}
+          {/* SEO Section - Updated with Blog Link */}
           <section className="mt-16 sm:mt-24 px-4 sm:px-0 mb-24 sm:mb-16">
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-                <div className="p-6 sm:p-8 text-center">
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-gray-900">
-                    Why Choose AI Rizz?
+                <div className="p-6 sm:p-8">
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center text-gray-900">
+                    Learn From Our Experts
                   </h2>
-                  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8">
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl">🤖</span>
+                  <div className="grid sm:grid-cols-2 gap-8 items-center">
+                    <Link 
+                      href="/blog/post1"
+                      className="group block overflow-hidden rounded-xl hover:shadow-lg transition-shadow"
+                    >
+                      <div className="relative w-full h-48">
+                        <Image
+                          src="/pics/smoothrizz-logo.png"
+                          alt="Modern messaging techniques guide"
+                          fill
+                          className="object-cover transform group-hover:scale-105 transition-transform duration-300"
+                          priority
+                        />
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">Smart AI Technology</h3>
-                      <p className="text-gray-600 text-sm">
-                        Advanced algorithms analyze conversations for perfect responses
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl">⚡️</span>
+                      <div className="p-4 bg-gradient-to-r from-pink-50 to-rose-50">
+                        <h3 className="font-semibold text-lg group-hover:text-pink-500 transition-colors">
+                          How to Master Rizz: Modern Messaging Techniques
+                        </h3>
+                        <p className="text-gray-600 mt-2 text-sm">
+                          Learn proven techniques to improve your messaging game and build better connections.
+                        </p>
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">Match their energy</h3>
-                      <p className="text-gray-600 text-sm">
-                        Get instant suggestions to match their freak
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl">🎯</span>
+                    </Link>
+                    
+                    <div className="space-y-6">
+                      <div className="text-center sm:text-left">
+                        <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mb-4 mx-auto sm:mx-0">
+                          <span className="text-2xl">⚡️</span>
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Match their energy</h3>
+                        <p className="text-gray-600 text-sm">
+                          Get instant suggestions to match their freak
+                        </p>
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">We get your vibe</h3>
-                      <p className="text-gray-600 text-sm">
-                        Personalized responses that match YOUR style
-                      </p>
+                      <div className="text-center sm:text-left">
+                        <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mb-4 mx-auto sm:mx-0">
+                          <span className="text-2xl">🎯</span>
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">We get your vibe</h3>
+                        <p className="text-gray-600 text-sm">
+                          Personalized responses that match YOUR style
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1443,36 +1461,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Add more text content for better text-to-HTML ratio */}
-          <section className="max-w-4xl mx-auto px-4 py-12 text-gray-700">
-            <h2 className="text-2xl font-bold mb-6">Elevate Your Dating Game with AI</h2>
-            <div className="grid md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-semibold mb-4">Smart Response Generation</h3>
-                <p className="mb-4">
-                  Our advanced AI technology analyzes conversation context, tone, and personality to generate 
-                  perfectly tailored responses. Whether you're making a first impression or keeping the 
-                  conversation flowing, SmoothRizz helps you maintain authentic and engaging interactions.
-                </p>
-                <p className="mb-4">
-                  Using natural language processing and machine learning, we understand the nuances of modern 
-                  dating communication to help you stand out from the crowd.
-                </p>
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold mb-4">Personalized to Your Style</h3>
-                <p className="mb-4">
-                  No more generic pickup lines or awkward responses. SmoothRizz learns your communication style 
-                  and helps maintain your authentic voice while suggesting improvements that resonate with 
-                  your match.
-                </p>
-                <p className="mb-4">
-                  Our AI considers factors like conversation stage, context, and previous messages to ensure 
-                  each suggestion feels natural and appropriate for the moment.
-                </p>
-              </div>
-            </div>
-          </section>
+         
 
           {/* Premium Button - Fixed on mobile, normal on desktop */}
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-pink-100">
