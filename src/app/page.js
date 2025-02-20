@@ -1120,31 +1120,31 @@ export default function Home() {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
         {/* Updated SEO Meta Tags */}
-        <title>SmoothRizz</title>
+        <title>SmoothRizz - AI-Powered Dating Response Generator | Master Digital Charisma</title>
         <meta
           name="description"
-          content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with the innovative AI Rizz App. Boost your digital charisma, improve conversation skills, and discover expert insights on Rizz App strategies."
+          content="Transform your dating game with SmoothRizz's AI-powered response generator. Get personalized, witty responses for dating apps and boost your success rate. Try it now!"
         />
-        <meta name="keywords" content="ai rizz, AI Rizz App, Rizz App, rizz, digital charisma, smooth talker, AI communication" />
+        <meta name="keywords" content="ai rizz, dating app responses, AI dating assistant, conversation starter, digital dating help, dating message generator, smooth talker ai" />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://www.smoothrizz.com" />
 
-        <meta property="og:title" content="SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights" />
+        <meta property="og:title" content="SmoothRizz - AI-Powered Dating Response Generator | Master Digital Charisma" />
         <meta
           property="og:description"
-          content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with our innovative AI Rizz App. Enhance your digital conversations and discover proven strategies for Rizz App success."
+          content="Transform your dating game with SmoothRizz's AI-powered response generator. Get personalized, witty responses for dating apps and boost your success rate. Try it now!"
         />
         <meta property="og:url" content="https://www.smoothrizz.com" />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://www.smoothrizz.com/your-image.jpg" />
+        <meta property="og:image" content="https://www.smoothrizz.com/og-image.jpg" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SmoothRizz: Master Digital Charisma with AI Rizz App & Rizz Insights" />
+        <meta name="twitter:title" content="SmoothRizz - AI-Powered Dating Response Generator | Master Digital Charisma" />
         <meta
           name="twitter:description"
-          content="SmoothRizz is your ultimate destination to master AI-driven rizz techniques with our innovative AI Rizz App. Boost your digital charisma and learn proven Rizz App strategies."
+          content="Transform your dating game with SmoothRizz's AI-powered response generator. Get personalized, witty responses for dating apps and boost your success rate. Try it now!"
         />
-        <meta name="twitter:image" content="https://www.smoothrizz.com/your-image.jpg" />
+        <meta name="twitter:image" content="https://www.smoothrizz.com/og-image.jpg" />
 
         <script
           type="application/ld+json"
@@ -1424,6 +1424,37 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Add more text content for better text-to-HTML ratio */}
+          <section className="max-w-4xl mx-auto px-4 py-12 text-gray-700">
+            <h2 className="text-2xl font-bold mb-6">Elevate Your Dating Game with AI</h2>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-xl font-semibold mb-4">Smart Response Generation</h3>
+                <p className="mb-4">
+                  Our advanced AI technology analyzes conversation context, tone, and personality to generate 
+                  perfectly tailored responses. Whether you're making a first impression or keeping the 
+                  conversation flowing, SmoothRizz helps you maintain authentic and engaging interactions.
+                </p>
+                <p className="mb-4">
+                  Using natural language processing and machine learning, we understand the nuances of modern 
+                  dating communication to help you stand out from the crowd.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-4">Personalized to Your Style</h3>
+                <p className="mb-4">
+                  No more generic pickup lines or awkward responses. SmoothRizz learns your communication style 
+                  and helps maintain your authentic voice while suggesting improvements that resonate with 
+                  your match.
+                </p>
+                <p className="mb-4">
+                  Our AI considers factors like conversation stage, context, and previous messages to ensure 
+                  each suggestion feels natural and appropriate for the moment.
+                </p>
               </div>
             </div>
           </section>
