@@ -481,6 +481,20 @@ export default function Home() {
       setInputMode('text');
       setSelectedFile(null);
       setPreviewUrl(null);
+      // Set upload step as completed if either context or lastText has content
+      setCompletedSteps(prev => ({
+        ...prev,
+        upload: !!(type === 'context' ? value || lastText : value || context)
+      }));
+    } else {
+      // If both inputs are empty, mark upload as incomplete
+      const otherFieldEmpty = type === 'context' ? !lastText : !context;
+      if (otherFieldEmpty) {
+        setCompletedSteps(prev => ({
+          ...prev,
+          upload: false
+        }));
+      }
     }
   };
 
@@ -1012,12 +1026,13 @@ export default function Home() {
     }
 
     if (!completedSteps.upload) {
+      const textInputActive = showTextInput && (context || lastText);
       return (
         <button
           onClick={() => scrollToSection("#step-1")}
           className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500"
         >
-          Upload Your Screenshot →
+          {textInputActive ? "Add More Context →" : "Upload Your Screenshot →"}
         </button>
       );
     }
