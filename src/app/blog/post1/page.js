@@ -18,7 +18,7 @@ export default function RizzTechniquesPost() {
         </div>
         <div className="relative w-full h-[250px] sm:h-[400px] md:h-[500px]">
           <Image
-            src="/pics/smoothrizz-logo.png"
+            src="/pics/percent100.png"
             alt="Modern messaging techniques illustration"
             fill
             className="rounded-lg sm:rounded-xl object-cover shadow-lg"
