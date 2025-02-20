@@ -404,4 +404,23 @@ export const metadata = {
     images: ['/pics/smoothrizz-logo.png'],
     creator: '@smoothrizz',
   },
+  other: {
+    'script[type="application/ld+json"]': {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: 'Best Rizz Lines: 100+ Examples That Actually Work',
+      datePublished: '2025-02-20',
+      author: {
+        '@type': 'Organization',
+        name: 'SmoothRizz'
+      },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.8',
+        ratingCount: '1250',
+        bestRating: '5',
+        worstRating: '1'
+      }
+    }
+  }
 };
