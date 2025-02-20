@@ -1405,19 +1405,21 @@ export default function Home() {
               </div>
             </div>
           </section>
+          
+          <div className="border-t border-gray-200 my-16"></div>
 
           {/* SEO Section - Updated with Blog Link */}
           <section className="mt-16 sm:mt-24 px-4 sm:px-0 mb-24 sm:mb-16">
             <div className="max-w-4xl mx-auto">
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+              <div className="bg-gradient-to-br from-pink-50/80 via-white to-rose-50/80 rounded-xl shadow-sm overflow-hidden border border-pink-100">
                 <div className="p-6 sm:p-8">
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center text-gray-900">
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
                     Learn From Our Experts
                   </h2>
                   <div className="grid sm:grid-cols-2 gap-8 items-center">
                     <Link 
                       href="/blog/post1"
-                      className="group block overflow-hidden rounded-xl hover:shadow-lg transition-shadow"
+                      className="group block overflow-hidden rounded-xl hover:shadow-lg transition-shadow bg-white"
                     >
                       <div className="relative w-full h-48">
                         <Image
@@ -1428,7 +1430,7 @@ export default function Home() {
                           priority
                         />
                       </div>
-                      <div className="p-4 bg-gradient-to-r from-pink-50 to-rose-50">
+                      <div className="p-4 bg-gradient-to-r from-pink-50/50 to-rose-50/50">
                         <h3 className="font-semibold text-lg group-hover:text-pink-500 transition-colors">
                           How to Rizz: Techniques that actually work
                         </h3>
@@ -1439,7 +1441,7 @@ export default function Home() {
                     </Link>
                     
                     <div className="space-y-6">
-                      <div className="text-center sm:text-left">
+                      <div className="text-center sm:text-left bg-white/80 p-4 rounded-xl">
                         <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mb-4 mx-auto sm:mx-0">
                           <span className="text-2xl">⚡️</span>
                         </div>
@@ -1448,7 +1450,7 @@ export default function Home() {
                           Get instant suggestions to match their freak
                         </p>
                       </div>
-                      <div className="text-center sm:text-left">
+                      <div className="text-center sm:text-left bg-white/80 p-4 rounded-xl">
                         <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center mb-4 mx-auto sm:mx-0">
                           <span className="text-2xl">🎯</span>
                         </div>
@@ -1464,26 +1466,96 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Add this section before the footer */}
-          <section className="mt-16 px-4 sm:px-0">
-            <div className="max-w-4xl mx-auto prose prose-pink">
-              <h2 className="text-2xl font-bold mb-6">Why Choose SmoothRizz?</h2>
-              <p className="text-gray-700">
-                SmoothRizz uses advanced AI technology to help you create genuine, engaging conversations that lead to meaningful connections. Our platform understands the nuances of modern dating communication, helping you express yourself authentically while maintaining your unique voice.
-              </p>
-              
-              <h3 className="text-xl font-bold mt-8 mb-4">Key Features</h3>
-              <ul className="space-y-3">
-                <li>Personalized response suggestions based on conversation context</li>
-                <li>Smart analysis of conversation tone and style</li>
-                <li>Multiple options for every situation</li>
-                <li>Privacy-focused design that protects your data</li>
-              </ul>
-              
-              <h3 className="text-xl font-bold mt-8 mb-4">How It Works</h3>
-              <p className="text-gray-700">
-                Simply share your conversation screenshot or type your context, and our AI will analyze the conversation's tone, context, and style. Within seconds, you'll receive multiple personalized response suggestions that maintain your authentic voice while enhancing your communication.
-              </p>
+          {/* Clear Section Divider */}
+          <div className="relative my-24">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center">
+              <div className="bg-white px-4 text-sm text-gray-500">Why SmoothRizz</div>
+            </div>
+          </div>
+
+          {/* Why Choose SmoothRizz Section - Updated with distinct styling */}
+          <section className="px-4 sm:px-0 mb-24">
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-gradient-to-br from-gray-50 via-white to-pink-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                {/* Header with updated styling */}
+                <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 sm:p-8 border-b border-gray-100">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white text-center">
+                    Why Choose SmoothRizz?
+                  </h2>
+                  <p className="mt-4 text-gray-300 text-sm sm:text-base text-center max-w-2xl mx-auto leading-relaxed">
+                    SmoothRizz uses advanced AI technology to help you create genuine, engaging conversations that lead to meaningful connections.
+                  </p>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 sm:p-8 space-y-6">
+                  {/* Key Features */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                      <span className="text-gray-400">✨</span> Key Features
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        {
+                          icon: "🎯",
+                          title: "Personalized Suggestions",
+                          desc: "Response suggestions based on conversation context"
+                        },
+                        {
+                          icon: "🧠",
+                          title: "Smart Analysis",
+                          desc: "Intelligent analysis of conversation tone and style"
+                        },
+                        {
+                          icon: "🔄",
+                          title: "Multiple Options",
+                          desc: "Various suggestions for every situation"
+                        },
+                        {
+                          icon: "🔒",
+                          title: "Privacy Focused",
+                          desc: "Secure design that protects your data"
+                        }
+                      ].map((feature, index) => (
+                        <div 
+                          key={index}
+                          className="p-4 rounded-xl bg-gray-50 hover:bg-pink-50 transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl">{feature.icon}</span>
+                            <div>
+                              <h4 className="font-medium text-gray-900">{feature.title}</h4>
+                              <p className="text-sm text-gray-600 mt-1">{feature.desc}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* How It Works */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                      <span className="text-gray-400">⚡️</span> How It Works
+                    </h3>
+                    <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                        <div className="w-16 h-16 flex-shrink-0 bg-white rounded-full flex items-center justify-center shadow-sm">
+                          <svg className="w-8 h-8 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-700 text-center sm:text-left">
+                          Simply share your conversation screenshot or type your context, and our AI will analyze the conversation's tone, context, and style. Within seconds, you'll receive multiple personalized response suggestions that maintain your authentic voice while enhancing your communication.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </main>
@@ -1498,6 +1570,13 @@ export default function Home() {
             </p>
           </div>
         </footer>
+
+        {/* Dynamic Footer */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-pink-100 p-4 z-40">
+          <div className="max-w-3xl mx-auto">
+            <DynamicFooterButton />
+          </div>
+        </div>
 
         {/* Google Sign-In Overlay */}
         {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
