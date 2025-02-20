@@ -1,11 +1,21 @@
+import Head from 'next/head'
+
 export default function Privacy() {
   return (
     <div className="min-h-screen bg-white">
+      <Head>
+        <title>Privacy Policy | SmoothRizz</title>
+        <meta
+          name="description"
+          content="Learn how SmoothRizz protects your data and privacy. Read our detailed privacy policy covering data collection, usage, and your rights."
+        />
+      </Head>
+
       {/* Navigation */}
       <nav className="flex justify-between items-center p-4 md:p-6 lg:p-8">
-        <h1 className="text-2xl md:text-3xl font-bold" style={{ color: '#FE3C72' }}>
+        <div className="text-2xl md:text-3xl font-bold" style={{ color: '#FE3C72' }}>
           SmoothRizz
-        </h1>
+        </div>
       </nav>
 
       {/* Main Content */}

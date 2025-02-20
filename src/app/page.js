@@ -1137,10 +1137,10 @@ export default function Home() {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
         {/* Updated SEO Meta Tags */}
-        <title>SmoothRizz - AI-Powered Dating Response Generator | Master Digital Charisma</title>
+        <title>SmoothRizz - AI Dating Response Generator | Get More Matches</title>
         <meta
           name="description"
-          content="Transform your dating game with SmoothRizz's AI-powered response generator. Get personalized, witty responses for dating apps and boost your success rate. Try it now!"
+          content="Generate witty, personalized dating app responses with SmoothRizz AI. Improve your match rate and stand out from the crowd with smart conversation starters."
         />
         <meta name="keywords" content="ai rizz, dating app responses, AI dating assistant, conversation starter, digital dating help, dating message generator, smooth talker ai" />
         <meta name="robots" content="index, follow" />
@@ -1252,9 +1252,9 @@ export default function Home() {
 
         {/* Header - Professional & Responsive */}
         <div className="flex justify-between items-center p-3 sm:p-4 bg-white/95 backdrop-blur-sm border-b border-pink-100">
-          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
+          <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
             SmoothRizz
-          </h1>
+          </div>
           <div className="scale-78 origin-right sm:scale-100">
             {!isSignedIn && <div ref={googleButtonRef} className="!min-w-[120px]"></div>}
             {isSignedIn && (
@@ -1271,9 +1271,9 @@ export default function Home() {
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6">
-              Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent ">Smooth</span> Talker
-            </h2>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6">
+              Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">Smooth</span> Talker
+            </h1>
             <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto">
               Get Smooth Inspiration For Witty Responses
             </p>
@@ -1464,14 +1464,28 @@ export default function Home() {
             </div>
           </section>
 
-         
-
-          {/* Premium Button - Fixed on mobile, normal on desktop */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-pink-100">
-            <div className="max-w-3xl mx-auto">
-              <DynamicFooterButton />
+          {/* Add this section before the footer */}
+          <section className="mt-16 px-4 sm:px-0">
+            <div className="max-w-4xl mx-auto prose prose-pink">
+              <h2 className="text-2xl font-bold mb-6">Why Choose SmoothRizz?</h2>
+              <p className="text-gray-700">
+                SmoothRizz uses advanced AI technology to help you create genuine, engaging conversations that lead to meaningful connections. Our platform understands the nuances of modern dating communication, helping you express yourself authentically while maintaining your unique voice.
+              </p>
+              
+              <h3 className="text-xl font-bold mt-8 mb-4">Key Features</h3>
+              <ul className="space-y-3">
+                <li>Personalized response suggestions based on conversation context</li>
+                <li>Smart analysis of conversation tone and style</li>
+                <li>Multiple options for every situation</li>
+                <li>Privacy-focused design that protects your data</li>
+              </ul>
+              
+              <h3 className="text-xl font-bold mt-8 mb-4">How It Works</h3>
+              <p className="text-gray-700">
+                Simply share your conversation screenshot or type your context, and our AI will analyze the conversation's tone, context, and style. Within seconds, you'll receive multiple personalized response suggestions that maintain your authentic voice while enhancing your communication.
+              </p>
             </div>
-          </div>
+          </section>
         </main>
 
         <footer className="text-center pb-8">
