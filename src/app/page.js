@@ -1418,7 +1418,7 @@ export default function Home() {
                   </h2>
                   <div className="grid sm:grid-cols-2 gap-8">
                     <Link 
-                      href="/blog/post1"
+                      href="/blog/how-to-rizz-techniques-that-actually-work"
                       className="group block overflow-hidden rounded-xl hover:shadow-lg transition-shadow bg-white"
                     >
                       <div className="relative w-full h-48">
@@ -1441,7 +1441,7 @@ export default function Home() {
                     </Link>
 
                     <Link 
-                      href="/blog/post2"
+                      href="/blog/best-rizz-lines-100-plus-examples-that-actually-work"
                       className="group block overflow-hidden rounded-xl hover:shadow-lg transition-shadow bg-white"
                     >
                       <div className="relative w-full h-48">
