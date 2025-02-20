@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 
 export default function RizzLinesPost() {
   const publishDate = '2025-02-20';
@@ -176,215 +177,240 @@ export default function RizzLinesPost() {
   );
 
   return (
-    <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-      {/* Advertisement Banner */}
-      <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white p-4 rounded-lg mb-10 shadow-md">
-        <div className="flex flex-col sm:flex-row items-center justify-between">
-          <div className="mb-4 sm:mb-0">
-            <h3 className="font-bold text-lg mb-1">Want Ideas to Boost Your Rizz Game?</h3>
-            <p className="text-white/90">Try out our new free tool!</p>
-          </div>
-          <Link 
-            href="/"
-            className="bg-white text-pink-500 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors"
-          >
-            Try now →
-          </Link>
-        </div>
-      </div>
-
-      {/* Hero Section */}
-      <header className="mb-10 sm:mb-16">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-900 leading-tight tracking-tight">
-          Best <span className="text-pink-500">Rizz</span> Lines: 100+ Examples That Actually Work
-        </h1>
-        <div className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8 font-medium">
-          <time dateTime={publishDate}>Published {new Date(publishDate).toLocaleDateString()}</time>
-          <span className="mx-2">•</span>
-          <span>15 min read</span>
-        </div>
-        <img 
-          src="/pics/percent100.png" 
-          alt="100 Percent Success Rate"
-          className="w-full rounded-lg shadow-md"
-        />
-      </header>
-
-      {/* Key Takeaways */}
-      <div className="bg-gray-50 p-5 sm:p-8 rounded-lg sm:rounded-xl mb-10 sm:mb-16 shadow-sm">
-        <h2 className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6">Key Takeaways</h2>
-        <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
-          <li className="flex items-center space-x-2">
-            <span className="text-pink-500">•</span>
-            <span>Master proven rizz techniques</span>
-          </li>
-          <li className="flex items-center space-x-2">
-            <span className="text-pink-500">•</span>
-            <span>Learn situational conversation starters</span>
-          </li>
-          <li className="flex items-center space-x-2">
-            <span className="text-pink-500">•</span>
-            <span>Build authentic connections</span>
-          </li>
-          <li className="flex items-center space-x-2">
-            <span className="text-pink-500">•</span>
-            <span>Develop your unique style</span>
-          </li>
-        </ul>
-      </div>
-
-      {/* Introduction */}
-      <section className="mb-10">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-800 leading-tight">Understanding Modern Rizz</h2>
-        <p className="text-base sm:text-lg text-gray-700 leading-relaxed mb-6">
-          In 2025, mastering smooth conversation means more than just reciting memorized lines—it's about authentic connection, playful wit, and knowing which words spark genuine interest. Whether you're at a coffee shop, library, or gym, these rizz lines are designed to elevate your conversation game.
-        </p>
-      </section>
-
-      {/* Section 1: Top Rizz Pick Up Lines (Lines 1-10) */}
-      {renderSection(
-        "Top Rizz Pick Up Lines",
-        "Kick off your smooth conversation journey with these irresistible top rizz lines that have been proven to grab attention and spark interest.",
-        topRizzLines
-      )}
-
-      {/* Section 2: Smooth Rizz Lines (Lines 11-20) */}
-      {renderSection(
-        "Smooth Rizz Lines",
-        "Elevate your charm with smooth, playful lines that blend humor and confidence—perfect for any modern conversation starter.",
-        smoothRizzLines
-      )}
-
-      {/* Section 3: Situational Rizz Examples */}
-      <section className="mb-10">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-800 leading-tight">Situational Rizz Examples</h2>
-        <p className="mb-6 text-gray-700">
-          Adapt your approach to every setting with these situational rizz examples. Whether you're grabbing coffee, browsing books, or hitting the gym, these lines are tailored to fit the moment.
-        </p>
-        {renderSection("Coffee Shop Rizz", "Capture the cozy vibe of your favorite café with these lines that blend warmth and spontaneity.", coffeeShopRizz)}
-        {renderSection("Library Rizz", "Turn quiet corners into lively conversations with these clever library-themed rizz lines.", libraryRizz)}
-        {renderSection("Gym Rizz", "Break a sweat and break the ice with these gym-inspired pickup lines that are as energetic as you are.", gymRizz)}
-      </section>
-
-      {/* Section 4: Advanced Rizz Techniques */}
-      <section className="bg-white rounded-lg sm:rounded-xl p-5 sm:p-8 shadow-md my-10">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-800 leading-tight">Advanced Rizz Techniques</h2>
-        <p className="mb-6 text-gray-700">
-          Ready to refine your art of conversation? Explore these advanced techniques that include playful words, effective compliments, and intriguing questions to help you connect on a deeper level.
-        </p>
-        {renderSubsection("Playful Rizz Words (Lines 36-40)", playfulRizzWords)}
-        {renderSubsection("Rizz Sentences That Work (Lines 41-45)", rizzSentences)}
-        {renderSubsection("Good Rizz Questions (Lines 46-50)", goodRizzQuestions)}
-      </section>
-
-      {/* Section 5: More Best Rizz Lines (Lines 51-60) */}
-      {renderSection(
-        "More Best Rizz Lines",
-        "Expand your arsenal with these additional rizz lines that blend clever wordplay with genuine charm.",
-        moreRizzLines
-      )}
-
-      {/* Section 6: Rizz Examples That Actually Work (Lines 61-70) */}
-      {renderSection(
-        "Rizz Examples That Actually Work",
-        "These proven rizz examples have been tried and tested to make a lasting impression—perfect for starting a memorable conversation.",
-        rizzExamplesWork
-      )}
-
-      {/* Section 7: What Is the Best Rizz Line? Here Are More Examples (Lines 71-80) */}
-      {renderSection(
-        "What Is the Best Rizz Line? Here Are More Examples",
-        "Discover more standout lines that not only impress but also invite further conversation, setting the stage for a genuine connection.",
-        bestRizzMore
-      )}
-
-      {/* Section 8: How to Make a Rizz Line Work (Lines 81-90) */}
-      {renderSection(
-        "How to Make a Rizz Line Work",
-        "It's not just what you say but how you say it. Use these lines to see how a little finesse can transform a simple greeting into an engaging dialogue.",
-        howToRizzWork
-      )}
-
-      {/* Section 9: Good Rizz Lines to Say to a Guy (Lines 91-100) */}
-      {renderSection(
-        "Good Rizz Lines to Say to a Guy",
-        "Tailor your approach even further with these lines crafted specifically for sparking interest and connection with men.",
-        rizzLinesForGuys
-      )}
-
-      {/* Common Mistakes to Avoid */}
-      <section className="bg-gray-50 p-5 sm:p-8 rounded-lg my-10">
-        <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-800">Common Mistakes to Avoid</h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white p-4 sm:p-6 rounded-lg">
-            <h3 className="text-base sm:text-lg font-semibold text-red-500 mb-3">❌ Don't:</h3>
-            <ul className="space-y-2 text-gray-700">
-              <li>Use generic lines without personalizing</li>
-              <li>Force conversations</li>
-              <li>Ignore social cues</li>
-              <li>Copy-paste without context</li>
-            </ul>
-          </div>
-          <div className="bg-white p-4 sm:p-6 rounded-lg">
-            <h3 className="text-base sm:text-lg font-semibold text-green-500 mb-3">✅ Do:</h3>
-            <ul className="space-y-2 text-gray-700">
-              <li>Stay authentic and genuine</li>
-              <li>Read the situation</li>
-              <li>Adapt lines to your style</li>
-              <li>Focus on making real connections</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="bg-white rounded-lg sm:rounded-xl p-5 sm:p-8 shadow-md my-10">
-        <h2 className="text-xl sm:text-2xl font-bold mb-6 text-gray-800">Frequently Asked Questions</h2>
-        <div className="space-y-6">
-          {[
-            {
-              q: "What is rizz?",
-              a: "Rizz refers to charisma and skill in conversation, particularly in dating contexts and digital communication."
-            },
-            {
-              q: "How do I develop better rizz?",
-              a: "Practice these techniques while staying true to your personality. Focus on being genuine and reading social cues."
-            },
-            {
-              q: "What makes a good rizz line?",
-              a: "The best rizz lines are authentic, situationally appropriate, and delivered with confidence while respecting boundaries."
-            },
-            {
-              q: "Can rizz be learned?",
-              a: "Yes! Like any social skill, rizz can be developed through practice, understanding, and experience."
-            }
-          ].map((faq, index) => (
-            <div key={index} className="border-b border-gray-100 pb-6">
-              <h3 className="text-lg font-semibold mb-3 text-gray-900">{faq.q}</h3>
-              <p className="text-base sm:text-lg text-gray-700 leading-relaxed">{faq.a}</p>
+    <>
+      {/* Google Tag Manager (noscript) */}
+      <noscript>
+        <iframe 
+          src="https://www.googletagmanager.com/ns.html?id=GTM-KMCKVJ4H"
+          height="0" 
+          width="0" 
+          style={{display: 'none', visibility: 'hidden'}}
+        ></iframe>
+      </noscript>
+      {/* End Google Tag Manager (noscript) */}
+      
+      <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        {/* Advertisement Banner */}
+        <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white p-4 rounded-lg mb-10 shadow-md">
+          <div className="flex flex-col sm:flex-row items-center justify-between">
+            <div className="mb-4 sm:mb-0">
+              <h3 className="font-bold text-lg mb-1">Want Ideas to Boost Your Rizz Game?</h3>
+              <p className="text-white/90">Try out our new free tool!</p>
             </div>
-          ))}
+            <Link 
+              href="/"
+              className="bg-white text-pink-500 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Try now →
+            </Link>
+          </div>
         </div>
-      </section>
 
-      {/* Call To Action */}
-      <aside className="bg-gradient-to-r from-pink-50 to-purple-50 p-5 sm:p-8 rounded-lg my-10">
-        <div className="max-w-2xl mx-auto text-center">
-          <h3 className="text-xl sm:text-3xl font-bold mb-4 text-gray-800">Ready to Level Up Your Rizz?</h3>
-          <p className="text-base sm:text-lg text-gray-700 mb-6 leading-relaxed">
-            Join thousands who are mastering the art of smooth conversation. Get personalized tips and real-time feedback to elevate your messaging game.
-          </p>
-          <Link 
-            href="/"
-            className="inline-block bg-pink-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-pink-600 transition-colors shadow-sm"
-          >
-            Get Started →
-          </Link>
+        {/* Hero Section */}
+        <header className="mb-10 sm:mb-16">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-900 leading-tight tracking-tight">
+            Best <span className="text-pink-500">Rizz</span> Lines: 100+ Examples That Actually Work
+          </h1>
+          <div className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8 font-medium">
+            <time dateTime={publishDate}>Published {new Date(publishDate).toLocaleDateString()}</time>
+            <span className="mx-2">•</span>
+            <span>15 min read</span>
+          </div>
+          <img 
+            src="/pics/percent100.png" 
+            alt="100 Percent Success Rate"
+            className="w-full rounded-lg shadow-md"
+          />
+        </header>
+
+        {/* Key Takeaways */}
+        <div className="bg-gray-50 p-5 sm:p-8 rounded-lg sm:rounded-xl mb-10 sm:mb-16 shadow-sm">
+          <h2 className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6">Key Takeaways</h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+            <li className="flex items-center space-x-2">
+              <span className="text-pink-500">•</span>
+              <span>Master proven rizz techniques</span>
+            </li>
+            <li className="flex items-center space-x-2">
+              <span className="text-pink-500">•</span>
+              <span>Learn situational conversation starters</span>
+            </li>
+            <li className="flex items-center space-x-2">
+              <span className="text-pink-500">•</span>
+              <span>Build authentic connections</span>
+            </li>
+            <li className="flex items-center space-x-2">
+              <span className="text-pink-500">•</span>
+              <span>Develop your unique style</span>
+            </li>
+          </ul>
         </div>
-      </aside>
-    </article>
+
+        {/* Introduction */}
+        <section className="mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-800 leading-tight">Understanding Modern Rizz</h2>
+          <p className="text-base sm:text-lg text-gray-700 leading-relaxed mb-6">
+            In 2025, mastering smooth conversation means more than just reciting memorized lines—it's about authentic connection, playful wit, and knowing which words spark genuine interest. Whether you're at a coffee shop, library, or gym, these rizz lines are designed to elevate your conversation game.
+          </p>
+        </section>
+
+        {/* Section 1: Top Rizz Pick Up Lines (Lines 1-10) */}
+        {renderSection(
+          "Top Rizz Pick Up Lines",
+          "Kick off your smooth conversation journey with these irresistible top rizz lines that have been proven to grab attention and spark interest.",
+          topRizzLines
+        )}
+
+        {/* Section 2: Smooth Rizz Lines (Lines 11-20) */}
+        {renderSection(
+          "Smooth Rizz Lines",
+          "Elevate your charm with smooth, playful lines that blend humor and confidence—perfect for any modern conversation starter.",
+          smoothRizzLines
+        )}
+
+        {/* Section 3: Situational Rizz Examples */}
+        <section className="mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-800 leading-tight">Situational Rizz Examples</h2>
+          <p className="mb-6 text-gray-700">
+            Adapt your approach to every setting with these situational rizz examples. Whether you're grabbing coffee, browsing books, or hitting the gym, these lines are tailored to fit the moment.
+          </p>
+          {renderSection("Coffee Shop Rizz", "Capture the cozy vibe of your favorite café with these lines that blend warmth and spontaneity.", coffeeShopRizz)}
+          {renderSection("Library Rizz", "Turn quiet corners into lively conversations with these clever library-themed rizz lines.", libraryRizz)}
+          {renderSection("Gym Rizz", "Break a sweat and break the ice with these gym-inspired pickup lines that are as energetic as you are.", gymRizz)}
+        </section>
+
+        {/* Section 4: Advanced Rizz Techniques */}
+        <section className="bg-white rounded-lg sm:rounded-xl p-5 sm:p-8 shadow-md my-10">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-800 leading-tight">Advanced Rizz Techniques</h2>
+          <p className="mb-6 text-gray-700">
+            Ready to refine your art of conversation? Explore these advanced techniques that include playful words, effective compliments, and intriguing questions to help you connect on a deeper level.
+          </p>
+          {renderSubsection("Playful Rizz Words (Lines 36-40)", playfulRizzWords)}
+          {renderSubsection("Rizz Sentences That Work (Lines 41-45)", rizzSentences)}
+          {renderSubsection("Good Rizz Questions (Lines 46-50)", goodRizzQuestions)}
+        </section>
+
+        {/* Section 5: More Best Rizz Lines (Lines 51-60) */}
+        {renderSection(
+          "More Best Rizz Lines",
+          "Expand your arsenal with these additional rizz lines that blend clever wordplay with genuine charm.",
+          moreRizzLines
+        )}
+
+        {/* Section 6: Rizz Examples That Actually Work (Lines 61-70) */}
+        {renderSection(
+          "Rizz Examples That Actually Work",
+          "These proven rizz examples have been tried and tested to make a lasting impression—perfect for starting a memorable conversation.",
+          rizzExamplesWork
+        )}
+
+        {/* Section 7: What Is the Best Rizz Line? Here Are More Examples (Lines 71-80) */}
+        {renderSection(
+          "What Is the Best Rizz Line? Here Are More Examples",
+          "Discover more standout lines that not only impress but also invite further conversation, setting the stage for a genuine connection.",
+          bestRizzMore
+        )}
+
+        {/* Section 8: How to Make a Rizz Line Work (Lines 81-90) */}
+        {renderSection(
+          "How to Make a Rizz Line Work",
+          "It's not just what you say but how you say it. Use these lines to see how a little finesse can transform a simple greeting into an engaging dialogue.",
+          howToRizzWork
+        )}
+
+        {/* Section 9: Good Rizz Lines to Say to a Guy (Lines 91-100) */}
+        {renderSection(
+          "Good Rizz Lines to Say to a Guy",
+          "Tailor your approach even further with these lines crafted specifically for sparking interest and connection with men.",
+          rizzLinesForGuys
+        )}
+
+        {/* Common Mistakes to Avoid */}
+        <section className="bg-gray-50 p-5 sm:p-8 rounded-lg my-10">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-800">Common Mistakes to Avoid</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white p-4 sm:p-6 rounded-lg">
+              <h3 className="text-base sm:text-lg font-semibold text-red-500 mb-3">❌ Don't:</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>Use generic lines without personalizing</li>
+                <li>Force conversations</li>
+                <li>Ignore social cues</li>
+                <li>Copy-paste without context</li>
+              </ul>
+            </div>
+            <div className="bg-white p-4 sm:p-6 rounded-lg">
+              <h3 className="text-base sm:text-lg font-semibold text-green-500 mb-3">✅ Do:</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>Stay authentic and genuine</li>
+                <li>Read the situation</li>
+                <li>Adapt lines to your style</li>
+                <li>Focus on making real connections</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section className="bg-white rounded-lg sm:rounded-xl p-5 sm:p-8 shadow-md my-10">
+          <h2 className="text-xl sm:text-2xl font-bold mb-6 text-gray-800">Frequently Asked Questions</h2>
+          <div className="space-y-6">
+            {[
+              {
+                q: "What is rizz?",
+                a: "Rizz refers to charisma and skill in conversation, particularly in dating contexts and digital communication."
+              },
+              {
+                q: "How do I develop better rizz?",
+                a: "Practice these techniques while staying true to your personality. Focus on being genuine and reading social cues."
+              },
+              {
+                q: "What makes a good rizz line?",
+                a: "The best rizz lines are authentic, situationally appropriate, and delivered with confidence while respecting boundaries."
+              },
+              {
+                q: "Can rizz be learned?",
+                a: "Yes! Like any social skill, rizz can be developed through practice, understanding, and experience."
+              }
+            ].map((faq, index) => (
+              <div key={index} className="border-b border-gray-100 pb-6">
+                <h3 className="text-lg font-semibold mb-3 text-gray-900">{faq.q}</h3>
+                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">{faq.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Call To Action */}
+        <aside className="bg-gradient-to-r from-pink-50 to-purple-50 p-5 sm:p-8 rounded-lg my-10">
+          <div className="max-w-2xl mx-auto text-center">
+            <h3 className="text-xl sm:text-3xl font-bold mb-4 text-gray-800">Ready to Level Up Your Rizz?</h3>
+            <p className="text-base sm:text-lg text-gray-700 mb-6 leading-relaxed">
+              Join thousands who are mastering the art of smooth conversation. Get personalized tips and real-time feedback to elevate your messaging game.
+            </p>
+            <Link 
+              href="/"
+              className="inline-block bg-pink-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-pink-600 transition-colors shadow-sm"
+            >
+              Get Started →
+            </Link>
+          </div>
+        </aside>
+      </article>
+    </>
   );
 }
+
+export const GTMScript = () => (
+  <Script id="google-tag-manager" strategy="afterInteractive">
+    {`
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','GTM-KMCKVJ4H');
+    `}
+  </Script>
+);
 
 export const metadata = {
   title: 'Best Rizz Lines: 100+ Examples That Actually Work',
