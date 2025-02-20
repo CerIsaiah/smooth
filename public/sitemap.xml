@@ -19,9 +19,15 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://smoothrizz.com/blog/post2</loc>
+    <lastmod>2025-02-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://smoothrizz.com/saved</loc>
     <lastmod>2025-02-15</lastmod>
-    <changefreq>weekly</changefreq>
+    <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
 </urlset>
