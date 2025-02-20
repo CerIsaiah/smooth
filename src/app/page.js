@@ -1144,7 +1144,10 @@ export default function Home() {
         />
         <meta name="keywords" content="ai rizz, dating app responses, AI dating assistant, conversation starter, digital dating help, dating message generator, smooth talker ai" />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://www.smoothrizz.com" />
+        <link 
+          rel="canonical" 
+          href={`https://smoothrizz.com${router.asPath}`} 
+        />
 
         <meta property="og:title" content="SmoothRizz - AI-Powered Dating Response Generator | Master Digital Charisma" />
         <meta
