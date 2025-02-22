@@ -631,7 +631,7 @@ export default function Home() {
     }
   }, [isSignedIn, user]);
 
-  // Handle Stripe checkout (updated)
+  // Update handleCheckout to include userId
   const handleCheckout = async () => {
     try {
       if (!isSignedIn || !user?.email) {
@@ -639,7 +639,7 @@ export default function Home() {
         return;
       }
 
-      console.log('Starting checkout for email:', user.email); // Debug log
+      console.log('Starting checkout for user:', user); // Debug log
 
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
@@ -647,7 +647,8 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: user.email
+          email: user.email,
+          userId: user.id  // Add user ID to the request
         }),
       });
 

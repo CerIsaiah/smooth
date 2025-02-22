@@ -52,9 +52,10 @@ export async function POST(request) {
       throw fetchError;
     }
 
-    // Return user data
+    // Return user data with ID
     return NextResponse.json({
       user: {
+        id: user.id,
         email: user.email,
         name: user.name,
         avatar_url: user.picture,

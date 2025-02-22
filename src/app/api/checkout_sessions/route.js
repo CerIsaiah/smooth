@@ -5,10 +5,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    const { email } = await req.json();
+    const { email, userId } = await req.json();
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    if (!email || !userId) {
+      return NextResponse.json({ error: 'Email and userId are required' }, { status: 400 });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -32,6 +32,7 @@ export async function POST(req) {
       metadata: {
         type: 'premium_subscription',
         user_email: email,
+        user_id: userId,
         subscription_type: 'premium'
       }
     });
