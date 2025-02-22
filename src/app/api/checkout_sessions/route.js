@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { supabase } from '@/utils/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// Create a Supabase client with the service role key
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function POST(req) {
   try {
@@ -31,26 +43,30 @@ export async function POST(req) {
       );
     }
 
-    // Query the user from your database
+    // Query the user from your database using service role
     const { data: user, error: dbError } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .single();
     
-    // If user doesn't exist, this indicates an authentication issue
-    if (dbError || !user) {
-      console.error('User not found:', { userId, error: dbError });
+    if (dbError) {
+      console.error('Database error:', dbError);
       return NextResponse.json(
-        { 
-          error: 'Authentication error. Please try signing out and signing in again.',
-          details: 'User not found'
-        }, 
-        { status: 401 }
+        { error: 'Error fetching user data' },
+        { status: 500 }
       );
     }
 
-    console.log('Found user:', { userId: user.id });
+    if (!user) {
+      console.error('User truly not found:', userId);
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log('Found user:', { userId: user.id, email: user.email });
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
