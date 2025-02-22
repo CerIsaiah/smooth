@@ -1546,50 +1546,70 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          {/* Add this new Premium Section before the footer */}
+          <section className="px-4 sm:px-0 mb-24">
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 rounded-xl shadow-lg border border-pink-100 overflow-hidden text-center p-8">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+                  Upgrade to Premium
+                </h2>
+                <p className="text-gray-600 mb-6 max-w-lg mx-auto">
+                  Get unlimited responses, priority support, and exclusive features
+                </p>
+                <button
+                  onClick={handleCheckout}
+                  className="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium shadow-lg hover:shadow-xl transition-shadow transform hover:scale-[1.02]"
+                >
+                  Upgrade Now - $1.00 (Test Mode)
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <footer className="text-center pb-8">
+            <div className="max-w-4xl mx-auto px-4">
+              <a href="/privacy-policy" className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base">
+                Privacy Policy
+              </a>
+              <p className="text-gray-500 text-sm">
+                © 2025 Smooth Rizz. All rights reserved.
+              </p>
+            </div>
+          </footer>
+
+          {/* Dynamic Footer */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-pink-100 p-4 z-40">
+            <div className="max-w-3xl mx-auto">
+              <DynamicFooterButton />
+            </div>
+          </div>
+
+          {/* Google Sign-In Overlay */}
+          {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
+            <GoogleSignInOverlay googleLoaded={googleLoaded} />
+          )}
+
+          {/* Add the popup */}
+          {showRegeneratePopup && <RegeneratePopup />}
+
+          {/* Response Overlay */}
+          {showResponseOverlay && responses.length > 0 && (
+            <ResponseOverlay
+              responses={responses}
+              onClose={() => setShowResponseOverlay(false)}
+              childRefs={childRefs}
+              currentIndex={currentIndex}
+              swiped={swiped}
+              outOfFrame={outOfFrame}
+              onGenerateMore={generateMoreResponses}
+              isGenerating={isGenerating}
+              isSignedIn={isSignedIn}
+              router={router}
+              setUsageCount={setUsageCount}
+            />
+          )}
         </main>
-
-        <footer className="text-center pb-8">
-          <div className="max-w-4xl mx-auto px-4">
-            <a href="/privacy-policy" className="px-4 py-2 rounded-full text-gray-600 hover:text-gray-900 transition text-sm md:text-base">
-              Privacy Policy
-            </a>
-            <p className="text-gray-500 text-sm">
-              © 2025 Smooth Rizz. All rights reserved.
-            </p>
-          </div>
-        </footer>
-
-        {/* Dynamic Footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-pink-100 p-4 z-40">
-          <div className="max-w-3xl mx-auto">
-            <DynamicFooterButton />
-          </div>
-        </div>
-
-        {/* Google Sign-In Overlay */}
-        {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
-          <GoogleSignInOverlay googleLoaded={googleLoaded} />
-        )}
-
-        {/* Add the popup */}
-        {showRegeneratePopup && <RegeneratePopup />}
-
-        {/* Response Overlay */}
-        {showResponseOverlay && responses.length > 0 && (
-          <ResponseOverlay
-            responses={responses}
-            onClose={() => setShowResponseOverlay(false)}
-            childRefs={childRefs}
-            currentIndex={currentIndex}
-            swiped={swiped}
-            outOfFrame={outOfFrame}
-            onGenerateMore={generateMoreResponses}
-            isGenerating={isGenerating}
-            isSignedIn={isSignedIn}
-            router={router}
-            setUsageCount={setUsageCount}
-          />
-        )}
       </div>
     </>
   );
