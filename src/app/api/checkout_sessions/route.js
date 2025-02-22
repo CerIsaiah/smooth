@@ -8,8 +8,11 @@ export async function POST(req) {
     const { email, userId } = await req.json();
 
     if (!email || !userId) {
+      console.error('Missing required fields:', { email, userId });
       return NextResponse.json({ error: 'Email and userId are required' }, { status: 400 });
     }
+
+    console.log('Creating checkout session for:', { email, userId }); // Debug log
 
     const session = await stripe.checkout.sessions.create({
       line_items: [
@@ -36,6 +39,8 @@ export async function POST(req) {
         subscription_type: 'premium'
       }
     });
+
+    console.log('Checkout session created:', session.id); // Debug log
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

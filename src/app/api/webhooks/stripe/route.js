@@ -23,24 +23,24 @@ export async function POST(req) {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const customerEmail = session.customer_details.email;
+      const userId = session.metadata.user_id;
       
       console.log('Processing checkout session:', session.id);
-      console.log('Customer email:', customerEmail);
+      console.log('User ID:', userId);
 
-      // First check if user exists
+      // First check if user exists by ID
       const { data: existingUser, error: checkError } = await supabase
         .from('users')
         .select()
-        .eq('email', customerEmail)
+        .eq('id', userId)
         .single();
 
       if (checkError || !existingUser) {
-        console.error('User not found:', customerEmail);
+        console.error('User not found with ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      // Update user's subscription details
+      // Update user's subscription details using ID
       const { data: user, error: userError } = await supabase
         .from('users')
         .update({
@@ -48,7 +48,7 @@ export async function POST(req) {
           subscription_status: 'active',
           subscription_updated_at: new Date().toISOString()
         })
-        .eq('email', customerEmail)
+        .eq('id', userId)
         .select();
 
       if (userError) {
@@ -57,7 +57,7 @@ export async function POST(req) {
       }
 
       // Log successful update
-      console.log('Successfully updated subscription for:', customerEmail);
+      console.log('Successfully updated subscription for user ID:', userId);
     }
 
     return NextResponse.json({ received: true });
