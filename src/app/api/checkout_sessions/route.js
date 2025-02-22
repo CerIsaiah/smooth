@@ -6,11 +6,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    if (!stripe) {
-      throw new Error('Stripe is not properly initialized');
+    // Check if Stripe is properly configured
+    if (!process.env.STRIPE_SECRET_KEY || !stripe) {
+      console.error('Stripe configuration error:', { 
+        hasKey: !!process.env.STRIPE_SECRET_KEY,
+        hasStripe: !!stripe 
+      });
+      return NextResponse.json(
+        { error: 'Stripe is not properly configured' },
+        { status: 500 }
+      );
     }
 
-    const userEmail = req.headers.get('X-User-Email');
+    // Parse the request body for the user email
+    const body = await req.json();
+    const userEmail = body.email || req.headers.get('X-User-Email');
+    
     console.log('Processing checkout for email:', userEmail);
     
     if (!userEmail) {

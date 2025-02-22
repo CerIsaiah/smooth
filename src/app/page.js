@@ -636,7 +636,6 @@ export default function Home() {
     try {
       // Ensure user is signed in first
       if (!isSignedIn || !user) {
-        // Set usage count to trigger sign-in overlay
         setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
         return;
       }
@@ -648,8 +647,8 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Email': user.email
-        }
+        },
+        body: JSON.stringify({ email: user.email })
       });
 
       const data = await response.json();
