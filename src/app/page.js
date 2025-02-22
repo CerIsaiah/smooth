@@ -631,7 +631,7 @@ export default function Home() {
     }
   }, [isSignedIn, user]);
 
-  // Update handleCheckout to include userId
+  // Update the handleCheckout function
   const handleCheckout = async () => {
     try {
       if (!isSignedIn || !user) {
@@ -639,14 +639,25 @@ export default function Home() {
         return;
       }
 
-      // Get the session token
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get the current session from Supabase
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
+      if (sessionError || !session) {
+        // If no valid session, try to refresh it
+        const { data: { session: refreshedSession }, error: refreshError } = 
+          await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshedSession) {
+          throw new Error('Unable to authenticate. Please sign in again.');
+        }
+      }
+
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          // Send the user's email instead of trying to send the JWT
+          'X-User-Email': user.email
         }
       });
 

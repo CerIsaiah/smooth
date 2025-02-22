@@ -6,22 +6,28 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
+    // Get user email from header instead of token
+    const userEmail = req.headers.get('X-User-Email');
     
-    if (!token) {
-      return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
+    if (!userEmail) {
+      return NextResponse.json({ error: 'No user email provided' }, { status: 401 });
     }
 
-    // Get the authenticated user from Supabase auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Query the user from your database using the email
+    const { data: user, error: dbError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', userEmail)
+      .single();
     
-    if (authError || !user) {
-      console.error('Authentication error:', authError);
-      return NextResponse.json({ error: 'User must be authenticated' }, { status: 401 });
+    if (dbError || !user) {
+      console.error('Database error:', dbError);
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     console.log('Creating checkout session for:', { email: user.email, userId: user.id });
 
+    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
@@ -50,6 +56,21 @@ export async function POST(req) {
 
     console.log('Checkout session created:', session.id);
 
+    // Optional: Record the checkout session in your database
+    const { error: insertError } = await supabase
+      .from('checkout_sessions')
+      .insert({
+        session_id: session.id,
+        user_id: user.id,
+        status: 'created',
+        amount: 100
+      });
+
+    if (insertError) {
+      console.error('Error recording checkout session:', insertError);
+      // Continue anyway as this is not critical
+    }
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
@@ -58,4 +79,16 @@ export async function POST(req) {
       { status: 500 }
     );
   }
+}
+
+// Add OPTIONS handler for CORS if needed
+export async function OPTIONS(req) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-User-Email',
+    },
+  });
 } 

@@ -46,7 +46,7 @@ export async function POST(req) {
         .update({
           subscription_type: 'premium',
           subscription_status: 'active',
-           tsubscription_updated_at: new Date().toISOString()
+          subscription_updated_at: new Date().toISOString()
         })
         .eq('id', userId)
         .select();
