@@ -634,29 +634,21 @@ export default function Home() {
   // Update the handleCheckout function
   const handleCheckout = async () => {
     try {
+      console.log('Starting checkout process...');
+      
       if (!isSignedIn || !user) {
+        console.log('User not signed in');
         alert('Please sign in to upgrade to premium');
         return;
       }
 
-      // Get the current session from Supabase
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        // If no valid session, try to refresh it
-        const { data: { session: refreshedSession }, error: refreshError } = 
-          await supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshedSession) {
-          throw new Error('Unable to authenticate. Please sign in again.');
-        }
-      }
+      console.log('User authenticated:', user.email);
 
+      // Create checkout session
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Send the user's email instead of trying to send the JWT
           'X-User-Email': user.email
         }
       });
@@ -667,6 +659,7 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log('Checkout session created, redirecting...');
       
       if (data.url) {
         window.location.href = data.url;

@@ -6,14 +6,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    // Get user email from header instead of token
+    if (!stripe) {
+      throw new Error('Stripe is not properly initialized');
+    }
+
     const userEmail = req.headers.get('X-User-Email');
+    console.log('Processing checkout for email:', userEmail);
     
     if (!userEmail) {
       return NextResponse.json({ error: 'No user email provided' }, { status: 401 });
     }
 
-    // Query the user from your database using the email
+    // Query the user from your database
     const { data: user, error: dbError } = await supabase
       .from('users')
       .select('id, email')
@@ -25,7 +29,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    console.log('Creating checkout session for:', { email: user.email, userId: user.id });
+    console.log('Found user:', { userId: user.id });
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -37,7 +41,7 @@ export async function POST(req) {
               name: 'SmoothRizz Premium',
               description: 'Unlimited access to all premium features',
             },
-            unit_amount: 100, // $1.00
+            unit_amount: 100,
           },
           quantity: 1,
         },
@@ -47,35 +51,23 @@ export async function POST(req) {
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
       customer_email: user.email,
       metadata: {
-        type: 'premium_subscription',
-        user_email: user.email,
         user_id: user.id,
-        subscription_type: 'premium'
+        user_email: user.email
       }
     });
 
     console.log('Checkout session created:', session.id);
-
-    // Optional: Record the checkout session in your database
-    const { error: insertError } = await supabase
-      .from('checkout_sessions')
-      .insert({
-        session_id: session.id,
-        user_id: user.id,
-        status: 'created',
-        amount: 100
-      });
-
-    if (insertError) {
-      console.error('Error recording checkout session:', insertError);
-      // Continue anyway as this is not critical
-    }
-
     return NextResponse.json({ url: session.url });
+    
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Detailed error in checkout session:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.type
+    });
+    
     return NextResponse.json(
-      { error: 'Error creating checkout session' },
+      { error: 'Error creating checkout session: ' + error.message },
       { status: 500 }
     );
   }
