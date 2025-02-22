@@ -639,10 +639,14 @@ export default function Home() {
         return;
       }
 
+      // Get the session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
         }
       });
 

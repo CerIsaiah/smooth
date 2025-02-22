@@ -6,15 +6,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    // Get the authenticated user from Supabase auth
-    const { data: { session: authSession }, error: authError } = await supabase.auth.getSession();
+    const token = req.headers.get('Authorization')?.split('Bearer ')[1];
     
-    if (authError || !authSession?.user) {
+    if (!token) {
+      return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
+    }
+
+    // Get the authenticated user from Supabase auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
       console.error('Authentication error:', authError);
       return NextResponse.json({ error: 'User must be authenticated' }, { status: 401 });
     }
 
-    const user = authSession.user;
     console.log('Creating checkout session for:', { email: user.email, userId: user.id });
 
     const session = await stripe.checkout.sessions.create({
