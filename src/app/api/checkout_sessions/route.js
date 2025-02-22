@@ -31,26 +31,26 @@ export async function POST(req) {
       );
     }
 
-    // Query the user profile from your database
-    const { data: profile, error: dbError } = await supabase
-      .from('profiles')
+    // Query the user from your database
+    const { data: user, error: dbError } = await supabase
+      .from('users')
       .select('*')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .single();
     
-    // If profile doesn't exist, this indicates an authentication issue
-    if (dbError || !profile) {
-      console.error('User profile not found:', { userId, error: dbError });
+    // If user doesn't exist, this indicates an authentication issue
+    if (dbError || !user) {
+      console.error('User not found:', { userId, error: dbError });
       return NextResponse.json(
         { 
           error: 'Authentication error. Please try signing out and signing in again.',
-          details: 'User profile not found'
+          details: 'User not found'
         }, 
         { status: 401 }
       );
     }
 
-    console.log('Found user profile:', { userId: profile.user_id });
+    console.log('Found user:', { userId: user.id });
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -70,10 +70,9 @@ export async function POST(req) {
       mode: 'payment',
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
-      customer_email: profile.email,
+      customer_email: user.email,
       metadata: {
-        user_id: userId,
-        profile_id: profile.id
+        user_id: userId
       }
     });
 

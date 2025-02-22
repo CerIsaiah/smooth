@@ -29,15 +29,14 @@ export async function POST(req) {
         userId: userId
       });
 
-      // Update user's profile subscription status
+      // Update user's subscription status
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from('users')
         .update({
-          subscription_type: 'premium',
           subscription_status: 'active',
           subscription_updated_at: new Date().toISOString()
         })
-        .eq('user_id', userId);
+        .eq('id', userId);
 
       if (updateError) {
         console.error('Error updating subscription:', updateError);
