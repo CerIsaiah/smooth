@@ -634,10 +634,7 @@ export default function Home() {
   // Update handleCheckout to include userId
   const handleCheckout = async () => {
     try {
-      // Check if user is signed in first
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
-      
-      if (authError || !session?.user) {
+      if (!isSignedIn || !user) {
         alert('Please sign in to upgrade to premium');
         return;
       }
