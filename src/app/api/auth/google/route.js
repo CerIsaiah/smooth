@@ -22,6 +22,8 @@ export async function POST(request) {
     const payload = ticket.getPayload();
     const { email, name, picture } = payload;
 
+    console.log('Google auth payload:', { email, name });
+
     // Check if user exists in Supabase
     let { data: user, error: fetchError } = await supabase
       .from('users')
@@ -29,27 +31,36 @@ export async function POST(request) {
       .eq('email', email)
       .single();
 
-    if (fetchError && fetchError.code === 'PGRST116') {
-      // User doesn't exist, create new user
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert([
-          {
-            email,
-            name,
-            picture: picture,
-            saved_responses: [],
-            daily_usage: 0,
-            total_usage: 0,
-          },
-        ])
-        .select()
-        .single();
+    if (fetchError) {
+      console.log('Error fetching user:', fetchError);
+      
+      if (fetchError.code === 'PGRST116') {
+        // User doesn't exist, create new user
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert([
+            {
+              email,
+              name,
+              picture,
+              saved_responses: [],
+              daily_usage: 0,
+              total_usage: 0,
+            },
+          ])
+          .select()
+          .single();
 
-      if (insertError) throw insertError;
-      user = newUser;
-    } else if (fetchError) {
-      throw fetchError;
+        if (insertError) {
+          console.error('Error creating new user:', insertError);
+          throw insertError;
+        }
+        
+        console.log('Created new user:', newUser);
+        user = newUser;
+      } else {
+        throw fetchError;
+      }
     }
 
     // Return user data with ID
@@ -65,7 +76,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Google auth error:', error);
     return NextResponse.json(
-      { error: 'Authentication failed' },
+      { error: 'Authentication failed: ' + error.message },
       { status: 401 }
     );
   }

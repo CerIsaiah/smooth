@@ -25,7 +25,10 @@ export async function POST(req) {
     console.log('Processing checkout for email:', userEmail);
     
     if (!userEmail) {
-      return NextResponse.json({ error: 'No user email provided' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Please sign in to continue with checkout' }, 
+        { status: 401 }
+      );
     }
 
     // Query the user from your database
@@ -35,9 +38,16 @@ export async function POST(req) {
       .eq('email', userEmail)
       .single();
     
+    // If user doesn't exist, this indicates an authentication issue
     if (dbError || !user) {
-      console.error('Database error:', dbError);
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+      console.error('User not found in database:', { email: userEmail, error: dbError });
+      return NextResponse.json(
+        { 
+          error: 'Authentication error. Please try signing out and signing in again.',
+          details: 'User not found in database'
+        }, 
+        { status: 401 }
+      );
     }
 
     console.log('Found user:', { userId: user.id });
@@ -78,7 +88,7 @@ export async function POST(req) {
     });
     
     return NextResponse.json(
-      { error: 'Error creating checkout session: ' + error.message },
+      { error: 'Error creating checkout session. Please try again.' },
       { status: 500 }
     );
   }
