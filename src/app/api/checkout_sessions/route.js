@@ -41,7 +41,7 @@ export async function POST(req) {
               name: 'SmoothRizz Premium',
               description: 'Unlimited access to all premium features',
             },
-            unit_amount: 100,
+            unit_amount: 100, // $1.00 in cents
           },
           quantity: 1,
         },

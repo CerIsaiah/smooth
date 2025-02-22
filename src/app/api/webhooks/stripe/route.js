@@ -17,7 +17,6 @@ export async function POST(req) {
       console.log('Webhook event type:', event.type);
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message);
-      console.error('Received signature:', sig);
       return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
     }
 
@@ -25,39 +24,28 @@ export async function POST(req) {
       const session = event.data.object;
       const userId = session.metadata.user_id;
       
-      console.log('Processing checkout session:', session.id);
-      console.log('User ID:', userId);
+      console.log('Processing successful checkout:', {
+        sessionId: session.id,
+        userId: userId,
+        customerEmail: session.metadata.user_email
+      });
 
-      // First check if user exists by ID
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select()
-        .eq('id', userId)
-        .single();
-
-      if (checkError || !existingUser) {
-        console.error('User not found with ID:', userId);
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-
-      // Update user's subscription details using ID
-      const { data: user, error: userError } = await supabase
+      // Update user's subscription status
+      const { error: updateError } = await supabase
         .from('users')
         .update({
           subscription_type: 'premium',
           subscription_status: 'active',
           subscription_updated_at: new Date().toISOString()
         })
-        .eq('id', userId)
-        .select();
+        .eq('id', userId);
 
-      if (userError) {
-        console.error('Error updating user subscription:', userError);
-        return NextResponse.json({ error: 'Error updating subscription' }, { status: 500 });
+      if (updateError) {
+        console.error('Error updating subscription:', updateError);
+        return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
       }
 
-      // Log successful update
-      console.log('Successfully updated subscription for user ID:', userId);
+      console.log('Successfully updated subscription for user:', userId);
     }
 
     return NextResponse.json({ received: true });

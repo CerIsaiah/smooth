@@ -634,15 +634,14 @@ export default function Home() {
   // Update the handleCheckout function
   const handleCheckout = async () => {
     try {
-      console.log('Starting checkout process...');
-      
+      // Ensure user is signed in first
       if (!isSignedIn || !user) {
-        console.log('User not signed in');
-        alert('Please sign in to upgrade to premium');
+        // Set usage count to trigger sign-in overlay
+        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
         return;
       }
 
-      console.log('User authenticated:', user.email);
+      console.log('Starting checkout process for user:', user.email);
 
       // Create checkout session
       const response = await fetch('/api/checkout_sessions', {
@@ -653,22 +652,19 @@ export default function Home() {
         }
       });
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
+        throw new Error(data.error || 'Failed to create checkout session');
       }
 
-      const data = await response.json();
-      console.log('Checkout session created, redirecting...');
-      
+      // Redirect to Stripe checkout
       if (data.url) {
         window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL received');
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Error creating checkout session. Please try again.');
+      alert('Error starting checkout. Please try again.');
     }
   };
 
