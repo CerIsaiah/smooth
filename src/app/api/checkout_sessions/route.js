@@ -18,39 +18,39 @@ export async function POST(req) {
       );
     }
 
-    // Parse the request body for the user email
+    // Parse the request body for the user ID
     const body = await req.json();
-    const userEmail = body.email || req.headers.get('X-User-Email');
+    const userId = body.userId;
     
-    console.log('Processing checkout for email:', userEmail);
+    console.log('Processing checkout for user ID:', userId);
     
-    if (!userEmail) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Please sign in to continue with checkout' }, 
         { status: 401 }
       );
     }
 
-    // Query the user from your database
-    const { data: user, error: dbError } = await supabase
-      .from('users')
-      .select('id, email')
-      .eq('email', userEmail)
+    // Query the user profile from your database
+    const { data: profile, error: dbError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
       .single();
     
-    // If user doesn't exist, this indicates an authentication issue
-    if (dbError || !user) {
-      console.error('User not found in database:', { email: userEmail, error: dbError });
+    // If profile doesn't exist, this indicates an authentication issue
+    if (dbError || !profile) {
+      console.error('User profile not found:', { userId, error: dbError });
       return NextResponse.json(
         { 
           error: 'Authentication error. Please try signing out and signing in again.',
-          details: 'User not found in database'
+          details: 'User profile not found'
         }, 
         { status: 401 }
       );
     }
 
-    console.log('Found user:', { userId: user.id });
+    console.log('Found user profile:', { userId: profile.user_id });
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -70,10 +70,10 @@ export async function POST(req) {
       mode: 'payment',
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
-      customer_email: user.email,
+      customer_email: profile.email,
       metadata: {
-        user_id: user.id,
-        user_email: user.email
+        user_id: userId,
+        profile_id: profile.id
       }
     });
 

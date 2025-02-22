@@ -640,7 +640,7 @@ export default function Home() {
         return;
       }
 
-      console.log('Starting checkout process for user:', user.email);
+      console.log('Starting checkout process for user:', user.id);
 
       // Create checkout session
       const response = await fetch('/api/checkout_sessions', {
@@ -648,7 +648,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: user.email })
+        body: JSON.stringify({ userId: user.id })
       });
 
       const data = await response.json();

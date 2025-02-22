@@ -26,19 +26,18 @@ export async function POST(req) {
       
       console.log('Processing successful checkout:', {
         sessionId: session.id,
-        userId: userId,
-        customerEmail: session.metadata.user_email
+        userId: userId
       });
 
-      // Update user's subscription status
+      // Update user's profile subscription status
       const { error: updateError } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           subscription_type: 'premium',
           subscription_status: 'active',
           subscription_updated_at: new Date().toISOString()
         })
-        .eq('id', userId);
+        .eq('user_id', userId);
 
       if (updateError) {
         console.error('Error updating subscription:', updateError);
