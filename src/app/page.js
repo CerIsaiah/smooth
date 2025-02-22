@@ -13,7 +13,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 // Make sure to call `loadStripe` outside of a component's render
-const stripePromise = loadStripe(process.env.STRIPE_PUBLISHABLE_KEY);
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 // Overlay component for Google Sign-In (unchanged)
 function GoogleSignInOverlay({ googleLoaded }) {
