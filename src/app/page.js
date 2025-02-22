@@ -631,27 +631,41 @@ export default function Home() {
     }
   }, [isSignedIn, user]);
 
-  // Handle Stripe checkout (unchanged)
+  // Handle Stripe checkout (updated)
   const handleCheckout = async () => {
     try {
+      if (!isSignedIn || !user?.email) {
+        alert('Please sign in to upgrade to premium');
+        return;
+      }
+
+      console.log('Starting checkout for email:', user.email); // Debug log
+
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: user.email
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
 
       const data = await response.json();
       
-      if (data.error) {
-        alert('Error creating checkout session');
-        return;
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
       }
-
-      window.location.href = data.url;
     } catch (error) {
-      console.error('Error:', error);
-      alert('Something went wrong with the checkout process.');
+      console.error('Checkout error:', error);
+      alert('Error creating checkout session. Please try again.');
     }
   };
 
