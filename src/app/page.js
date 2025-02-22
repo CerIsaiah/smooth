@@ -634,22 +634,19 @@ export default function Home() {
   // Update handleCheckout to include userId
   const handleCheckout = async () => {
     try {
-      if (!isSignedIn || !user?.email) {
+      // Check if user is signed in first
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      
+      if (authError || !session?.user) {
         alert('Please sign in to upgrade to premium');
         return;
       }
-
-      console.log('Starting checkout for user:', user); // Debug log
 
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: user.email,
-          userId: user.id  // Add user ID to the request
-        }),
+        }
       });
 
       if (!response.ok) {

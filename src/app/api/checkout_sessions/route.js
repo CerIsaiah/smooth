@@ -1,18 +1,21 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { supabase } from '@/utils/supabase';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    const { email, userId } = await req.json();
-
-    if (!email || !userId) {
-      console.error('Missing required fields:', { email, userId });
-      return NextResponse.json({ error: 'Email and userId are required' }, { status: 400 });
+    // Get the authenticated user from Supabase auth
+    const { data: { session: authSession }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError || !authSession?.user) {
+      console.error('Authentication error:', authError);
+      return NextResponse.json({ error: 'User must be authenticated' }, { status: 401 });
     }
 
-    console.log('Creating checkout session for:', { email, userId }); // Debug log
+    const user = authSession.user;
+    console.log('Creating checkout session for:', { email: user.email, userId: user.id });
 
     const session = await stripe.checkout.sessions.create({
       line_items: [
@@ -31,16 +34,16 @@ export async function POST(req) {
       mode: 'payment',
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
-      customer_email: email,
+      customer_email: user.email,
       metadata: {
         type: 'premium_subscription',
-        user_email: email,
-        user_id: userId,
+        user_email: user.email,
+        user_id: user.id,
         subscription_type: 'premium'
       }
     });
 
-    console.log('Checkout session created:', session.id); // Debug log
+    console.log('Checkout session created:', session.id);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
