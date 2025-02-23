@@ -41,10 +41,11 @@ export async function POST(req) {
         userId: userId
       });
 
-      // Update user's subscription status
+      // Update user's subscription to premium
       const { error: updateError } = await supabase
         .from('users')
         .update({
+          subscription_type: 'premium',
           subscription_status: 'active',
           subscription_updated_at: new Date().toISOString()
         })
