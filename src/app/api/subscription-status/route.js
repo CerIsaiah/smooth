@@ -21,10 +21,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Query the subscriptions table or users table where you store subscription info
+    // Query both subscription_type and subscription_status
     const { data: user, error } = await supabase
       .from('users')
-      .select('subscription_status')
+      .select('subscription_type, subscription_status')
       .eq('id', userId)
       .single();
 
@@ -33,10 +33,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch subscription status' }, { status: 500 });
     }
 
-    // Ensure we return one of: 'standard', 'premium', or null (free)
-    let status = user?.subscription_status;
-    if (status !== 'standard' && status !== 'premium') {
-      status = null;
+    // A user has an active subscription only if status is "active"
+    let status = null;
+    if (user?.subscription_status === 'active') {
+      status = user.subscription_type; // Will be either "standard" or "premium"
     }
 
     return NextResponse.json({ status: status || null });
