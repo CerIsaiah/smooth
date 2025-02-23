@@ -1,3 +1,4 @@
 export const ANONYMOUS_USAGE_LIMIT = 14;
+export const FREE_USER_DAILY_LIMIT = 14;
 export const SIGNED_IN_USAGE_LIMIT = 80;
 export const RESPONSES_PER_GENERATION = 10; 

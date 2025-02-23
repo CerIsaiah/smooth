@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { ANONYMOUS_USAGE_LIMIT } from '@/app/constants';
+import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from '@/app/constants';
 
 async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
   console.log('Debug - Getting usage record for:', identifier);
@@ -62,7 +62,7 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
 
 export async function POST(request) {
   try {
-    const { direction, userEmail } = await request.json();
+    const { direction, userEmail, isNewSession } = await request.json();
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
     console.log('Debug - POST Swipe Request:', {
@@ -123,7 +123,7 @@ export async function POST(request) {
         timestamp: new Date().toISOString()
       });
 
-      // Update both daily and total usage
+      // Update usage data
       const updateData = {
         daily_usage: newDailyCount,
         total_usage: newTotalCount,
@@ -131,8 +131,8 @@ export async function POST(request) {
         last_reset: shouldResetDaily ? today : record.last_reset
       };
 
-      // If this is an IP address and the user is logged in, increment login count
-      if (!isEmail && userEmail) {
+      // Increment login count for anonymous users on new sessions
+      if (!isEmail && isNewSession) {
         updateData.login_count = (record.login_count || 0) + 1;
       }
 
@@ -161,7 +161,9 @@ export async function POST(request) {
         throw updateError;
       }
 
-      const limitReached = !isEmail && newDailyCount >= ANONYMOUS_USAGE_LIMIT;
+      const limitReached = isEmail 
+        ? newDailyCount >= FREE_USER_DAILY_LIMIT 
+        : newDailyCount >= ANONYMOUS_USAGE_LIMIT;
       
       console.log('Debug - Successful swipe update:', {
         newDailyCount,
@@ -230,7 +232,8 @@ export async function GET(request) {
 
     const today = new Date().toISOString().split('T')[0];
     const dailySwipes = data.last_reset !== today ? 0 : data.daily_usage;
-    const limitReached = !userEmail && dailySwipes >= ANONYMOUS_USAGE_LIMIT;
+    const dailyLimit = userEmail ? FREE_USER_DAILY_LIMIT : ANONYMOUS_USAGE_LIMIT;
+    const limitReached = dailySwipes >= dailyLimit;
 
     return NextResponse.json({ 
       dailySwipes,

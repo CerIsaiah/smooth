@@ -7,7 +7,7 @@ import { Upload, ArrowDown } from "lucide-react";
 import Script from "next/script";
 import { loadStripe } from '@stripe/stripe-js';
 import TinderCard from 'react-tinder-card';
-import { ANONYMOUS_USAGE_LIMIT } from './constants';
+import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from './constants';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -42,7 +42,13 @@ function GoogleSignInOverlay({ googleLoaded }) {
 }
 
 // Add this new component near the top of the file, after other component definitions
-function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, outOfFrame, onGenerateMore, isGenerating, isSignedIn, router, setUsageCount }) {
+function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, outOfFrame, onGenerateMore, isGenerating, isSignedIn, router, setUsageCount, usageCount, isPremium }) {
+  const remainingSwipes = isPremium 
+    ? '∞' // Show infinity symbol for premium users
+    : isSignedIn 
+      ? FREE_USER_DAILY_LIMIT - usageCount
+      : ANONYMOUS_USAGE_LIMIT - usageCount;
+
   const handleSavedResponsesClick = () => {
     if (isSignedIn) {
       router.push('/saved');
@@ -50,6 +56,17 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
       // Close the response overlay and show the sign-in overlay
       onClose();
       // This will trigger the sign-in overlay since we're setting count above limit
+      setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+    }
+  };
+
+  const handleLimitReached = () => {
+    onClose(); // Close the response overlay
+    if (isSignedIn) {
+      // Show upgrade popup for signed-in users
+      setShowUpgradePopup(true);
+    } else {
+      // For anonymous users, trigger sign-in overlay
       setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
     }
   };
@@ -74,10 +91,14 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col">
-      {/* Simplified Header */}
       <div className="bg-white/95 backdrop-blur-sm p-3 flex items-center border-b border-pink-100">
-        <div className="text-base font-bold mx-auto" style={{ color: "#FE3C72" }}>
-          Your Suggestions ✨
+        <div className="flex items-center gap-3 mx-auto">
+          <div className="text-base font-bold" style={{ color: "#FE3C72" }}>
+            Your Suggestions ✨
+          </div>
+          <div className="px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600">
+            {isPremium ? 'Unlimited swipes' : `${remainingSwipes} swipes left today`}
+          </div>
         </div>
         <button 
           onClick={onClose}
@@ -176,6 +197,35 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
   );
 }
 
+// Update the UpgradePopup component to receive handleCheckout
+function UpgradePopup({ onClose, handleCheckout }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 max-w-md w-full">
+        <h3 className="text-xl font-bold mb-2">Daily Limit Reached</h3>
+        <p className="text-gray-600 mb-6">
+          You've reached your daily free limit. Upgrade to premium for unlimited swipes, or come back tomorrow for more free swipes!
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={handleCheckout}
+            className="w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all"
+            style={{ backgroundColor: "#FE3C72" }}
+          >
+            Upgrade Now - $1.00 (Test Mode)
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-all"
+          >
+            I'll Come Back Tomorrow
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState([]);
@@ -200,6 +250,8 @@ export default function Home() {
   const [showResponseOverlay, setShowResponseOverlay] = useState(false);
   const [isOnPreview, setIsOnPreview] = useState(false);
   const router = useRouter();
+  const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
 
   // Add this state for tracking steps
   const [completedSteps, setCompletedSteps] = useState({
@@ -230,35 +282,31 @@ export default function Home() {
         return;
       }
 
-      // Save right swipes (copies) but don't navigate
-      if (direction === 'right') {
-        if (isSignedIn && user?.email) {
-          // Save to database for signed in users
-          await fetch('/api/saved-responses', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              response: responseToDelete,
-              userEmail: user.email,
-              context: context || null,
-              lastMessage: lastText || null,
-            }),
-          });
-        } else {
-          // Save to localStorage for anonymous users
-          const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
-          savedResponses.push({
-            response: responseToDelete,
-            context: context || null,
-            lastMessage: lastText || null,
-            created_at: new Date().toISOString(),
-          });
-          localStorage.setItem('anonymous_saved_responses', JSON.stringify(savedResponses));
+      // If user is premium, don't count swipes
+      if (isPremium) {
+        if (direction === 'right') {
+          // Still save right swipes for premium users
+          if (isSignedIn && user?.email) {
+            await fetch('/api/saved-responses', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                response: responseToDelete,
+                userEmail: user.email,
+                context: context || null,
+                lastMessage: lastText || null,
+              }),
+            });
+          }
         }
+        // Remove the swiped response and continue
+        setResponses(prev => prev.filter(response => response !== responseToDelete));
+        return;
       }
 
+      // Non-premium users follow the regular flow
       const response = await fetch('/api/swipes', {
         method: 'POST',
         headers: {
@@ -276,11 +324,16 @@ export default function Home() {
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
       
-      setUsageCount(data.swipeCount);
+      setUsageCount(data.dailySwipes);
       
-      if (!isSignedIn && data.limitReached) {
+      if (data.limitReached) {
         setTimeout(() => {
           setShowResponseOverlay(false);
+          if (isSignedIn) {
+            setShowUpgradePopup(true);
+          } else {
+            setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+          }
         }, 500);
       }
 
@@ -327,14 +380,14 @@ export default function Home() {
       const data = await response.json();
       
       if (response.ok) {
-        setUsageCount(data.swipeCount);
+        setUsageCount(data.dailySwipes);
         return data;
       }
       
       throw new Error('Failed to fetch usage count');
     } catch (error) {
       console.error('Error fetching usage count:', error);
-      return { swipeCount: 0, limitReached: false };
+      return { dailySwipes: 0, limitReached: false };
     }
   };
 
@@ -371,6 +424,11 @@ export default function Home() {
         setUser(data.user);
         setIsSignedIn(true);
         localStorage.setItem('smoothrizz_user', JSON.stringify(data.user));
+
+        // Reset usage count for the new signed-in user
+        const usageResponse = await fetch('/api/swipes');
+        const usageData = await usageResponse.json();
+        setUsageCount(usageData.dailySwipes);
 
         // Migrate anonymous saved responses to database
         const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
@@ -500,7 +558,30 @@ export default function Home() {
     }
   };
 
-  // Update handleSubmit to reset responses
+  // Add this useEffect for session tracking
+  useEffect(() => {
+    const initializeSession = () => {
+      // Check if this is a new session
+      const lastVisit = localStorage.getItem('smoothrizz_last_visit');
+      const now = new Date().getTime();
+      
+      // Consider it a new session if:
+      // 1. No last visit recorded, or
+      // 2. Last visit was more than 30 minutes ago
+      const isNewSession = !lastVisit || (now - parseInt(lastVisit)) > 30 * 60 * 1000;
+      
+      if (isNewSession) {
+        localStorage.setItem('isNewSession', 'true');
+      }
+      
+      // Update last visit time
+      localStorage.setItem('smoothrizz_last_visit', now.toString());
+    };
+
+    initializeSession();
+  }, []);
+
+  // Update the handleSubmit function
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
       alert("Please either upload a screenshot or provide conversation details");
@@ -519,6 +600,9 @@ export default function Home() {
       setResponses([]);
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
+
+      // After successful analysis, mark this session as not new anymore
+      localStorage.setItem('isNewSession', 'false');
 
       setResponses(result);
       setCurrentIndex(result.length - 1);
@@ -624,9 +708,8 @@ export default function Home() {
 
   useEffect(() => {
     if (isSignedIn && user?.email) {
-      fetchUsageCount(user.email).then(({ totalCount, dailyCount }) => {
-        setUsageCount(totalCount);
-        setDailyCount(dailyCount);
+      fetchUsageCount(user.email).then(({ dailySwipes }) => {
+        setUsageCount(dailySwipes);
       });
     }
   }, [isSignedIn, user]);
@@ -955,7 +1038,7 @@ export default function Home() {
           const data = await response.json();
           
           if (response.ok && !data.error) {
-            setUsageCount(data.swipeCount);
+            setUsageCount(data.dailySwipes);
           }
         } catch (error) {
           console.error('Error fetching initial swipe count:', error);
@@ -1131,6 +1214,23 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Add this useEffect to check subscription status
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      if (isSignedIn && user?.id) {
+        try {
+          const response = await fetch(`/api/subscription-status?userId=${user.id}`);
+          const data = await response.json();
+          setIsPremium(data.status === 'premium');
+        } catch (error) {
+          console.error('Error checking subscription status:', error);
+        }
+      }
+    };
+
+    checkSubscriptionStatus();
+  }, [isSignedIn, user]);
 
   return (
     <>
@@ -1600,6 +1700,14 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Add the upgrade popup */}
+          {showUpgradePopup && !isPremium && (
+            <UpgradePopup 
+              onClose={() => setShowUpgradePopup(false)} 
+              handleCheckout={handleCheckout}
+            />
+          )}
+
           {/* Google Sign-In Overlay */}
           {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
             <GoogleSignInOverlay googleLoaded={googleLoaded} />
@@ -1622,6 +1730,8 @@ export default function Home() {
               isSignedIn={isSignedIn}
               router={router}
               setUsageCount={setUsageCount}
+              usageCount={usageCount}
+              isPremium={isPremium}
             />
           )}
         </main>
