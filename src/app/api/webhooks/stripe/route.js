@@ -2,8 +2,19 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
+// Add basic console log to verify the file is loaded
+console.log('Webhook route file loaded');
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+// Log configuration status
+console.log('Stripe Configuration:', {
+  hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
+  hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+  hasSupabaseUrl: !!process.env.SUPABASE_URL,
+  hasSupabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+});
 
 // Create a Supabase client with the service role key
 const supabase = createClient(
@@ -18,9 +29,19 @@ const supabase = createClient(
 );
 
 export async function POST(req) {
+  // Log every incoming request
+  console.log('🔔 Webhook endpoint hit!', {
+    method: req.method,
+    headers: Object.fromEntries(req.headers),
+    timestamp: new Date().toISOString()
+  });
+
   try {
     const payload = await req.text();
+    console.log('📦 Received webhook payload length:', payload.length);
+    
     const sig = req.headers.get('stripe-signature');
+    console.log('🔑 Stripe signature present:', !!sig);
 
     let event;
 
@@ -136,4 +157,17 @@ export async function POST(req) {
     });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// Add OPTIONS handler for CORS if needed
+export async function OPTIONS(req) {
+  console.log('OPTIONS request received');
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, stripe-signature',
+    },
+  });
 } 
