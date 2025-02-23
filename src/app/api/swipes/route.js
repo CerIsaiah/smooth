@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from '@/app/constants';
+import { ANONYMOUS_USAGE_LIMIT } from '@/app/constants';
 
 async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
-  console.log('Debug - Getting usage record for:', identifier);
-  
   const table = isEmail ? 'users' : 'ip_usage';
   const idField = isEmail ? 'email' : 'ip_address';
   
@@ -17,23 +15,14 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('Debug - Creating new usage record for:', identifier);
-        
         const today = new Date().toISOString().split('T')[0];
-        const newRecord = isEmail ? {
-          email: identifier,
+        const newRecord = {
+          [idField]: identifier,
           total_usage: 0,
           daily_usage: 0,
           last_used: new Date().toISOString(),
           last_reset: today,
-          login_count: 0
-        } : {
-          ip_address: identifier,
-          total_usage: 0,
-          daily_usage: 0,
-          last_used: new Date().toISOString(),
-          last_reset: today,
-          login_count: 0
+          ...(isEmail && { is_premium: false })
         };
         
         const { data: newData, error: insertError } = await supabase
@@ -42,41 +31,34 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
           .select()
           .single();
 
-        if (insertError) {
-          console.error('Debug - Error creating usage record:', insertError);
-          throw insertError;
-        }
-        
+        if (insertError) throw insertError;
         return newData;
       }
-      
       throw error;
     }
 
     return data;
   } catch (error) {
-    console.error('Debug - Unexpected error in getOrCreateUsageRecord:', error);
+    console.error('Error in getOrCreateUsageRecord:', error);
     throw error;
   }
 }
 
+function getNextResetTime() {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return tomorrow.toISOString();
+}
+
 export async function POST(request) {
   try {
-    const { direction, userEmail, isNewSession } = await request.json();
+    const { direction, userEmail } = await request.json();
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
-    console.log('Debug - POST Swipe Request:', {
-      ip: requestIP,
-      userEmail,
-      direction,
-      timestamp: new Date().toISOString()
-    });
-
     if (!direction) {
-      console.error('Debug - Missing direction in request');
-      return NextResponse.json({ 
-        error: 'Direction is required' 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Direction is required' }, { status: 400 });
     }
 
     const supabase = createClient(
@@ -84,119 +66,94 @@ export async function POST(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    if (!supabase) {
-      console.error('Debug - Failed to create Supabase client');
-      return NextResponse.json({ 
-        error: 'Database connection failed' 
-      }, { status: 500 });
-    }
+    // If user is signed in, check premium status first
+    if (userEmail) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('is_premium')
+        .eq('email', userEmail)
+        .single();
 
-    // Get current record based on whether user is signed in
-    const identifier = userEmail || requestIP;
-    const isEmail = !!userEmail;
-
-    console.log('Debug - Getting record for:', {
-      identifier,
-      isEmail,
-      timestamp: new Date().toISOString()
-    });
-
-    try {
-      const record = await getOrCreateUsageRecord(supabase, identifier, isEmail);
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Add these lines to define table and idField
-      const table = isEmail ? 'users' : 'ip_usage';
-      const idField = isEmail ? 'email' : 'ip_address';
-      
-      // Reset daily usage if it's a new day
-      const shouldResetDaily = record.last_reset !== today;
-      const newDailyCount = shouldResetDaily ? 1 : (record.daily_usage + 1);
-      const newTotalCount = record.total_usage + 1;
-      
-      console.log('Debug - Usage counts:', {
-        currentDailyCount: record.daily_usage,
-        newDailyCount,
-        currentTotalCount: record.total_usage,
-        newTotalCount,
-        shouldResetDaily,
-        timestamp: new Date().toISOString()
-      });
-
-      // Update usage data
-      const updateData = {
-        daily_usage: newDailyCount,
-        total_usage: newTotalCount,
-        last_used: new Date().toISOString(),
-        last_reset: shouldResetDaily ? today : record.last_reset
-      };
-
-      // Increment login count for anonymous users on new sessions
-      if (!isEmail && isNewSession) {
-        updateData.login_count = (record.login_count || 0) + 1;
-      }
-
-      const { error: updateError } = await supabase
-        .from(table)
-        .update(updateData)
-        .eq(idField, identifier);
-
-      // Add this logging
-      console.log('Debug - Update operation:', {
-        table,
-        idField,
-        identifier,
-        updateData,
-        error: updateError,
-        timestamp: new Date().toISOString()
-      });
-
-      if (updateError) {
-        console.error('Debug - Error updating usage count:', {
-          error: updateError,
-          table,
-          idField,
-          identifier
+      if (userData?.is_premium) {
+        return NextResponse.json({
+          success: true,
+          isPremium: true,
+          limitReached: false
         });
-        throw updateError;
       }
-
-      const limitReached = isEmail 
-        ? newDailyCount >= FREE_USER_DAILY_LIMIT 
-        : newDailyCount >= ANONYMOUS_USAGE_LIMIT;
-      
-      console.log('Debug - Successful swipe update:', {
-        newDailyCount,
-        newTotalCount,
-        limitReached,
-        timestamp: new Date().toISOString()
-      });
-
-      return NextResponse.json({
-        success: true,
-        dailySwipes: newDailyCount,
-        totalSwipes: newTotalCount,
-        limitReached
-      });
-
-    } catch (dbError) {
-      console.error('Debug - Database operation failed:', dbError);
-      return NextResponse.json({ 
-        error: 'Database operation failed',
-        details: dbError.message 
-      }, { status: 500 });
     }
+
+    // Get both anonymous and user records if available
+    const ipRecord = await getOrCreateUsageRecord(supabase, requestIP, false);
+    const userRecord = userEmail ? await getOrCreateUsageRecord(supabase, userEmail, true) : null;
+    
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    // Reset counts if it's a new day
+    const shouldReset = ipRecord.last_reset !== today;
+    
+    // Calculate total daily usage (anonymous + signed in)
+    const totalDailyUsage = shouldReset ? 1 : (
+      (ipRecord.last_reset === today ? ipRecord.daily_usage : 0) +
+      (userRecord?.last_reset === today ? userRecord.daily_usage : 0)
+    );
+
+    // Check if combined usage exceeds limit
+    if (totalDailyUsage >= ANONYMOUS_USAGE_LIMIT) {
+      if (!userEmail) {
+        // Anonymous user needs to sign in
+        return NextResponse.json({
+          success: false,
+          requiresSignIn: true,
+          limitReached: true,
+          dailySwipes: totalDailyUsage,
+          nextResetTime: getNextResetTime()
+        });
+      } else {
+        // Signed in user needs to upgrade
+        const nextReset = getNextResetTime();
+        return NextResponse.json({
+          success: false,
+          requiresUpgrade: true,
+          limitReached: true,
+          dailySwipes: totalDailyUsage,
+          nextResetTime: nextReset,
+          timeRemaining: Math.ceil((new Date(nextReset).getTime() - now.getTime()) / 1000)
+        });
+      }
+    }
+
+    // Update usage records
+    const updateData = {
+      daily_usage: shouldReset ? 1 : ipRecord.daily_usage + 1,
+      total_usage: ipRecord.total_usage + 1,
+      last_used: now.toISOString(),
+      last_reset: today
+    };
+
+    await supabase
+      .from('ip_usage')
+      .update(updateData)
+      .eq('ip_address', requestIP);
+
+    if (userEmail) {
+      await supabase
+        .from('users')
+        .update(updateData)
+        .eq('email', userEmail);
+    }
+
+    return NextResponse.json({
+      success: true,
+      dailySwipes: totalDailyUsage + 1,
+      limitReached: false,
+      nextResetTime: getNextResetTime()
+    });
 
   } catch (error) {
-    console.error('Debug - Error in POST /api/swipes:', {
-      error,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    });
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error.message 
-    }, { status: 500 });
+    console.error('Error in POST /api/swipes:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -210,41 +167,60 @@ export async function GET(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // Only look up existing records, don't create new ones
-    const table = userEmail ? 'users' : 'ip_usage';
-    const idField = userEmail ? 'email' : 'ip_address';
-    const identifier = userEmail || requestIP;
-    
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq(idField, identifier)
-      .single();
+    // Check premium status for signed-in users
+    if (userEmail) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('is_premium')
+        .eq('email', userEmail)
+        .single();
 
-    if (error) {
-      // If no record exists, return 0 counts instead of creating a record
-      return NextResponse.json({ 
-        dailySwipes: 0,
-        totalSwipes: 0,
-        limitReached: false
-      });
+      if (userData?.is_premium) {
+        return NextResponse.json({ 
+          isPremium: true,
+          limitReached: false
+        });
+      }
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const dailySwipes = data.last_reset !== today ? 0 : data.daily_usage;
-    const dailyLimit = userEmail ? FREE_USER_DAILY_LIMIT : ANONYMOUS_USAGE_LIMIT;
-    const limitReached = dailySwipes >= dailyLimit;
+    // Get both records
+    const { data: ipData } = await supabase
+      .from('ip_usage')
+      .select('*')
+      .eq('ip_address', requestIP)
+      .single();
+
+    const { data: userData } = userEmail ? await supabase
+      .from('users')
+      .select('*')
+      .eq('email', userEmail)
+      .single() : { data: null };
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    // Calculate total daily usage
+    const ipUsage = ipData?.last_reset === today ? ipData.daily_usage : 0;
+    const userUsage = userData?.last_reset === today ? userData.daily_usage : 0;
+    const totalDailyUsage = ipUsage + userUsage;
+
+    const limitReached = totalDailyUsage >= ANONYMOUS_USAGE_LIMIT;
+
+    const nextResetTime = getNextResetTime();
 
     return NextResponse.json({ 
-      dailySwipes,
-      totalSwipes: data.total_usage,
-      limitReached
+      dailySwipes: totalDailyUsage,
+      limitReached,
+      requiresSignIn: limitReached && !userEmail,
+      requiresUpgrade: limitReached && userEmail,
+      nextResetTime,
+      ...(limitReached && userEmail && {
+        timeRemaining: Math.ceil((new Date(nextResetTime).getTime() - now.getTime()) / 1000)
+      })
     });
 
   } catch (error) {
     console.error('Error fetching swipe count:', error);
-    return NextResponse.json({ 
-      error: error.message 
-    }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 } 

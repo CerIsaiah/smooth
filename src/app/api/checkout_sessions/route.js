@@ -30,36 +30,37 @@ export async function POST(req) {
       );
     }
 
-    // Parse the request body for the user ID
     const body = await req.json();
-    const userId = body.userId;
-    
-    console.log('Processing checkout for user ID:', userId);
-    
-    if (!userId) {
+    console.log('Received request body:', body);
+
+    // Handle both userId and userEmail
+    let userQuery;
+    if (body.userId) {
+      userQuery = supabase
+        .from('users')
+        .select('*')
+        .eq('id', body.userId)
+        .single();
+    } else if (body.userEmail) {
+      userQuery = supabase
+        .from('users')
+        .select('*')
+        .eq('email', body.userEmail.toLowerCase().trim())
+        .single();
+    } else {
+      console.log('No user identifier provided');
       return NextResponse.json(
         { error: 'Please sign in to continue with checkout' }, 
         { status: 401 }
       );
     }
 
-    // Query the user from your database using service role
-    const { data: user, error: dbError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { data: user, error: dbError } = await userQuery;
     
-    if (dbError) {
-      console.error('Database error:', dbError);
-      return NextResponse.json(
-        { error: 'Error fetching user data' },
-        { status: 500 }
-      );
-    }
+    console.log('Supabase query result:', { user, dbError });
 
-    if (!user) {
-      console.error('User truly not found:', userId);
+    if (dbError || !user) {
+      console.error('Database error or user not found:', { dbError, userId: body.userId });
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
@@ -88,7 +89,8 @@ export async function POST(req) {
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
       customer_email: user.email,
       metadata: {
-        user_id: userId
+        user_id: user.id,
+        user_email: user.email
       }
     });
 
@@ -96,12 +98,7 @@ export async function POST(req) {
     return NextResponse.json({ url: session.url });
     
   } catch (error) {
-    console.error('Detailed error in checkout session:', {
-      message: error.message,
-      stack: error.stack,
-      type: error.type
-    });
-    
+    console.error('Detailed error in checkout session:', error);
     return NextResponse.json(
       { error: 'Error creating checkout session. Please try again.' },
       { status: 500 }

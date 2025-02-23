@@ -36,6 +36,7 @@ export default function SavedResponses() {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [showUpgradePopup, setShowUpgradePopup] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -138,6 +139,37 @@ export default function SavedResponses() {
     localStorage.removeItem('smoothrizz_user');
     setUser(null);
     router.push('/');
+  };
+
+  const handleCheckout = async () => {
+    try {
+      if (!user?.id) {
+        console.error('No user ID found');
+        return;
+      }
+
+      const response = await fetch('/api/checkout_sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      // Redirect to Stripe checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Error starting checkout. Please try again.');
+    }
   };
 
   if (isLoading) {
@@ -297,15 +329,15 @@ export default function SavedResponses() {
                     </p>
                   </div>
                   {subscriptionStatus !== 'premium' && (
-                    <Link
-                      href="/#premium"
+                    <button
+                      onClick={handleCheckout}
                       className="px-4 py-2 rounded-full text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 transition-colors shadow-sm hover:shadow flex items-center gap-2"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                       </svg>
                       Upgrade to Premium
-                    </Link>
+                    </button>
                   )}
                 </div>
               </div>

@@ -63,30 +63,30 @@ export async function POST(req) {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const userId = session.metadata?.user_id;
+      const userEmail = (session.metadata?.user_email || '').toLowerCase().trim();
       
       console.log('📦 Processing checkout.session.completed:', {
         sessionId: session.id,
-        userId: userId,
+        userEmail: userEmail,
         customerEmail: session.customer_email,
         metadata: session.metadata
       });
 
-      if (!userId) {
-        console.error('❌ No userId found in session metadata');
-        return NextResponse.json({ error: 'No userId in metadata' }, { status: 400 });
+      if (!userEmail) {
+        console.error('❌ No user email found in session metadata');
+        return NextResponse.json({ error: 'No user email in metadata' }, { status: 400 });
       }
 
       // First, verify the user exists
       const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('email', userEmail)
         .single();
 
       if (fetchError || !existingUser) {
         console.error('❌ Failed to fetch user:', {
-          userId,
+          userEmail,
           error: fetchError,
           userFound: !!existingUser
         });
@@ -94,7 +94,7 @@ export async function POST(req) {
       }
 
       console.log('✅ Found user:', {
-        userId: existingUser.id,
+        userEmail: existingUser.email,
         currentSubscriptionType: existingUser.subscription_type,
         currentStatus: existingUser.subscription_status
       });
@@ -107,21 +107,21 @@ export async function POST(req) {
           subscription_status: 'active',
           subscription_updated_at: new Date().toISOString()
         })
-        .eq('id', userId)
+        .eq('email', userEmail)
         .select()
         .single();
 
       if (updateError) {
         console.error('❌ Failed to update subscription:', {
           error: updateError,
-          userId: userId,
+          userEmail: userEmail,
           sessionId: session.id
         });
         return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
       }
 
       console.log('✅ Successfully updated subscription:', {
-        userId: userId,
+        userEmail: userEmail,
         oldType: existingUser.subscription_type,
         newType: updatedUser.subscription_type,
         oldStatus: existingUser.subscription_status,
@@ -132,13 +132,13 @@ export async function POST(req) {
       const { data: verifyUser, error: verifyError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('email', userEmail)
         .single();
 
       if (verifyError) {
         console.error('❌ Failed to verify update:', {
           error: verifyError,
-          userId: userId
+          userEmail: userEmail
         });
       } else {
         console.log('✅ Verified subscription update:', {

@@ -16,17 +16,21 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const userEmail = searchParams.get('userEmail')?.toLowerCase().trim();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    if (!userId && !userEmail) {
+      return NextResponse.json({ error: 'User ID or email is required' }, { status: 400 });
     }
 
-    // Query both subscription_type and subscription_status
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('subscription_type, subscription_status')
-      .eq('id', userId)
-      .single();
+    // Query using either userId or email
+    const query = supabase.from('users').select('subscription_type, subscription_status, email');
+    if (userId) {
+      query.eq('id', userId);
+    } else {
+      query.eq('email', userEmail);
+    }
+    
+    const { data: user, error } = await query.single();
 
     if (error) {
       console.error('Error fetching subscription:', error);

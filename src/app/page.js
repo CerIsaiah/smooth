@@ -171,10 +171,20 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
               <button
                 onClick={onGenerateMore}
                 disabled={isGenerating}
-                className="w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all disabled:opacity-50"
-                style={{ backgroundColor: "#FE3C72" }}
+                className={`w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all 
+                  ${isGenerating 
+                    ? 'bg-gray-400 animate-pulse' 
+                    : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500'} 
+                  disabled:opacity-50`}
               >
-                {isGenerating ? "Generating..." : "Generate More ✨"}
+                {isGenerating ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Generating...</span>
+                  </div>
+                ) : (
+                  "Generate More ✨"
+                )}
               </button>
             </div>
           </div>
@@ -200,25 +210,59 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
 // Update the UpgradePopup component to receive handleCheckout
 function UpgradePopup({ onClose, handleCheckout }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full">
-        <h3 className="text-xl font-bold mb-2">Daily Limit Reached</h3>
-        <p className="text-gray-600 mb-6">
-          You've reached your daily free limit. Upgrade to premium for unlimited swipes, or come back tomorrow for more free swipes!
-        </p>
-        <div className="space-y-3">
-          <button
-            onClick={handleCheckout}
-            className="w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all"
-            style={{ backgroundColor: "#FE3C72" }}
-          >
-            Upgrade Now - $1.00 (Test Mode)
-          </button>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full">
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-bold mb-3">Upgrade to Premium</h3>
+          <p className="text-gray-600">
+            You've used all your free swipes for today. Upgrade to premium for unlimited access!
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xl font-bold">Premium Plan</span>
+            <span className="text-2xl font-bold text-pink-600">$1.00</span>
+          </div>
+          
+          <ul className="space-y-3 mb-6">
+            <li className="flex items-center gap-2 text-gray-700">
+              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Unlimited Swipes
+            </li>
+            <li className="flex items-center gap-2 text-gray-700">
+              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Priority Support
+            </li>
+            <li className="flex items-center gap-2 text-gray-700">
+              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              No Daily Limits
+            </li>
+          </ul>
+
+          <div className="text-xs text-gray-500 text-center mb-6">
+            Test Mode - No actual charge
+          </div>
+        </div>
+
+        <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-all"
+            className="flex-1 px-6 py-3 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
           >
-            I'll Come Back Tomorrow
+            Maybe Later
+          </button>
+          <button
+            onClick={handleCheckout}
+            className="flex-1 px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium hover:shadow-lg transition-shadow"
+          >
+            Upgrade Now
           </button>
         </div>
       </div>
@@ -278,35 +322,24 @@ export default function Home() {
 
   const swiped = async (direction, responseToDelete) => {
     try {
-      if (!direction) {
-        return;
-      }
+      if (!direction) return;
 
       // If user is premium, don't count swipes
       if (isPremium) {
         if (direction === 'right') {
-          // Still save right swipes for premium users
-          if (isSignedIn && user?.email) {
-            await fetch('/api/saved-responses', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                response: responseToDelete,
-                userEmail: user.email,
-                context: context || null,
-                lastMessage: lastText || null,
-              }),
-            });
-          }
+          await saveResponse(responseToDelete);
         }
-        // Remove the swiped response and continue
         setResponses(prev => prev.filter(response => response !== responseToDelete));
         return;
       }
 
-      // Non-premium users follow the regular flow
+      // Handle anonymous users
+      if (!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT) {
+        setShowResponseOverlay(false); // Close the swipe overlay
+        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
+        return;
+      }
+
       const response = await fetch('/api/swipes', {
         method: 'POST',
         headers: {
@@ -326,15 +359,20 @@ export default function Home() {
       
       setUsageCount(data.dailySwipes);
       
+      // Handle limits based on DB response
       if (data.limitReached) {
-        setTimeout(() => {
-          setShowResponseOverlay(false);
-          if (isSignedIn) {
-            setShowUpgradePopup(true);
-          } else {
-            setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-          }
-        }, 500);
+        setShowResponseOverlay(false); // Close the swipe overlay
+        if (isSignedIn) {
+          setShowUpgradePopup(true);
+        } else {
+          setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+        }
+        return;
+      }
+
+      // If right swipe, save the response
+      if (direction === 'right') {
+        await saveResponse(responseToDelete);
       }
 
       setResponses(prev => prev.filter(response => response !== responseToDelete));
@@ -365,45 +403,57 @@ export default function Home() {
     await childRefs[newIndex].current.restoreCard();
   };
 
+  // Helper function to save responses
+  const saveResponse = async (response) => {
+    if (isSignedIn && user?.email) {
+      await fetch('/api/saved-responses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          response,
+          userEmail: user.email,
+          context: context || null,
+          lastMessage: lastText || null,
+        }),
+      });
+    }
+  };
+
   // Fetch usage count (DB code unchanged)
   const fetchUsageCount = async () => {
     try {
       const headers = {
         'Content-Type': 'application/json',
+        'x-timezone-offset': new Date().getTimezoneOffset().toString()
       };
       
       if (isSignedIn && user?.email) {
         headers['x-user-email'] = user.email;
       }
       
-      const response = await fetch('/api/swipes', { headers });
+      const response = await fetch('/api/usage-status', { headers });
       const data = await response.json();
       
       if (response.ok) {
         setUsageCount(data.dailySwipes);
+        if (data.nextResetTime) {
+          localStorage.setItem('smoothrizz_next_reset', data.nextResetTime);
+        }
         return data;
       }
       
       throw new Error('Failed to fetch usage count');
     } catch (error) {
       console.error('Error fetching usage count:', error);
-      return { dailySwipes: 0, limitReached: false };
+      return { 
+        dailySwipes: 0, 
+        limitReached: false, 
+        nextResetTime: null 
+      };
     }
   };
-
-  // Check localStorage on initial load (unchanged)
-  useEffect(() => {
-    const storedUser = localStorage.getItem('smoothrizz_user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUser(userData);
-      setIsSignedIn(true);
-    }
-    const anonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
-    if (!isSignedIn) {
-      setUsageCount(anonymousCount);
-    }
-  }, []);
 
   // Update the handleSignIn function
   const handleSignIn = async (response) => {
@@ -425,12 +475,7 @@ export default function Home() {
         setIsSignedIn(true);
         localStorage.setItem('smoothrizz_user', JSON.stringify(data.user));
 
-        // Reset usage count for the new signed-in user
-        const usageResponse = await fetch('/api/swipes');
-        const usageData = await usageResponse.json();
-        setUsageCount(usageData.dailySwipes);
-
-        // Migrate anonymous saved responses to database
+        // Migrate anonymous saved responses if any
         const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
         if (savedResponses.length > 0) {
           await Promise.all(
@@ -450,7 +495,6 @@ export default function Home() {
               });
             })
           );
-          // Clear localStorage after successful migration
           localStorage.removeItem('anonymous_saved_responses');
         }
       } else {
@@ -594,26 +638,46 @@ export default function Home() {
     }
 
     try {
+      // Check current usage status from DB
+      const statusResponse = await fetch('/api/usage-status', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isSignedIn && user?.email && { 'x-user-email': user.email }),
+        },
+      });
+      
+      const statusData = await statusResponse.json();
+      
+      // Handle anonymous users
+      if (!isSignedIn && statusData.requiresSignIn) {
+        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
+        return;
+      }
+
+      // Handle signed-in users who need to upgrade
+      if (isSignedIn && !isPremium && statusData.requiresUpgrade) {
+        if (statusData.timeRemaining) {
+          const hoursLeft = Math.ceil(statusData.timeRemaining / (60 * 60));
+          alert(`Please come back in ${hoursLeft} hours for more free swipes or upgrade to premium for unlimited access.`);
+          return;
+        }
+        setShowUpgradePopup(true);
+        return;
+      }
+
       setIsLoading(true);
       setShowRegeneratePopup(false);
       
       setResponses([]);
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-
-      // After successful analysis, mark this session as not new anymore
-      localStorage.setItem('isNewSession', 'false');
-
       setResponses(result);
       setCurrentIndex(result.length - 1);
       setShowResponseOverlay(true);
 
     } catch (error) {
-      if (error.message.includes('usage limit')) {
-        alert("You've reached the anonymous usage limit. Please sign in to continue.");
-      } else {
-        alert("Error analyzing input. Please try again.");
-      }
+      console.error('Error:', error);
+      alert("Error analyzing input. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -624,22 +688,41 @@ export default function Home() {
     if (isGenerating) return;
     
     try {
+      // Check usage status before generating
+      const statusResponse = await fetch('/api/usage-status', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isSignedIn && user?.email && { 'x-user-email': user.email }),
+        },
+      });
+      
+      const statusData = await statusResponse.json();
+      
+      // Always show upgrade popup for signed-in users when generating more
+      if (isSignedIn && !isPremium) {
+        setShowResponseOverlay(false); // Close the swipe overlay
+        setShowUpgradePopup(true);
+        return;
+      }
+      
+      // For anonymous users, show sign-in prompt if limit reached
+      if (!isSignedIn && statusData.limitReached) {
+        setShowResponseOverlay(false); // Close the swipe overlay
+        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
+        return;
+      }
+
       setIsGenerating(true);
       setShowRegeneratePopup(false);
-      
       setResponses([]);
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-      
       setResponses(result);
       setCurrentIndex(result.length - 1);
       
     } catch (error) {
-      if (error.message.includes('usage limit')) {
-        setShowResponseOverlay(false);
-      } else {
-        alert("Error generating new responses. Please try again.");
-      }
+      console.error('Error:', error);
+      alert("Error generating new responses. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -717,21 +800,21 @@ export default function Home() {
   // Update the handleCheckout function
   const handleCheckout = async () => {
     try {
-      // Ensure user is signed in first
-      if (!isSignedIn || !user) {
+      if (!isSignedIn || !user?.email) {
         setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
         return;
       }
 
-      console.log('Starting checkout process for user:', user.id);
+      console.log('Starting checkout process for user:', user.email);
 
-      // Create checkout session
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId: user.id })
+        body: JSON.stringify({ 
+          userEmail: user.email.toLowerCase().trim()
+        })
       });
 
       const data = await response.json();
@@ -740,7 +823,6 @@ export default function Home() {
         throw new Error(data.error || 'Failed to create checkout session');
       }
 
-      // Redirect to Stripe checkout
       if (data.url) {
         window.location.href = data.url;
       }
@@ -850,7 +932,7 @@ export default function Home() {
     </div>
   );
 
-  // Update the styles for cleaner cards
+  // Add this style definition near the top where other styles are defined
   const styles = `
     .swipe {
       position: absolute;
@@ -949,6 +1031,19 @@ export default function Home() {
       font-size: 0.75rem;
       color: #666;
     }
+
+    @keyframes pulse-scale {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.03);
+      }
+    }
+
+    .animate-pulse-scale {
+      animation: pulse-scale 3s ease-in-out infinite;
+    }
   `;
 
   // Add this useEffect for cleanup
@@ -997,7 +1092,9 @@ export default function Home() {
       <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full mx-4">
         <h3 className="text-xl font-bold mb-4 text-center">Need more options?</h3>
         <p className="text-gray-600 mb-6 text-center">
-          Generate 10 new responses to find the perfect reply!
+          {isSignedIn 
+            ? "Upgrade to premium to generate unlimited responses!"
+            : "Generate 10 new responses to find the perfect reply!"}
         </p>
         <div className="flex gap-4">
           <button
@@ -1012,7 +1109,7 @@ export default function Home() {
             className="flex-1 px-4 py-2 rounded-full text-white hover:opacity-90 transition"
             style={{ backgroundColor: "#FE3C72" }}
           >
-            {isGenerating ? "Generating..." : "Generate More"}
+            {isSignedIn ? "Upgrade Now" : "Generate More"}
           </button>
         </div>
       </div>
@@ -1103,9 +1200,20 @@ export default function Home() {
         <button
           onClick={handleSubmit}
           disabled={isLoading || (!selectedFile && (!context || !lastText))}
-          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all 
+            ${isLoading 
+              ? 'bg-gray-400' 
+              : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale'} 
+            disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {isLoading ? "Generating..." : "Generate Responses ✨"}
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Generating...</span>
+            </div>
+          ) : (
+            "Generate Responses ✨"
+          )}
         </button>
       );
     }
@@ -1115,7 +1223,7 @@ export default function Home() {
       return (
         <button
           onClick={() => scrollToSection("#step-3")}
-          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500"
+          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale"
         >
           See Preview →
         </button>
@@ -1127,7 +1235,7 @@ export default function Home() {
       return (
         <button
           onClick={() => scrollToSection("#step-1")}
-          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500"
+          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale"
         >
           {textInputActive ? "Add More Context →" : "Upload Your Screenshot →"}
         </button>
@@ -1141,7 +1249,7 @@ export default function Home() {
           disabled={!canAccessStep(2)}
           className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
             ${canAccessStep(2) 
-              ? "bg-gradient-to-r from-pink-500 to-rose-500" 
+              ? "bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale" 
               : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
         >
           Choose Your Context →
@@ -1156,7 +1264,7 @@ export default function Home() {
           disabled={!canAccessStep(3)}
           className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all hover:scale-[1.02] 
             ${canAccessStep(3)
-              ? "bg-gradient-to-r from-pink-500 to-rose-500"
+              ? "bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale"
               : "bg-gradient-to-r from-gray-400 to-gray-500 opacity-50 cursor-not-allowed hover:scale-100"}`}
         >
           Preview Your Message →
@@ -1218,19 +1326,36 @@ export default function Home() {
   // Add this useEffect to check subscription status
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
-      if (isSignedIn && user?.id) {
+      if (isSignedIn && user?.email) {
         try {
-          const response = await fetch(`/api/subscription-status?userId=${user.id}`);
+          const response = await fetch(`/api/subscription-status?userEmail=${encodeURIComponent(user.email)}`);
           const data = await response.json();
           setIsPremium(data.status === 'premium');
         } catch (error) {
           console.error('Error checking subscription status:', error);
+          setIsPremium(false);
         }
       }
     };
 
     checkSubscriptionStatus();
   }, [isSignedIn, user]);
+
+  // Add this useEffect near the top of the component
+  useEffect(() => {
+    // Check for stored user data on component mount
+    const storedUser = localStorage.getItem('smoothrizz_user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setIsSignedIn(true);
+      } catch (error) {
+        console.error('Error parsing stored user data:', error);
+        localStorage.removeItem('smoothrizz_user');
+      }
+    }
+  }, []);
 
   return (
     <>
@@ -1338,7 +1463,7 @@ export default function Home() {
         }}
       />
 
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fbfbfb]">
         <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-KMCKVJ4H"
@@ -1372,15 +1497,15 @@ export default function Home() {
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-2 sm:mb-3">
               Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">Smooth</span> Talker
             </h1>
-            <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8 max-w-2xl mx-auto">
               Get Smooth Inspiration For Witty Responses
             </p>
-            <div className="relative max-w-[95%] sm:max-w-xl mx-auto">
+            <div className="relative max-w-[100%] sm:max-w-lg md:max-w-md mx-auto">
               <img
-                src="/mainpic.png"
+                src="/bigmainpic.png"
                 alt="App demonstration"
                 className="w-full rounded-2xl"
                 loading="lazy"
@@ -1662,22 +1787,57 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Add this new Premium Section before the footer */}
+          {/* Premium Section */}
           <section className="px-4 sm:px-0 mb-24">
             <div className="max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 rounded-xl shadow-lg border border-pink-100 overflow-hidden text-center p-8">
-                <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-                  Upgrade to Premium
-                </h2>
-                <p className="text-gray-600 mb-6 max-w-lg mx-auto">
-                  Get unlimited responses, priority support, and exclusive features
-                </p>
-                <button
-                  onClick={handleCheckout}
-                  className="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium shadow-lg hover:shadow-xl transition-shadow transform hover:scale-[1.02]"
-                >
-                  Upgrade Now - $1.00 (Test Mode)
-                </button>
+              <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 rounded-xl shadow-lg border border-pink-100 overflow-hidden p-8">
+                <div className="max-w-2xl mx-auto text-center">
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+                    Unlock Unlimited Potential
+                  </h2>
+                  <p className="text-gray-600 mb-8">
+                    Get unlimited swipes, priority support, and exclusive features
+                  </p>
+                  
+                  <div className="bg-white rounded-xl p-6 shadow-sm mb-8">
+                    <div className="flex justify-center items-center gap-2 mb-4">
+                      <span className="text-3xl font-bold text-pink-600">$1.00</span>
+                      <span className="text-gray-500">/lifetime access</span>
+                    </div>
+                    
+                    <ul className="space-y-3 max-w-xs mx-auto mb-6">
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Unlimited Daily Swipes
+                      </li>
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Priority Support
+                      </li>
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        No Waiting Period
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="text-sm text-gray-500 mb-6">
+                    Test Mode - No actual charge
+                  </div>
+                  
+                  <button
+                    onClick={handleCheckout}
+                    className="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
+                  >
+                    Upgrade to Premium
+                  </button>
+                </div>
               </div>
             </div>
           </section>
