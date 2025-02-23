@@ -405,7 +405,6 @@ export default function Home() {
 
   // Update the handleSignOut function
   const handleSignOut = async () => {
-    // Only sign out from Google
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
       window.google.accounts.id.revoke();
@@ -1132,22 +1131,6 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, []);
-
-  // Add this effect to run once when the component mounts
-  useEffect(() => {
-    const signOutGoogle = async () => {
-      // Only sign out from Google
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.disableAutoSelect();
-        window.google.accounts.id.revoke();
-      }
-
-      // Reset sign-in state but keep user data
-      setIsSignedIn(false);
-    };
-
-    signOutGoogle();
-  }, []); // Empty dependency array means this runs once on mount
 
   return (
     <>
