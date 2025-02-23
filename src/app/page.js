@@ -1256,12 +1256,15 @@ export default function Home() {
           <div className="scale-78 origin-right sm:scale-100">
             {!isSignedIn && <div ref={googleButtonRef} className="!min-w-[120px]"></div>}
             {isSignedIn && (
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 rounded-full text-white text-sm font-medium bg-gray-900 hover:bg-gray-800 transition-colors shadow-sm"
+              <Link
+                href="/saved"
+                className="px-4 py-2 rounded-full text-white text-sm font-medium bg-gray-900 hover:bg-gray-800 transition-colors shadow-sm flex items-center gap-2"
               >
-                Sign Out
-              </button>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Saved
+              </Link>
             )}
           </div>
         </div>
