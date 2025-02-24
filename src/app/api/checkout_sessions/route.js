@@ -104,7 +104,6 @@ export async function POST(req) {
           },
         },
       },
-      payment_method_collection: 'if_required', // Only collect payment method at end of trial
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
       customer_email: user.email,
