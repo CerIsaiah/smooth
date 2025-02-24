@@ -44,6 +44,9 @@ export async function GET(request) {
     const userEmail = request.headers.get('x-user-email');
     const userTimezoneOffset = parseInt(request.headers.get('x-timezone-offset') || '0');
     
+    const currentPeriodStart = getCurrentPeriodStart(userTimezoneOffset);
+    const nextResetTime = getNextResetTime(userTimezoneOffset);
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -116,6 +119,7 @@ export async function GET(request) {
       });
     }
 
+    const now = new Date();
     // If anonymous user hits limit, they need to sign in
     const limitReached = ipData.daily_usage >= ANONYMOUS_USAGE_LIMIT;
     const timeRemaining = limitReached ? 
