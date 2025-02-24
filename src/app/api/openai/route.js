@@ -236,7 +236,9 @@ export async function POST(request) {
                 type: "array",
                 items: {
                   type: "string"
-                }
+                },
+                minItems: 10,
+                maxItems: 10
               }
             },
             required: ["responses"],
@@ -248,8 +250,15 @@ export async function POST(request) {
     });
     
     const result = response.choices[0].message.content;
+    const parsedResponses = JSON.parse(result).responses;
+    
+    // Validate response count
+    if (!Array.isArray(parsedResponses) || parsedResponses.length !== 10) {
+      throw new Error('Invalid response format: Expected exactly 10 responses');
+    }
+
     return NextResponse.json({
-      responses: JSON.parse(result).responses,
+      responses: parsedResponses,
       requestId: crypto.randomUUID()
     });
   } catch (error) {

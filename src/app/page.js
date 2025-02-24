@@ -416,8 +416,8 @@ export default function Home() {
   const outOfFrame = (response) => {
     setResponses(prev => prev.filter(r => r !== response));
     
-    // Only show regenerate popup for non-premium users after running out of responses
-    if (responses.length === 2 && !isGenerating && !isPremium) {
+    // Only show regenerate popup when there are NO cards left (not when there's 1 remaining)
+    if (responses.length === 1 && !isGenerating && !isPremium) {
       setShowRegeneratePopup(true);
     }
   };
