@@ -84,6 +84,7 @@ export async function POST(request) {
         userData?.trial_end_date && 
         new Date(userData.trial_end_date) > now;
 
+      // Give trial users the same benefits as premium users
       if (userData?.is_premium || isTrialActive) {
         return NextResponse.json({
           success: true,

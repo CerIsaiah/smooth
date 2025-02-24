@@ -252,10 +252,16 @@ function UpgradePopup({ onClose, handleCheckout }) {
         <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <span className="text-xl font-bold">Premium Plan</span>
-            <span className="text-2xl font-bold text-pink-600">$1.00</span>
+            <span className="text-2xl font-bold text-pink-600">$5/mo</span>
           </div>
           
           <ul className="space-y-3 mb-6">
+            <li className="flex items-center gap-2 text-gray-700">
+              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              3-Day Free Trial
+            </li>
             <li className="flex items-center gap-2 text-gray-700">
               <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -268,17 +274,7 @@ function UpgradePopup({ onClose, handleCheckout }) {
               </svg>
               Priority Support
             </li>
-            <li className="flex items-center gap-2 text-gray-700">
-              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              No Daily Limits
-            </li>
           </ul>
-
-          <div className="text-xs text-gray-500 text-center mb-6">
-            Test Mode - No actual charge
-          </div>
         </div>
 
         <div className="flex gap-3">
@@ -1843,13 +1839,13 @@ export default function Home() {
                     Unlock Unlimited Potential
                   </h2>
                   <p className="text-gray-600 mb-8">
-                    Get unlimited swipes, priority support, and exclusive features
+                    Start with a 3-day free trial, then $5/month for unlimited access
                   </p>
                   
                   <div className="bg-white rounded-xl p-6 shadow-sm mb-8">
                     <div className="flex justify-center items-center gap-2 mb-4">
-                      <span className="text-3xl font-bold text-pink-600">$1.00</span>
-                      <span className="text-gray-500">/lifetime access</span>
+                      <span className="text-3xl font-bold text-pink-600">$5</span>
+                      <span className="text-gray-500">/month</span>
                     </div>
                     
                     <ul className="space-y-3 max-w-xs mx-auto mb-6">
@@ -1857,7 +1853,13 @@ export default function Home() {
                         <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Unlimited Daily Swipes
+                        3-Day Free Trial
+                      </li>
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Unlimited Swipes
                       </li>
                       <li className="flex items-center gap-2 text-gray-700">
                         <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1873,17 +1875,6 @@ export default function Home() {
                       </li>
                     </ul>
                   </div>
-
-                  <div className="text-sm text-gray-500 mb-6">
-                    Test Mode - No actual charge
-                  </div>
-                  
-                  <button
-                    onClick={handleCheckout}
-                    className="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
-                  >
-                    Upgrade to Premium
-                  </button>
                 </div>
               </div>
             </div>

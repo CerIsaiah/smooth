@@ -85,9 +85,9 @@ export async function POST(req) {
             currency: 'usd',
             product_data: {
               name: 'SmoothRizz Premium',
-              description: '3-day free trial',
+              description: '3-day free trial, then $5/month for unlimited swipes',
             },
-            unit_amount: 100, // $1.00 in cents
+            unit_amount: 500, // $5.00 in cents
             recurring: {
               interval: 'month',
             },
