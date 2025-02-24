@@ -1269,10 +1269,13 @@ export default function Home() {
           {isLoading ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Generating...</span>
+              <span>Generating Responses...</span>
             </div>
           ) : (
-            "Generate Responses ✨"
+            <div className="flex items-center justify-center gap-2">
+              <span>Generate Responses</span>
+              <span className="text-lg">✨</span>
+            </div>
           )}
         </button>
       );
