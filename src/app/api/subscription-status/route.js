@@ -32,7 +32,8 @@ export async function GET(request) {
         trial_end_date,
         subscription_end_date,
         email,
-        cancel_at_period_end
+        cancel_at_period_end,
+        trial_started_at
       `);
 
     if (userId) {
@@ -56,6 +57,7 @@ export async function GET(request) {
       trialEndsAt: null,
       subscriptionEndsAt: null,
       isCanceled: user?.cancel_at_period_end || false,
+      hadTrial: !!user?.trial_started_at,
       canceledDuringTrial: user?.is_trial && user?.cancel_at_period_end
     };
 

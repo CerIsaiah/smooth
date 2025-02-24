@@ -248,6 +248,19 @@ export default function SavedResponses() {
                   {trialDaysLeft} days remaining in trial
                 </p>
               </>
+            ) : subscriptionStatus === 'trial-canceling' ? (
+              <>
+                <p className="flex items-center gap-2 text-orange-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Trial (Canceled)
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Access until {new Date(subscriptionDetails.trialEndsAt).toLocaleDateString()}
+                  {trialDaysLeft && ` (${trialDaysLeft} days remaining)`}
+                </p>
+              </>
             ) : subscriptionStatus === 'premium' ? (
               <>
                 <p className="flex items-center gap-2 text-pink-600">
@@ -260,24 +273,13 @@ export default function SavedResponses() {
                   Enjoying unlimited access!
                 </p>
               </>
-            ) : subscriptionStatus === 'canceling' ? (
-              <>
-                <p className="flex items-center gap-2 text-orange-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                  Premium (Canceling)
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Access until {new Date(subscriptionDetails.subscriptionEndsAt).toLocaleDateString()}
-                  {subscriptionDaysLeft && ` (${subscriptionDaysLeft} days remaining)`}
-                </p>
-              </>
             ) : (
               <>
                 <p className="text-gray-600">Free Plan</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Upgrade to unlock all premium features
+                  {subscriptionDetails.hadTrial ? 
+                    'Trial period has been used' : 
+                    'Start your 3-day free trial'}
                 </p>
               </>
             )}
@@ -293,10 +295,20 @@ export default function SavedResponses() {
               </svg>
               Cancel Subscription
             </button>
-          ) : subscriptionStatus === 'canceling' ? (
+          ) : subscriptionStatus === 'trial-canceling' ? (
             <div className="text-sm text-gray-500">
-              Cancellation pending
+              Trial ending soon
             </div>
+          ) : !subscriptionDetails.hadTrial ? (
+            <button
+              onClick={handleCheckout}
+              className="px-4 py-2 rounded-full text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 transition-colors shadow-sm hover:shadow flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Start Free Trial
+            </button>
           ) : (
             <button
               onClick={handleCheckout}

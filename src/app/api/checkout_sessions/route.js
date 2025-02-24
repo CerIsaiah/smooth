@@ -67,6 +67,14 @@ export async function POST(req) {
       );
     }
 
+    // If user has already had a trial, don't allow another one
+    if (user.trial_started_at) {
+      return NextResponse.json(
+        { error: 'Trial period has already been used' },
+        { status: 400 }
+      );
+    }
+
     console.log('Found user:', { userId: user.id, email: user.email });
 
     // Create Stripe checkout session
@@ -77,7 +85,7 @@ export async function POST(req) {
             currency: 'usd',
             product_data: {
               name: 'SmoothRizz Premium',
-              description: '3-day free trial, then $1.00/month',
+              description: '3-day free trial',
             },
             unit_amount: 100, // $1.00 in cents
             recurring: {
@@ -92,10 +100,11 @@ export async function POST(req) {
         trial_period_days: 3,
         trial_settings: {
           end_behavior: {
-            missing_payment_method: 'pause', // or 'cancel'
+            missing_payment_method: 'cancel',
           },
         },
       },
+      payment_method_collection: 'if_required', // Only collect payment method at end of trial
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
       customer_email: user.email,
