@@ -1254,19 +1254,34 @@ export default function Home() {
       }
     };
 
+    // If OpenAI is generating, show loading state regardless of current step
+    if (isGenerating) {
+      return (
+        <button
+          disabled
+          className="w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg bg-gray-400 opacity-50 cursor-not-allowed"
+        >
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span>Generating Responses...</span>
+          </div>
+        </button>
+      );
+    }
+
     // Show generate responses button when on preview section
     if (completedSteps.upload && completedSteps.stage && completedSteps.preview && isOnPreview) {
       return (
         <button
           onClick={handleSubmit}
-          disabled={isLoading || isGenerating || (!selectedFile && (!context || !lastText))}
+          disabled={isLoading || (!selectedFile && (!context || !lastText))}
           className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all 
-            ${(isLoading || isGenerating)
+            ${isLoading 
               ? 'bg-gray-400' 
               : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale'} 
             disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {(isLoading || isGenerating) ? (
+          {isLoading ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               <span>Generating Responses...</span>
