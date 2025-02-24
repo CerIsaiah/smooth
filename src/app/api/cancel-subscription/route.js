@@ -52,11 +52,6 @@ export async function POST(request) {
       
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
-        // Update user with Stripe customer ID
-        await supabase
-          .from('users')
-          .update({ stripe_customer_id: customerId })
-          .eq('email', userEmail);
       }
     }
 
@@ -87,19 +82,18 @@ export async function POST(request) {
     });
 
     // Update user's subscription status in database
-    const updateResult = await supabase
+    const { data: updatedUser, error: updateError } = await supabase
       .from('users')
       .update({ 
-        subscription_status: 'canceling',
-        subscription_end_date: new Date(canceledSubscription.current_period_end * 1000).toISOString()
+        subscription_status: 'active', // Keep as 'active' until the subscription actually ends
+        subscription_end_date: new Date(canceledSubscription.current_period_end * 1000).toISOString(),
+        cancel_at_period_end: true // Add this new field to track cancellation
       })
       .eq('email', userEmail)
-      .select();  // Add .select() to get the updated record
+      .select();
 
-    console.log('Database update result:', updateResult);
-
-    if (updateResult.error) {
-      console.error('Failed to update database:', updateResult.error);
+    if (updateError) {
+      console.error('Failed to update database:', updateError);
       throw new Error('Failed to update subscription status in database');
     }
 
@@ -107,7 +101,7 @@ export async function POST(request) {
       status: 'success',
       message: 'Subscription will be canceled at the end of the billing period',
       subscription: canceledSubscription,
-      databaseUpdate: updateResult.data
+      databaseUpdate: updatedUser
     });
 
   } catch (error) {
