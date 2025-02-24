@@ -1259,14 +1259,14 @@ export default function Home() {
       return (
         <button
           onClick={handleSubmit}
-          disabled={isLoading || (!selectedFile && (!context || !lastText))}
+          disabled={isLoading || isGenerating || (!selectedFile && (!context || !lastText))}
           className={`w-full px-6 py-3.5 rounded-full text-white font-medium shadow-lg transition-all 
-            ${isLoading 
+            ${(isLoading || isGenerating)
               ? 'bg-gray-400' 
               : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500 animate-pulse-scale'} 
             disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {isLoading ? (
+          {(isLoading || isGenerating) ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               <span>Generating Responses...</span>
