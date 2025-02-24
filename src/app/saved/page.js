@@ -190,16 +190,19 @@ export default function SavedResponses() {
         body: JSON.stringify({ userEmail: user.email }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to cancel subscription');
+        throw new Error(data.error || 'Failed to cancel subscription');
       }
 
       // Refresh subscription status
       const statusResponse = await fetch(`/api/subscription-status?userEmail=${encodeURIComponent(user.email)}`);
-      const data = await statusResponse.json();
-      setSubscriptionStatus(data.status);
+      const statusData = await statusResponse.json();
+      setSubscriptionStatus(statusData.status);
+      setSubscriptionDetails(statusData.details);
 
-      alert('Subscription successfully canceled');
+      alert('Your subscription will remain active until the end of the current billing period.');
     } catch (error) {
       console.error('Error canceling subscription:', error);
       alert('Failed to cancel subscription. Please try again.');
@@ -220,6 +223,9 @@ export default function SavedResponses() {
 
     const trialDaysLeft = subscriptionDetails.isTrialActive ? 
       formatTimeRemaining(subscriptionDetails.trialEndsAt) : null;
+    
+    const subscriptionDaysLeft = subscriptionDetails.subscriptionEndsAt ? 
+      formatTimeRemaining(subscriptionDetails.subscriptionEndsAt) : null;
 
     return (
       <div className="bg-gradient-to-r from-gray-50 to-pink-50 rounded-xl p-6">
@@ -256,10 +262,11 @@ export default function SavedResponses() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                   </svg>
-                  Subscription Ending Soon
+                  Premium (Canceling)
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   Access until {new Date(subscriptionDetails.subscriptionEndsAt).toLocaleDateString()}
+                  {subscriptionDaysLeft && ` (${subscriptionDaysLeft} days remaining)`}
                 </p>
               </>
             ) : (
@@ -272,7 +279,7 @@ export default function SavedResponses() {
             )}
           </div>
           
-          {subscriptionStatus === 'premium' || subscriptionStatus === 'trial' ? (
+          {subscriptionStatus === 'premium' ? (
             <button
               onClick={handleCancelSubscription}
               className="px-4 py-2 rounded-full text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors shadow-sm hover:shadow flex items-center gap-2"
@@ -282,6 +289,10 @@ export default function SavedResponses() {
               </svg>
               Cancel Subscription
             </button>
+          ) : subscriptionStatus === 'canceling' ? (
+            <div className="text-sm text-gray-500">
+              Cancellation pending
+            </div>
           ) : (
             <button
               onClick={handleCheckout}

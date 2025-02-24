@@ -27,12 +27,14 @@ export async function POST(request) {
 
     console.log('Attempting to cancel subscription for:', userEmail);
 
-    // First check if user exists in Supabase
+    // Get user data with more fields
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('stripe_customer_id')
+      .select('*')  // Select all fields to see current state
       .eq('email', userEmail)
       .single();
+
+    console.log('Current user data:', user);
 
     if (userError || !user) {
       console.error('User not found in database:', userError);
@@ -85,20 +87,27 @@ export async function POST(request) {
     });
 
     // Update user's subscription status in database
-    await supabase
+    const updateResult = await supabase
       .from('users')
       .update({ 
         subscription_status: 'canceling',
         subscription_end_date: new Date(canceledSubscription.current_period_end * 1000).toISOString()
       })
-      .eq('email', userEmail);
+      .eq('email', userEmail)
+      .select();  // Add .select() to get the updated record
 
-    console.log('Successfully canceled subscription:', subscription.id);
+    console.log('Database update result:', updateResult);
+
+    if (updateResult.error) {
+      console.error('Failed to update database:', updateResult.error);
+      throw new Error('Failed to update subscription status in database');
+    }
 
     return NextResponse.json({ 
       status: 'success',
       message: 'Subscription will be canceled at the end of the billing period',
-      subscription: canceledSubscription 
+      subscription: canceledSubscription,
+      databaseUpdate: updateResult.data
     });
 
   } catch (error) {
