@@ -61,12 +61,13 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
   };
 
   const handleLimitReached = () => {
+    // Don't show upgrade popup for premium users
+    if (isPremium) return;
+    
     onClose(); // Close the response overlay
     if (isSignedIn) {
-      // Show upgrade popup for signed-in users
       setShowUpgradePopup(true);
     } else {
-      // For anonymous users, trigger sign-in overlay
       setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
     }
   };
@@ -350,50 +351,54 @@ export default function Home() {
     try {
       if (!direction) return;
 
-      // If user is premium, don't count swipes
-      if (isPremium) {
-        if (direction === 'right') {
-          await saveResponse(responseToDelete);
+      // Only make API call if user is signed in
+      if (isSignedIn) {
+        const response = await fetch('/api/swipes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            direction,
+            userEmail: user?.email 
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP error! status: ${response.status}`);
         }
-        setResponses(prev => prev.filter(response => response !== responseToDelete));
-        return;
-      }
 
-      // Handle anonymous users
-      if (!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT) {
-        setShowResponseOverlay(false); // Close the swipe overlay
-        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
-        return;
-      }
-
-      const response = await fetch('/api/swipes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          direction,
-          userEmail: isSignedIn ? user?.email : null 
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      setUsageCount(data.dailySwipes);
-      
-      // Handle limits based on DB response
-      if (data.limitReached) {
-        setShowResponseOverlay(false); // Close the swipe overlay
-        if (isSignedIn) {
-          setShowUpgradePopup(true);
-        } else {
+        // If user is premium/trial, don't update usage count or show limits
+        if (data.isPremium || data.isTrial) {
+          if (direction === 'right') {
+            await saveResponse(responseToDelete);
+          }
+          setResponses(prev => prev.filter(response => response !== responseToDelete));
+          return;
+        }
+        
+        setUsageCount(data.dailySwipes);
+        
+        // Only show limits for non-premium users
+        if (data.limitReached && !data.isPremium && !data.isTrial) {
+          setShowResponseOverlay(false);
+          if (isSignedIn) {
+            setShowUpgradePopup(true);
+          } else {
+            setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+          }
+          return;
+        }
+      } else {
+        // Handle anonymous users
+        if (usageCount >= ANONYMOUS_USAGE_LIMIT) {
+          setShowResponseOverlay(false);
           setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+          return;
         }
-        return;
+        setUsageCount(prev => prev + 1);
       }
 
       // If right swipe, save the response
@@ -1366,14 +1371,22 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Add this useEffect to check subscription status
+  // Update the useEffect that checks subscription status
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
       if (isSignedIn && user?.email) {
         try {
           const response = await fetch(`/api/subscription-status?userEmail=${encodeURIComponent(user.email)}`);
           const data = await response.json();
-          setIsPremium(data.status === 'premium');
+          
+          // Update isPremium based on both premium and trial status
+          setIsPremium(data.status === 'premium' || data.status === 'trial');
+          
+          // If user is premium/trial, reset usage count
+          if (data.status === 'premium' || data.status === 'trial') {
+            setUsageCount(0);
+            setShowUpgradePopup(false); // Ensure upgrade popup is hidden
+          }
         } catch (error) {
           console.error('Error checking subscription status:', error);
           setIsPremium(false);
