@@ -416,7 +416,8 @@ export default function Home() {
   const outOfFrame = (response) => {
     setResponses(prev => prev.filter(r => r !== response));
     
-    if (responses.length === 2 && !isGenerating) {
+    // Only show regenerate popup for non-premium users after running out of responses
+    if (responses.length === 2 && !isGenerating && !isPremium) {
       setShowRegeneratePopup(true);
     }
   };
@@ -729,8 +730,20 @@ export default function Home() {
       
       const statusData = await statusResponse.json();
       
-      // Update condition to include trial users as premium
-      if (isSignedIn && !isPremium && !statusData.isTrialActive) {
+      // Skip limit checks for premium/trial users
+      if (statusData.isPremium || statusData.isTrial) {
+        setIsGenerating(true);
+        setShowRegeneratePopup(false);
+        setResponses([]);
+        
+        const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
+        setResponses(result);
+        setCurrentIndex(result.length - 1);
+        return;
+      }
+      
+      // For non-premium users, show appropriate prompts
+      if (isSignedIn && !statusData.isPremium && !statusData.isTrial) {
         setShowResponseOverlay(false);
         setShowUpgradePopup(true);
         return;
@@ -743,14 +756,7 @@ export default function Home() {
         return;
       }
 
-      setIsGenerating(true);
-      setShowRegeneratePopup(false);
-      setResponses([]);
-      
-      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-      setResponses(result);
-      setCurrentIndex(result.length - 1);
-      
+      // ... rest of the function for non-premium users ...
     } catch (error) {
       console.error('Error:', error);
       alert("Error generating new responses. Please try again.");
@@ -1135,34 +1141,40 @@ export default function Home() {
   };
 
   // Add the regenerate popup component
-  const RegeneratePopup = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full mx-4">
-        <h3 className="text-xl font-bold mb-4 text-center">Need more options?</h3>
-        <p className="text-gray-600 mb-6 text-center">
-          {isSignedIn 
-            ? "Upgrade to premium to generate unlimited responses!"
-            : "Generate 10 new responses to find the perfect reply!"}
-        </p>
-        <div className="flex gap-4">
-          <button
-            onClick={() => setShowRegeneratePopup(false)}
-            className="flex-1 px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={generateMoreResponses}
-            disabled={isGenerating}
-            className="flex-1 px-4 py-2 rounded-full text-white hover:opacity-90 transition"
-            style={{ backgroundColor: "#FE3C72" }}
-          >
-            {isSignedIn ? "Upgrade Now" : "Generate More"}
-          </button>
+  const RegeneratePopup = () => {
+    // Don't show upgrade prompt for premium/trial users
+    const buttonText = isPremium ? "Generate More" : (isSignedIn ? "Upgrade Now" : "Generate More");
+    const description = isPremium 
+      ? "Generate more responses to find the perfect reply!"
+      : (isSignedIn 
+        ? "Upgrade to premium to generate unlimited responses!"
+        : "Generate 10 new responses to find the perfect reply!");
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full mx-4">
+          <h3 className="text-xl font-bold mb-4 text-center">Need more options?</h3>
+          <p className="text-gray-600 mb-6 text-center">{description}</p>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setShowRegeneratePopup(false)}
+              className="flex-1 px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={generateMoreResponses}
+              disabled={isGenerating}
+              className="flex-1 px-4 py-2 rounded-full text-white hover:opacity-90 transition"
+              style={{ backgroundColor: "#FE3C72" }}
+            >
+              {buttonText}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Add this to your useEffect for scrolling
   useEffect(() => {
@@ -1397,9 +1409,8 @@ export default function Home() {
     checkSubscriptionStatus();
   }, [isSignedIn, user]);
 
-  // Add this useEffect near the top of the component
+  // Add this useEffect to check for stored user data on component mount
   useEffect(() => {
-    // Check for stored user data on component mount
     const storedUser = localStorage.getItem('smoothrizz_user');
     if (storedUser) {
       try {
