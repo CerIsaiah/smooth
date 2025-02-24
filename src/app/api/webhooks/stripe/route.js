@@ -93,9 +93,9 @@ export async function POST(req) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      // Calculate trial end date (30 days from now)
+      // Calculate trial end date (3 days from now)
       const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 30);
+      trialEndDate.setDate(trialEndDate.getDate() + 3);
 
       // Update user's subscription with trial information
       const { data: updatedUser, error: updateError } = await supabase
@@ -107,7 +107,8 @@ export async function POST(req) {
           trial_started_at: new Date().toISOString(),
           trial_end_date: trialEndDate.toISOString(),
           subscription_updated_at: new Date().toISOString(),
-          stripe_customer_id: session.customer
+          stripe_customer_id: session.customer,
+          is_premium: true
         })
         .eq('email', userEmail)
         .select()
