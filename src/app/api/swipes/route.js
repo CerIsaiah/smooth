@@ -62,6 +62,8 @@ export async function POST(request) {
     const { direction, userEmail } = await request.json();
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
+    console.log('📝 Processing swipe request:', { userEmail, requestIP });
+
     if (!direction) {
       return NextResponse.json({ error: 'Direction is required' }, { status: 400 });
     }
@@ -73,23 +75,37 @@ export async function POST(request) {
 
     // If user is signed in, check premium/trial status first
     if (userEmail) {
-      const { data: userData } = await supabase
+      console.log('🔍 Checking user status for:', userEmail);
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('is_premium, is_trial, trial_end_date, subscription_status')
         .eq('email', userEmail)
         .single();
+
+      if (userError) {
+        console.error('❌ Error fetching user data:', userError);
+      } else {
+        console.log('👤 User data:', userData);
+      }
 
       const now = new Date();
       const isTrialActive = userData?.is_trial && 
         userData?.trial_end_date && 
         new Date(userData.trial_end_date) > now;
 
+      console.log('✨ Premium status check:', {
+        isPremium: userData?.is_premium,
+        isTrialActive,
+        subscriptionStatus: userData?.subscription_status
+      });
+
       // Give trial users the same benefits as premium users
       if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
+        console.log('🌟 Premium/Trial user detected - not counting swipes');
         return NextResponse.json({
           success: true,
           isPremium: true,
-          dailySwipes: 0, // Don't count swipes for premium/trial users
+          dailySwipes: 0,
           isTrial: isTrialActive,
           limitReached: false,
           ...(isTrialActive && {
@@ -98,6 +114,9 @@ export async function POST(request) {
         });
       }
     }
+
+    // Only proceed with usage tracking for non-premium users
+    console.log('📊 Tracking usage for non-premium user');
 
     // Get both anonymous and user records if available
     const ipRecord = await getOrCreateUsageRecord(supabase, requestIP, false);
@@ -115,8 +134,16 @@ export async function POST(request) {
       (userRecord?.last_reset === today ? userRecord.daily_usage : 0)
     );
 
+    console.log('📈 Usage stats:', {
+      shouldReset,
+      totalDailyUsage,
+      ipUsage: ipRecord.daily_usage,
+      userUsage: userRecord?.daily_usage
+    });
+
     // Check if combined usage exceeds limit
     if (totalDailyUsage >= ANONYMOUS_USAGE_LIMIT) {
+      console.log('⚠️ Usage limit reached');
       if (!userEmail) {
         // Anonymous user needs to sign in
         return NextResponse.json({
@@ -140,7 +167,8 @@ export async function POST(request) {
       }
     }
 
-    // Update usage records
+    // Only update usage records for non-premium users
+    console.log('✏️ Updating usage records');
     const updateData = {
       daily_usage: shouldReset ? 1 : ipRecord.daily_usage + 1,
       total_usage: ipRecord.total_usage + 1,
@@ -160,6 +188,7 @@ export async function POST(request) {
         .eq('email', userEmail);
     }
 
+    console.log('✅ Successfully processed swipe');
     return NextResponse.json({
       success: true,
       dailySwipes: totalDailyUsage + 1,
@@ -168,7 +197,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error in POST /api/swipes:', error);
+    console.error('❌ Error in POST /api/swipes:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
