@@ -93,13 +93,7 @@ export async function POST(request) {
         userData?.trial_end_date && 
         new Date(userData.trial_end_date) > now;
 
-      console.log('✨ Premium status check:', {
-        isPremium: userData?.is_premium,
-        isTrialActive,
-        subscriptionStatus: userData?.subscription_status
-      });
-
-      // Give trial users the same benefits as premium users
+      // Modified condition to properly handle trial users
       if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
         console.log('🌟 Premium/Trial user detected - not counting swipes');
         return NextResponse.json({
