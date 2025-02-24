@@ -18,30 +18,20 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    // Add CORS headers to POST handler
-    const headers = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-User-Email',
-    };
-
     // Check if Stripe is properly configured
     if (!process.env.STRIPE_SECRET_KEY || !stripe) {
       console.error('Stripe configuration error:', { 
         hasKey: !!process.env.STRIPE_SECRET_KEY,
-        hasStripe: !!stripe,
-        mode: process.env.NODE_ENV,
-        keyType: process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test' : 'live'
+        hasStripe: !!stripe 
       });
       return NextResponse.json(
         { error: 'Stripe is not properly configured' },
-        { status: 500, headers }
+        { status: 500 }
       );
     }
 
     const body = await req.json();
     console.log('Received request body:', body);
-    console.log('Current Stripe mode:', process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test' : 'live');
 
     // Handle both userId and userEmail
     let userQuery;
@@ -124,17 +114,13 @@ export async function POST(req) {
     });
 
     console.log('Checkout session created:', session.id);
-    return NextResponse.json({ url: session.url }, { headers });
+    return NextResponse.json({ url: session.url });
     
   } catch (error) {
     console.error('Detailed error in checkout session:', error);
     return NextResponse.json(
       { error: 'Error creating checkout session. Please try again.' },
-      { status: 500, headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-User-Email',
-      }}
+      { status: 500 }
     );
   }
 }
