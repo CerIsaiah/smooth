@@ -56,7 +56,7 @@ export async function GET(request) {
     if (userEmail) {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_premium, is_trial, trial_end_date, subscription_status')
+        .select('is_trial, trial_end_date, subscription_status, subscription_type')
         .eq('email', userEmail)
         .single();
 
@@ -65,8 +65,8 @@ export async function GET(request) {
         userData?.trial_end_date && 
         new Date(userData.trial_end_date) > now;
 
-      // Modified condition to properly handle trial users
-      if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
+      // Check if user has premium access (either through trial or subscription)
+      if (isTrialActive || userData?.subscription_status === 'active') {
         return NextResponse.json({ 
           isPremium: true,
           dailySwipes: 0,

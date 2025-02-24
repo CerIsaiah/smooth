@@ -78,7 +78,7 @@ export async function POST(request) {
       console.log('🔍 Checking user status for:', userEmail);
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('is_premium, is_trial, trial_end_date, subscription_status')
+        .select('is_trial, trial_end_date, subscription_status, subscription_type')
         .eq('email', userEmail)
         .single();
 
@@ -93,8 +93,8 @@ export async function POST(request) {
         userData?.trial_end_date && 
         new Date(userData.trial_end_date) > now;
 
-      // Modified condition to properly handle trial users
-      if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
+      // Check if user has premium access (either through trial or subscription)
+      if (isTrialActive || userData?.subscription_status === 'active') {
         console.log('🌟 Premium/Trial user detected - not counting swipes');
         return NextResponse.json({
           success: true,
