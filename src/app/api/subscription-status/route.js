@@ -31,7 +31,8 @@ export async function GET(request) {
         is_trial,
         trial_end_date,
         subscription_end_date,
-        email
+        email,
+        cancel_at_period_end
       `);
 
     if (userId) {
@@ -53,7 +54,9 @@ export async function GET(request) {
       type: user?.subscription_type || null,
       isTrialActive: false,
       trialEndsAt: null,
-      subscriptionEndsAt: null
+      subscriptionEndsAt: null,
+      isCanceled: user?.cancel_at_period_end || false,
+      canceledDuringTrial: user?.is_trial && user?.cancel_at_period_end
     };
 
     if (user) {
@@ -63,7 +66,7 @@ export async function GET(request) {
 
       // Check if trial is active
       if (user.is_trial && trialEndDate && trialEndDate > now) {
-        status = 'trial';
+        status = user.cancel_at_period_end ? 'trial-canceling' : 'trial';
         details.isTrialActive = true;
         details.trialEndsAt = trialEndDate.toISOString();
       }

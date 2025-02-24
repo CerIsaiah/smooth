@@ -38,6 +38,7 @@ export default function SavedResponses() {
   const [user, setUser] = useState(null);
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
   const [subscriptionDetails, setSubscriptionDetails] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -177,10 +178,6 @@ export default function SavedResponses() {
   const handleCancelSubscription = async () => {
     if (!user?.email) return;
     
-    if (!confirm('Are you sure you want to cancel your subscription? This action cannot be undone.')) {
-      return;
-    }
-
     try {
       const response = await fetch('/api/cancel-subscription', {
         method: 'POST',
@@ -202,10 +199,12 @@ export default function SavedResponses() {
       setSubscriptionStatus(statusData.status);
       setSubscriptionDetails(statusData.details);
 
-      alert('Your subscription will remain active until the end of the current billing period.');
+      // Show success message in modal
+      setShowCancelModal(true);
     } catch (error) {
       console.error('Error canceling subscription:', error);
-      alert('Failed to cancel subscription. Please try again.');
+      // Show error message in modal
+      setShowCancelModal(true);
     }
   };
 
@@ -304,6 +303,46 @@ export default function SavedResponses() {
               Upgrade to Premium
             </button>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const CancelModal = ({ isOpen, onClose, success }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="text-center">
+            {success ? (
+              <>
+                <svg className="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Subscription Cancelled</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Your subscription will remain active until the end of the current period.
+                </p>
+              </>
+            ) : (
+              <>
+                <svg className="mx-auto h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Error</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Failed to cancel subscription. Please try again later.
+                </p>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="mt-4 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-pink-600 text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:text-sm"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -465,6 +504,12 @@ export default function SavedResponses() {
           </div>
         )}
       </div>
+
+      <CancelModal 
+        isOpen={showCancelModal} 
+        onClose={() => setShowCancelModal(false)}
+        success={true}
+      />
     </div>
   );
 } 
