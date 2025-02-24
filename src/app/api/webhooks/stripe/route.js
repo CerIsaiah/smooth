@@ -93,7 +93,7 @@ export async function POST(req) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      // Calculate trial end date (3 days from now)
+      // Calculate trial end date (3 days from now instead of 30)
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 3);
 
@@ -104,11 +104,11 @@ export async function POST(req) {
           subscription_type: 'premium',
           subscription_status: 'active',
           is_trial: true,
+          is_premium: true,
           trial_started_at: new Date().toISOString(),
           trial_end_date: trialEndDate.toISOString(),
           subscription_updated_at: new Date().toISOString(),
-          stripe_customer_id: session.customer,
-          is_premium: true
+          stripe_customer_id: session.customer
         })
         .eq('email', userEmail)
         .select()

@@ -724,9 +724,9 @@ export default function Home() {
       
       const statusData = await statusResponse.json();
       
-      // Always show upgrade popup for signed-in users when generating more
-      if (isSignedIn && !isPremium) {
-        setShowResponseOverlay(false); // Close the swipe overlay
+      // Update condition to include trial users as premium
+      if (isSignedIn && !isPremium && !statusData.isTrialActive) {
+        setShowResponseOverlay(false);
         setShowUpgradePopup(true);
         return;
       }
