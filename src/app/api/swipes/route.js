@@ -75,7 +75,7 @@ export async function POST(request) {
     if (userEmail) {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_premium, is_trial, trial_end_date')
+        .select('is_premium, is_trial, trial_end_date, subscription_status')
         .eq('email', userEmail)
         .single();
 
@@ -85,10 +85,11 @@ export async function POST(request) {
         new Date(userData.trial_end_date) > now;
 
       // Give trial users the same benefits as premium users
-      if (userData?.is_premium || isTrialActive) {
+      if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
         return NextResponse.json({
           success: true,
-          isPremium: true, // Treat trial users as premium
+          isPremium: true,
+          dailySwipes: 0, // Don't count swipes for premium/trial users
           isTrial: isTrialActive,
           limitReached: false,
           ...(isTrialActive && {
@@ -186,7 +187,7 @@ export async function GET(request) {
     if (userEmail) {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_premium, is_trial, trial_end_date')
+        .select('is_premium, is_trial, trial_end_date, subscription_status')
         .eq('email', userEmail)
         .single();
 
@@ -196,9 +197,10 @@ export async function GET(request) {
         new Date(userData.trial_end_date) > now;
 
       // Treat trial users same as premium users
-      if (userData?.is_premium || isTrialActive) {
+      if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
         return NextResponse.json({ 
           isPremium: true,
+          dailySwipes: 0, // Don't count swipes for premium/trial users
           isTrial: isTrialActive,
           limitReached: false,
           ...(isTrialActive && {
