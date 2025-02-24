@@ -10,7 +10,7 @@ const openai = new OpenAI({
 // System prompts stored securely on server
 const SYSTEM_PROMPTS = {
   'first-move': `"""
-Use EXACTLY 10 responses of the following styles and format for flirty but not too forward conversation continuation following these requirements:
+Returnn EXACTLY 10 responses of the following styles and format for flirty but not too forward conversation continuation following these requirements:
 INSTRUCTIONS###
 1. ANALYZE CONTEXT:
    - IMPORTANT! You are responding as the person on the right side of the conversation
@@ -57,6 +57,9 @@ Acceptable Responses:
 
 OUTPUT TEMPLATE###
 Return exactly 10 responses in an array format suitable for JSON parsing.
+Return exactly 10 responses in an array format suitable for JSON parsing.
+Return exactly 10 responses in an array format suitable for JSON parsing.
+
 """ 
 `}
 
@@ -228,7 +231,7 @@ export async function POST(request) {
       response_format: {
         type: "json_schema",
         json_schema: {
-          name: "response_format",
+          name: "responses_format",
           schema: {
             type: "object",
             properties: {
@@ -237,8 +240,6 @@ export async function POST(request) {
                 items: {
                   type: "string"
                 },
-                minItems: 10,
-                maxItems: 10
               }
             },
             required: ["responses"],
@@ -248,13 +249,19 @@ export async function POST(request) {
         }
       }
     });
+
+    const message = response.choices[0].message;
+
+    // Check for refusal
+    if (message.refusal) {
+      throw new Error(`Model refused to generate response: ${message.refusal}`);
+    }
+
+    // Parse and validate responses
+    const parsedResponses = JSON.parse(message.content).responses;
     
-    const result = response.choices[0].message.content;
-    const parsedResponses = JSON.parse(result).responses;
-    
-    // Validate response count
     if (!Array.isArray(parsedResponses) || parsedResponses.length !== 10) {
-      throw new Error('Invalid response format: Expected exactly 10 responses');
+      throw new Error(`Invalid number of responses: Expected 10, got ${parsedResponses.length}`);
     }
 
     return NextResponse.json({
