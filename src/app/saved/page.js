@@ -39,6 +39,7 @@ export default function SavedResponses() {
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
   const [subscriptionDetails, setSubscriptionDetails] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showConfirmCancelModal, setShowConfirmCancelModal] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -176,7 +177,12 @@ export default function SavedResponses() {
   };
 
   const handleCancelSubscription = async () => {
+    setShowConfirmCancelModal(true);
+  };
+
+  const confirmCancellation = async () => {
     if (!user?.email) return;
+    setShowConfirmCancelModal(false);
     
     try {
       const response = await fetch('/api/cancel-subscription', {
@@ -203,7 +209,6 @@ export default function SavedResponses() {
       setShowCancelModal(true);
     } catch (error) {
       console.error('Error canceling subscription:', error);
-      // Show error message in modal
       setShowCancelModal(true);
     }
   };
@@ -308,8 +313,52 @@ export default function SavedResponses() {
     );
   };
 
-  const CancelModal = ({ isOpen, onClose, success }) => {
+  const ConfirmCancelModal = ({ isOpen, onClose, onConfirm, isTrialActive, trialEndsAt }) => {
     if (!isOpen) return null;
+
+    const endDate = new Date(trialEndsAt).toLocaleDateString();
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="text-center">
+            <svg className="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Cancel Subscription?</h3>
+            {isTrialActive ? (
+              <p className="mt-2 text-sm text-gray-500">
+                If you cancel now, you will lose access to premium features on {endDate}.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-gray-500">
+                Are you sure you want to cancel your subscription? You will still have access until the end of your current billing period.
+              </p>
+            )}
+            <div className="mt-4 flex space-x-3">
+              <button
+                onClick={onConfirm}
+                className="flex-1 inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm"
+              >
+                Yes, Cancel
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:text-sm"
+              >
+                Keep Subscription
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const CancelModal = ({ isOpen, onClose, success, isTrialActive, trialEndsAt }) => {
+    if (!isOpen) return null;
+
+    const endDate = new Date(trialEndsAt).toLocaleDateString();
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -321,9 +370,15 @@ export default function SavedResponses() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <h3 className="mt-4 text-lg font-medium text-gray-900">Subscription Cancelled</h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  Your subscription will remain active until the end of the current period.
-                </p>
+                {isTrialActive ? (
+                  <p className="mt-2 text-sm text-gray-500">
+                    You will lose access to premium features on {endDate}.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-500">
+                    Your subscription will remain active until the end of the current billing period.
+                  </p>
+                )}
               </>
             ) : (
               <>
@@ -505,10 +560,20 @@ export default function SavedResponses() {
         )}
       </div>
 
+      <ConfirmCancelModal 
+        isOpen={showConfirmCancelModal}
+        onClose={() => setShowConfirmCancelModal(false)}
+        onConfirm={confirmCancellation}
+        isTrialActive={subscriptionDetails?.isTrialActive}
+        trialEndsAt={subscriptionDetails?.trialEndsAt}
+      />
+      
       <CancelModal 
-        isOpen={showCancelModal} 
+        isOpen={showCancelModal}
         onClose={() => setShowCancelModal(false)}
         success={true}
+        isTrialActive={subscriptionDetails?.isTrialActive}
+        trialEndsAt={subscriptionDetails?.trialEndsAt}
       />
     </div>
   );
