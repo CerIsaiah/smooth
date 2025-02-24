@@ -88,7 +88,7 @@ export async function POST(request) {
       if (userData?.is_premium || isTrialActive) {
         return NextResponse.json({
           success: true,
-          isPremium: userData.is_premium,
+          isPremium: true, // Treat trial users as premium
           isTrial: isTrialActive,
           limitReached: false,
           ...(isTrialActive && {
@@ -182,18 +182,28 @@ export async function GET(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // Check premium status for signed-in users
+    // Check premium/trial status for signed-in users
     if (userEmail) {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_premium')
+        .select('is_premium, is_trial, trial_end_date')
         .eq('email', userEmail)
         .single();
 
-      if (userData?.is_premium) {
+      const now = new Date();
+      const isTrialActive = userData?.is_trial && 
+        userData?.trial_end_date && 
+        new Date(userData.trial_end_date) > now;
+
+      // Treat trial users same as premium users
+      if (userData?.is_premium || isTrialActive) {
         return NextResponse.json({ 
           isPremium: true,
-          limitReached: false
+          isTrial: isTrialActive,
+          limitReached: false,
+          ...(isTrialActive && {
+            trialEndsAt: userData.trial_end_date
+          })
         });
       }
     }
@@ -214,7 +224,22 @@ export async function GET(request) {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
 
-    // Calculate total daily usage
+    // Check if user is in trial period
+    const isTrialActive = userData?.is_trial && 
+      userData?.trial_end_date && 
+      new Date(userData.trial_end_date) > now;
+
+    // If user is in trial, treat them as premium
+    if (isTrialActive) {
+      return NextResponse.json({ 
+        isPremium: true,
+        isTrial: true,
+        limitReached: false,
+        trialEndsAt: userData.trial_end_date
+      });
+    }
+
+    // Calculate total daily usage for non-premium/non-trial users
     const ipUsage = ipData?.last_reset === today ? ipData.daily_usage : 0;
     const userUsage = userData?.last_reset === today ? userData.daily_usage : 0;
     const totalDailyUsage = ipUsage + userUsage;
