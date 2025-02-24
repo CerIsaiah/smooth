@@ -77,14 +77,25 @@ export async function POST(req) {
             currency: 'usd',
             product_data: {
               name: 'SmoothRizz Premium',
-              description: 'Unlimited access to all premium features',
+              description: '3-day free trial, then $1.00/month',
             },
             unit_amount: 100, // $1.00 in cents
+            recurring: {
+              interval: 'month',
+            },
           },
           quantity: 1,
         },
       ],
-      mode: 'payment',
+      mode: 'subscription',
+      subscription_data: {
+        trial_period_days: 3,
+        trial_settings: {
+          end_behavior: {
+            missing_payment_method: 'pause', // or 'cancel'
+          },
+        },
+      },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?canceled=true`,
       customer_email: user.email,

@@ -23,7 +23,17 @@ export async function GET(request) {
     }
 
     // Query using either userId or email
-    const query = supabase.from('users').select('subscription_type, subscription_status, email');
+    const query = supabase
+      .from('users')
+      .select(`
+        subscription_type,
+        subscription_status,
+        is_trial,
+        trial_end_date,
+        subscription_end_date,
+        email
+      `);
+
     if (userId) {
       query.eq('id', userId);
     } else {
@@ -37,13 +47,42 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch subscription status' }, { status: 500 });
     }
 
-    // A user has an active subscription only if status is "active"
-    let status = null;
-    if (user?.subscription_status === 'active') {
-      status = user.subscription_type; // Will be either "standard" or "premium"
+    // Determine the current subscription state
+    let status = 'free';
+    let details = {
+      type: user?.subscription_type || null,
+      isTrialActive: false,
+      trialEndsAt: null,
+      subscriptionEndsAt: null
+    };
+
+    if (user) {
+      const now = new Date();
+      const trialEndDate = user.trial_end_date ? new Date(user.trial_end_date) : null;
+      const subscriptionEndDate = user.subscription_end_date ? new Date(user.subscription_end_date) : null;
+
+      // Check if trial is active
+      if (user.is_trial && trialEndDate && trialEndDate > now) {
+        status = 'trial';
+        details.isTrialActive = true;
+        details.trialEndsAt = trialEndDate.toISOString();
+      }
+      // Check if subscription is active
+      else if (user.subscription_status === 'active') {
+        status = 'premium';
+        details.subscriptionEndsAt = subscriptionEndDate?.toISOString();
+      }
+      // Check if subscription is canceling
+      else if (user.subscription_status === 'canceling') {
+        status = 'canceling';
+        details.subscriptionEndsAt = subscriptionEndDate?.toISOString();
+      }
     }
 
-    return NextResponse.json({ status: status || null });
+    return NextResponse.json({
+      status,
+      details
+    });
 
   } catch (error) {
     console.error('Error:', error);

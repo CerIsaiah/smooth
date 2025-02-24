@@ -89,6 +89,27 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [responses, currentIndex, childRefs]);
 
+  // Initialize showSwipeHint state correctly
+  const [showSwipeHint, setShowSwipeHint] = useState(() => {
+    const hasShownHint = localStorage.getItem('smoothrizz_swipe_hint');
+    return !hasShownHint; // This will be true if hasShownHint is null or undefined
+  });
+
+  // Add console logs to debug
+  useEffect(() => {
+    console.log('showSwipeHint:', showSwipeHint);
+    console.log('isSignedIn:', isSignedIn);
+    
+    if (showSwipeHint) {
+      const timer = setTimeout(() => {
+        setShowSwipeHint(false);
+        localStorage.setItem('smoothrizz_swipe_hint', 'true');
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showSwipeHint]);
+
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col">
       <div className="bg-white/95 backdrop-blur-sm p-3 flex items-center border-b border-pink-100">
@@ -133,8 +154,17 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
         </div>
       </div>
 
-      {/* Cards Container - Optimized for Mobile */}
-      <div className="flex-1 w-full overflow-hidden flex items-center justify-center bg-gray-50/50">
+      {/* Cards Container - Add the blinking text */}
+      <div className="flex-1 w-full overflow-hidden flex items-center justify-center bg-gray-50/50 relative">
+        {/* Make sure the condition is correct and add a test border to see the container */}
+        {showSwipeHint && !isSignedIn && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="animate-pulse-fade text-[#FE3C72] text-6xl font-bold tracking-wider drop-shadow-[0_0_10px_rgba(254,60,114,0.5)]">
+              Swipe!
+            </div>
+          </div>
+        )}
+
         <div className="cardContainer w-[95vw] sm:w-[85vw] md:w-[75vw] lg:w-[500px] relative h-[60vh] sm:h-[65vh]">
           {responses.map((response, index) => (
             response && (
@@ -878,7 +908,7 @@ export default function Home() {
       ) : (
         <div className="h-full flex items-center justify-center text-gray-400">
           Your conversation will appear here
-        </div>
+        </div> 
       )}
     </div>
   );
@@ -1043,6 +1073,23 @@ export default function Home() {
 
     .animate-pulse-scale {
       animation: pulse-scale 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-fade {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1.2);
+      }
+      50% {
+        opacity: 0.4;
+        transform: scale(1);
+      }
+    }
+
+    .animate-pulse-fade {
+      animation: pulse-fade 1.2s ease-in-out infinite;
+      text-shadow: 0 0 20px rgba(254, 60, 114, 0.7),
+                   0 0 40px rgba(254, 60, 114, 0.4);
     }
   `;
 

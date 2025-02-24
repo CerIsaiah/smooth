@@ -93,19 +93,21 @@ export async function POST(req) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      console.log('✅ Found user:', {
-        userEmail: existingUser.email,
-        currentSubscriptionType: existingUser.subscription_type,
-        currentStatus: existingUser.subscription_status
-      });
+      // Calculate trial end date (30 days from now)
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30);
 
-      // Update user's subscription
+      // Update user's subscription with trial information
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
           subscription_type: 'premium',
           subscription_status: 'active',
-          subscription_updated_at: new Date().toISOString()
+          is_trial: true,
+          trial_started_at: new Date().toISOString(),
+          trial_end_date: trialEndDate.toISOString(),
+          subscription_updated_at: new Date().toISOString(),
+          stripe_customer_id: session.customer
         })
         .eq('email', userEmail)
         .select()
@@ -120,32 +122,53 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
       }
 
-      console.log('✅ Successfully updated subscription:', {
+      console.log('✅ Successfully updated subscription with trial:', {
         userEmail: userEmail,
-        oldType: existingUser.subscription_type,
-        newType: updatedUser.subscription_type,
-        oldStatus: existingUser.subscription_status,
-        newStatus: updatedUser.subscription_status
+        trialEndDate: trialEndDate.toISOString(),
+        customerId: session.customer
       });
+    }
 
-      // Verify the update was successful
-      const { data: verifyUser, error: verifyError } = await supabase
+    // Handle trial ending
+    if (event.type === 'customer.subscription.trial_will_end') {
+      const subscription = event.data.object;
+      
+      // Find user by Stripe customer ID
+      const { data: user, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('email', userEmail)
+        .eq('stripe_customer_id', subscription.customer)
         .single();
 
-      if (verifyError) {
-        console.error('❌ Failed to verify update:', {
-          error: verifyError,
-          userEmail: userEmail
-        });
-      } else {
-        console.log('✅ Verified subscription update:', {
-          subscriptionType: verifyUser.subscription_type,
-          subscriptionStatus: verifyUser.subscription_status,
-          updatedAt: verifyUser.subscription_updated_at
-        });
+      if (!userError && user) {
+        // Update user record to reflect trial ending soon
+        await supabase
+          .from('users')
+          .update({
+            trial_ending_soon: true
+          })
+          .eq('id', user.id);
+      }
+    }
+
+    // Handle subscription becoming active after trial
+    if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object;
+      
+      if (subscription.status === 'active' && !subscription.trial_end) {
+        // Find user by Stripe customer ID
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .update({
+            is_trial: false,
+            is_premium: true,
+            trial_end_date: null,
+            subscription_status: 'active',
+            subscription_updated_at: new Date().toISOString()
+          })
+          .eq('stripe_customer_id', subscription.customer)
+          .select()
+          .single();
       }
     }
 

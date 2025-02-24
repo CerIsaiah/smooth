@@ -22,7 +22,12 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
           daily_usage: 0,
           last_used: new Date().toISOString(),
           last_reset: today,
-          ...(isEmail && { is_premium: false })
+          ...(isEmail && { 
+            is_premium: false,
+            is_trial: false,
+            trial_end_date: null,
+            trial_started_at: null
+          })
         };
         
         const { data: newData, error: insertError } = await supabase
@@ -66,19 +71,28 @@ export async function POST(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // If user is signed in, check premium status first
+    // If user is signed in, check premium/trial status first
     if (userEmail) {
       const { data: userData } = await supabase
         .from('users')
-        .select('is_premium')
+        .select('is_premium, is_trial, trial_end_date')
         .eq('email', userEmail)
         .single();
 
-      if (userData?.is_premium) {
+      const now = new Date();
+      const isTrialActive = userData?.is_trial && 
+        userData?.trial_end_date && 
+        new Date(userData.trial_end_date) > now;
+
+      if (userData?.is_premium || isTrialActive) {
         return NextResponse.json({
           success: true,
-          isPremium: true,
-          limitReached: false
+          isPremium: userData.is_premium,
+          isTrial: isTrialActive,
+          limitReached: false,
+          ...(isTrialActive && {
+            trialEndsAt: userData.trial_end_date
+          })
         });
       }
     }

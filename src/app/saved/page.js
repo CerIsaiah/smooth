@@ -37,6 +37,7 @@ export default function SavedResponses() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+  const [subscriptionDetails, setSubscriptionDetails] = useState(null);
 
   useEffect(() => {
     // Check if user is logged in
@@ -46,11 +47,12 @@ export default function SavedResponses() {
 
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
-      if (user?.id) {
+      if (user?.email) {
         try {
-          const response = await fetch(`/api/subscription-status?userId=${user.id}`);
+          const response = await fetch(`/api/subscription-status?userEmail=${user.email}`);
           const data = await response.json();
           setSubscriptionStatus(data.status);
+          setSubscriptionDetails(data.details);
         } catch (error) {
           console.error('Error fetching subscription status:', error);
         }
@@ -170,6 +172,130 @@ export default function SavedResponses() {
       console.error('Checkout error:', error);
       alert('Error starting checkout. Please try again.');
     }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!user?.email) return;
+    
+    if (!confirm('Are you sure you want to cancel your subscription? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userEmail: user.email }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel subscription');
+      }
+
+      // Refresh subscription status
+      const statusResponse = await fetch(`/api/subscription-status?userEmail=${encodeURIComponent(user.email)}`);
+      const data = await statusResponse.json();
+      setSubscriptionStatus(data.status);
+
+      alert('Subscription successfully canceled');
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      alert('Failed to cancel subscription. Please try again.');
+    }
+  };
+
+  // Helper function to format remaining time
+  const formatTimeRemaining = (endDate) => {
+    if (!endDate) return null;
+    const end = new Date(endDate);
+    const now = new Date();
+    const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+    return days;
+  };
+
+  const renderSubscriptionStatus = () => {
+    if (!subscriptionDetails) return null;
+
+    const trialDaysLeft = subscriptionDetails.isTrialActive ? 
+      formatTimeRemaining(subscriptionDetails.trialEndsAt) : null;
+
+    return (
+      <div className="bg-gradient-to-r from-gray-50 to-pink-50 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Subscription Status</h3>
+        <div className="flex items-center justify-between">
+          <div>
+            {subscriptionStatus === 'trial' ? (
+              <>
+                <p className="flex items-center gap-2 text-pink-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Trial Active
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {trialDaysLeft} days remaining in trial
+                </p>
+              </>
+            ) : subscriptionStatus === 'premium' ? (
+              <>
+                <p className="flex items-center gap-2 text-pink-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Premium Member
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Enjoying unlimited access!
+                </p>
+              </>
+            ) : subscriptionStatus === 'canceling' ? (
+              <>
+                <p className="flex items-center gap-2 text-orange-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  Subscription Ending Soon
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Access until {new Date(subscriptionDetails.subscriptionEndsAt).toLocaleDateString()}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600">Free Plan</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Upgrade to unlock all premium features
+                </p>
+              </>
+            )}
+          </div>
+          
+          {subscriptionStatus === 'premium' || subscriptionStatus === 'trial' ? (
+            <button
+              onClick={handleCancelSubscription}
+              className="px-4 py-2 rounded-full text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors shadow-sm hover:shadow flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+              Cancel Subscription
+            </button>
+          ) : (
+            <button
+              onClick={handleCheckout}
+              className="px-4 py-2 rounded-full text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 transition-colors shadow-sm hover:shadow flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Upgrade to Premium
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -308,39 +434,7 @@ export default function SavedResponses() {
 
             <div className="p-6 space-y-6">
               {/* Subscription Status */}
-              <div className="bg-gradient-to-r from-gray-50 to-pink-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Subscription Status</h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600">
-                      {subscriptionStatus === 'premium' ? (
-                        <span className="flex items-center gap-2 text-pink-600">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                          </svg>
-                          Premium Member
-                        </span>
-                      ) : 'Free Plan'}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {subscriptionStatus === 'premium' 
-                        ? 'Enjoying unlimited access to all features!'
-                        : 'Upgrade to unlock all premium features'}
-                    </p>
-                  </div>
-                  {subscriptionStatus !== 'premium' && (
-                    <button
-                      onClick={handleCheckout}
-                      className="px-4 py-2 rounded-full text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 transition-colors shadow-sm hover:shadow flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                      </svg>
-                      Upgrade to Premium
-                    </button>
-                  )}
-                </div>
-              </div>
+              {renderSubscriptionStatus()}
 
               {/* Sign Out Button */}
               <div className="border-t border-gray-100 pt-6">
