@@ -116,7 +116,7 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
       <div className="bg-white/95 backdrop-blur-sm p-3 flex items-center border-b border-pink-100">
         <div className="flex items-center gap-3 mx-auto">
           <div className="text-base font-bold" style={{ color: "#FE3C72" }}>
-            Your Suggestions ✨
+            Smoothrizz.com responses ✨
           </div>
           <div className="px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600">
             {isPremium ? 'Unlimited swipes' : `${remainingSwipes} swipes left today`}
