@@ -578,11 +578,23 @@ export default function Home() {
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Reset states first
+      setCompletedSteps({
+        upload: false,
+        stage: false,
+        preview: false
+      });
+      setMode(null);
+      setIsOnPreview(false);
+      
+      // Then set the new file
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setInputMode('screenshot');
       setContext('');
       setLastText('');
+      
+      // Set upload step as completed after new file is set
       setCompletedSteps(prev => ({ ...prev, upload: true }));
     }
   };
@@ -1657,15 +1669,23 @@ export default function Home() {
                           type="file" 
                           accept="image/*" 
                           onChange={(e) => {
-                            handleFileUpload(e);
-                            // Reset steps when new file is uploaded
-                            setCompletedSteps({
-                              upload: false,
-                              stage: false,
-                              preview: false
-                            });
-                            setMode(null);
-                            setIsOnPreview(false);
+                            // Handle file upload first
+                            if (e.target.files[0]) {
+                              setSelectedFile(e.target.files[0]);
+                              setPreviewUrl(URL.createObjectURL(e.target.files[0]));
+                              setInputMode('screenshot');
+                              
+                              // Then reset the other states
+                              setMode(null);
+                              setIsOnPreview(false);
+                              setContext('');
+                              setLastText('');
+                              setCompletedSteps({
+                                upload: true, // Keep upload step completed since we have a new file
+                                stage: false,
+                                preview: false
+                              });
+                            }
                           }} 
                           className="hidden" 
                         />
