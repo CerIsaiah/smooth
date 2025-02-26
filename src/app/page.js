@@ -105,87 +105,157 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
       const timer = setTimeout(() => {
         setShowSwipeHint(false);
         localStorage.setItem('smoothrizz_swipe_hint', 'true');
-      }, 3000);
+      }, 5000); // Increased to 5 seconds
 
       return () => clearTimeout(timer);
     }
   }, [showSwipeHint]);
 
+  // Enhanced swipe position tracking with stronger visual feedback
+  const [swipePosition, setSwipePosition] = useState(0);
+
+  // Enhanced card styling with more depth and better transitions
+  const cardStyle = useMemo(() => {
+    const absPosition = Math.abs(swipePosition);
+    const opacity = Math.min(absPosition / 100, 0.15);
+    const rotation = swipePosition / 50;
+    const scale = Math.max(1 - absPosition / 1000, 0.93);
+    
+    return {
+      transform: `rotate(${rotation}deg) scale(${scale})`,
+      backgroundColor: 'white',
+      boxShadow: `0 4px 20px rgba(0, 0, 0, 0.1)`,
+      transition: 'all 0.2s ease'
+    };
+  }, [swipePosition]);
+
+  // Swipe direction indicators
+  const directionIndicators = useMemo(() => {
+    const absPosition = Math.abs(swipePosition);
+    const opacity = Math.min(absPosition / 100, 1);
+    
+    return {
+      left: {
+        opacity: swipePosition < 0 ? opacity : 0,
+        transform: `scale(${1 + opacity * 0.2})`,
+      },
+      right: {
+        opacity: swipePosition > 0 ? opacity : 0,
+        transform: `scale(${1 + opacity * 0.2})`,
+      }
+    };
+  }, [swipePosition]);
+
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col">
-      <div className="bg-white/95 backdrop-blur-sm p-3 flex items-center border-b border-pink-100">
-        <div className="flex items-center gap-3 mx-auto">
-          <div className="text-base font-bold" style={{ color: "#FE3C72" }}>
-            Smoothrizz.com responses ✨
+      {/* Improved Header */}
+      <div className="bg-white/95 backdrop-blur-sm px-4 py-3 border-b border-pink-100">
+        <div className="max-w-[500px] mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <span className="text-lg font-bold text-[#FE3C72]">
+              SmoothRizz
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600">
+              {isPremium ? 'Unlimited swipes' : `${remainingSwipes} swipes left`}
+            </span>
           </div>
-          <div className="px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600">
-            {isPremium ? 'Unlimited swipes' : `${remainingSwipes} swipes left today`}
-          </div>
+          <button 
+            onClick={onClose}
+            className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
-        <button 
-          onClick={onClose}
-          className="p-1.5 hover:bg-gray-100 rounded-full transition-colors absolute right-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
       </div>
 
-      {/* Compact Saved Responses Button */}
-      <div className="bg-white px-3 py-2 border-b border-pink-100">
+      {/* View Saved Button */}
+      <div className="max-w-[500px] mx-auto w-full px-4 mt-4">
         <button
-          onClick={handleSavedResponsesClick}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all"
-          style={{ backgroundColor: "#FE3C72" }}
+          onClick={() => {
+            if (isSignedIn) {
+              router.push('/saved');
+            } else {
+              onClose();
+              setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+            }
+          }}
+          className="w-full px-4 py-3 rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-[#FE3C72] font-medium"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
-          View Saved
+          View Saved Responses
         </button>
       </div>
 
-      {/* Simplified Swipe Instructions */}
-      <div className="bg-white px-3 py-2 border-b border-pink-100">
-        <div className="flex items-center justify-between text-xs">
-          <div className="text-red-500">← Swipe Left to Delete</div>
-          <div className="text-green-500">Swipe Right to Save →</div>
-        </div>
-      </div>
-
-      {/* Cards Container - Add the blinking text */}
-      <div className="flex-1 w-full overflow-hidden flex items-center justify-center bg-gray-50/50 relative">
-        {/* Make sure the condition is correct and add a test border to see the container */}
-        {showSwipeHint && !isSignedIn && (
-          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <div className="animate-pulse-fade text-[#FE3C72] text-6xl font-bold tracking-wider drop-shadow-[0_0_10px_rgba(254,60,114,0.5)]">
-              Swipe!
-            </div>
-          </div>
-        )}
-
+      {/* Cards Container */}
+      <div className="flex-1 w-full overflow-hidden flex items-center justify-center bg-gray-50/50 relative mt-4">
         <div className="cardContainer w-[95vw] sm:w-[85vw] md:w-[75vw] lg:w-[500px] relative h-[60vh] sm:h-[65vh]">
           {responses.map((response, index) => (
             response && (
               <TinderCard
                 className='swipe absolute w-full h-full'
                 key={`${response}-${index}`}
-                onSwipe={(dir) => swiped(dir, response)}
+                onSwipe={(dir) => {
+                  setSwipePosition(0);
+                  if (!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT - 1) {
+                    setShowResponseOverlay(false);
+                    setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
+                    return;
+                  }
+                  if (isSignedIn && !isPremium && usageCount >= FREE_USER_DAILY_LIMIT - 1) {
+                    setShowResponseOverlay(false);
+                    setShowUpgradePopup(true);
+                    return;
+                  }
+                  swiped(dir, response);
+                }}
                 onCardLeftScreen={() => outOfFrame(response)}
                 preventSwipe={["up", "down"]}
                 ref={childRefs[index]}
+                onDrag={(_, data) => {
+                  setSwipePosition(data.x);
+                }}
               >
-                <div className='card rounded-lg shadow-md w-full h-full p-4 flex flex-col justify-center items-center bg-white border border-gray-100'>
-                  <div className='card-content text-base font-medium text-gray-800 text-center w-full max-w-[90%] mx-auto'>
+                <div 
+                  className='card rounded-2xl w-full h-full bg-white flex flex-col justify-center items-center relative overflow-hidden'
+                  style={cardStyle}
+                >
+                  {/* Direction Stamps */}
+                  <div 
+                    className="absolute left-6 top-6 rotate-[-12deg] border-4 border-red-500 rounded-xl px-4 py-2 transition-all duration-200"
+                    style={directionIndicators.left}
+                  >
+                    <span className="text-red-500 font-bold text-2xl">DELETE</span>
+                  </div>
+                  <div 
+                    className="absolute right-6 top-6 rotate-12 border-4 border-green-500 rounded-xl px-4 py-2 transition-all duration-200"
+                    style={directionIndicators.right}
+                  >
+                    <span className="text-green-500 font-bold text-2xl">SAVE</span>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className='card-content text-xl font-medium text-gray-800 text-center w-full max-w-[85%] mx-auto px-6 py-4'>
                     {response}
                   </div>
-                  
+
                   {/* Minimal Swipe Hint */}
-                  <div className="absolute bottom-3 left-0 right-0 text-center">
-                    <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-50 text-xs text-gray-400">
-                      ← Delete • Save →
+                  <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center gap-12 text-lg font-medium">
+                    <div className="flex items-center gap-2 text-red-400">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                      Delete
+                    </div>
+                    <div className="flex items-center gap-2 text-green-400">
+                      Save
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -193,43 +263,43 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
             )
           )).filter(Boolean)}
         </div>
-
-        {/* Simplified Need More Responses Popup */}
-        {responses.length <= 1 && !isGenerating && (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl p-4 w-full max-w-xs text-center">
-              <h3 className="text-lg font-bold mb-2">Need more options?</h3>
-              <button
-                onClick={onGenerateMore}
-                disabled={isGenerating}
-                className={`w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all 
-                  ${isGenerating 
-                    ? 'bg-gray-400 animate-pulse' 
-                    : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500'} 
-                  disabled:opacity-50`}
-              >
-                {isGenerating ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Generating...</span>
-                  </div>
-                ) : (
-                  "Generate More ✨"
-                )}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
+      {/* Simplified Need More Responses Popup */}
+      {responses.length <= 1 && !isGenerating && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-4 w-full max-w-xs text-center">
+            <h3 className="text-lg font-bold mb-2">Need more options?</h3>
+            <button
+              onClick={onGenerateMore}
+              disabled={isGenerating}
+              className={`w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all 
+                ${isGenerating 
+                  ? 'bg-gray-400 animate-pulse' 
+                  : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500'} 
+                disabled:opacity-50`}
+            >
+              {isGenerating ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Generating...</span>
+                </div>
+              ) : (
+                "Generate More ✨"
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Simplified Footer */}
-      <div className="bg-white/95 backdrop-blur-sm p-3 border-t border-pink-100">
+      <div className="bg-white/95 backdrop-blur-sm p-4 border-t border-pink-100">
         <button
           onClick={() => {
             onClose();
             document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" });
           }}
-          className="w-full px-4 py-2 rounded-full font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
+          className="w-full px-4 py-3 rounded-full font-medium border border-gray-200 hover:bg-gray-50 transition-colors"
         >
           Upload Another Screenshot
         </button>
@@ -238,11 +308,22 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
   );
 }
 
-// Update the UpgradePopup component to receive handleCheckout
+// Update the UpgradePopup component
 function UpgradePopup({ onClose, handleCheckout }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full relative">
+        {/* Add close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
         <div className="text-center mb-8">
           <h3 className="text-2xl font-bold mb-3">Upgrade to Premium</h3>
           <p className="text-gray-600">
