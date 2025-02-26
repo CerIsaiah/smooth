@@ -1641,13 +1641,37 @@ export default function Home() {
               <div className="p-4 sm:p-6">
                 <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/50 relative hover:border-pink-200 transition-colors">
                   {completedSteps.upload ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="bg-green-50 p-2 rounded-full">
-                        <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="bg-green-50 p-2 rounded-full">
+                          <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <p className="text-green-600 font-medium">Upload Complete!</p>
                       </div>
-                      <p className="text-green-600 font-medium">Upload Complete!</p>
+                      
+                      {/* Add new upload button */}
+                      <label className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer text-gray-700 text-sm">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            handleFileUpload(e);
+                            // Reset steps when new file is uploaded
+                            setCompletedSteps({
+                              upload: false,
+                              stage: false,
+                              preview: false
+                            });
+                            setMode(null);
+                            setIsOnPreview(false);
+                          }} 
+                          className="hidden" 
+                        />
+                        <Upload size={16} />
+                        Upload New Screenshot
+                      </label>
                     </div>
                   ) : (
                     <label className="flex flex-col items-center justify-center gap-3 cursor-pointer">
