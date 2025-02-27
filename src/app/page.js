@@ -245,7 +245,7 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
 
                   {/* Swipe Hint Text - Added above the actions */}
                   <div className="absolute bottom-16 left-0 right-0 flex justify-center">
-                    <span className="text-gray-400 text-sm font-medium">swipe!</span>
+                    <span className="text-gray-400 text-sm font-medium">- Swipe! -</span>
                   </div>
 
                   {/* Minimal Swipe Hint */}
