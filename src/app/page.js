@@ -229,18 +229,23 @@ function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, 
                     className="absolute left-6 top-6 rotate-[-12deg] border-4 border-red-500 rounded-xl px-4 py-2 transition-all duration-200"
                     style={directionIndicators.left}
                   >
-                    <span className="text-red-500 font-bold text-2xl">DELETE</span>
+                    <span className="text-red-500 font-bold text-2xl">Dislike</span>
                   </div>
                   <div 
                     className="absolute right-6 top-6 rotate-12 border-4 border-green-500 rounded-xl px-4 py-2 transition-all duration-200"
                     style={directionIndicators.right}
                   >
-                    <span className="text-green-500 font-bold text-2xl">SAVE</span>
+                    <span className="text-green-500 font-bold text-2xl">Like</span>
                   </div>
 
                   {/* Card Content */}
                   <div className='card-content text-xl font-medium text-gray-800 text-center w-full max-w-[85%] mx-auto px-6 py-4'>
                     {response}
+                  </div>
+
+                  {/* Swipe Hint Text - Added above the actions */}
+                  <div className="absolute bottom-16 left-0 right-0 flex justify-center">
+                    <span className="text-gray-400 text-sm font-medium">swipe!</span>
                   </div>
 
                   {/* Minimal Swipe Hint */}
