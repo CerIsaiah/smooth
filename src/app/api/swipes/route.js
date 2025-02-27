@@ -7,7 +7,8 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
   const idField = isEmail ? 'email' : 'ip_address';
   
   try {
-    const { data, error } = await supabase
+    // First try to get the existing record
+    let { data, error } = await supabase
       .from(table)
       .select('*')
       .eq(idField, identifier)
@@ -15,13 +16,16 @@ async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
 
     if (error) {
       if (error.code === 'PGRST116') {
+        // Create new record with proper initialization
         const today = new Date().toISOString().split('T')[0];
+        const now = new Date().toISOString();
         const newRecord = {
           [idField]: identifier,
           total_usage: 0,
           daily_usage: 0,
-          last_used: new Date().toISOString(),
+          last_used: now, // Initialize with current timestamp
           last_reset: today,
+          login_count: isEmail ? 1 : 0, // Initialize login count for users
           ...(isEmail && { 
             is_premium: false,
             is_trial: false,
@@ -116,8 +120,8 @@ export async function POST(request) {
     const ipRecord = await getOrCreateUsageRecord(supabase, requestIP, false);
     const userRecord = userEmail ? await getOrCreateUsageRecord(supabase, userEmail, true) : null;
     
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
 
     // Reset counts if it's a new day
     const shouldReset = ipRecord.last_reset !== today;
@@ -166,19 +170,26 @@ export async function POST(request) {
     const updateData = {
       daily_usage: shouldReset ? 1 : ipRecord.daily_usage + 1,
       total_usage: ipRecord.total_usage + 1,
-      last_used: now.toISOString(),
+      last_used: now, // Use ISO string for timestamp
       last_reset: today
     };
 
+    // Update IP usage
     await supabase
       .from('ip_usage')
       .update(updateData)
       .eq('ip_address', requestIP);
 
+    // Update user record if signed in
     if (userEmail) {
+      const userUpdateData = {
+        ...updateData,
+        login_count: userRecord.login_count + 1 // Increment login count
+      };
+
       await supabase
         .from('users')
-        .update(updateData)
+        .update(userUpdateData)
         .eq('email', userEmail);
     }
 
