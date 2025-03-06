@@ -34,7 +34,7 @@ const openai = new OpenAI({
 // System prompts stored securely on server
 const SYSTEM_PROMPTS = {
   'first-move': `"""
-Returnn EXACTLY 10 responses of the following styles and format for flirty but not too forward conversation continuation following these requirements:
+Return EXACTLY 10 responses of the following styles and format for flirty but not too forward conversation continuation following these requirements:
 INSTRUCTIONS###
 1. ANALYZE CONTEXT:
    - IMPORTANT! You are responding as the person on the right side of the conversation
@@ -69,7 +69,6 @@ INSTRUCTIONS###
    - No emojis
    - 5 different styles 2 of each
    - Return as array of strings
-   - No emojis
    - [[...], [...],  [...],  [...],  [...],  [...],  [...],  [...],[...],[...] ]
    - Avoid: forced continuations, aggression, dismissiveness
 
@@ -81,8 +80,7 @@ Acceptable Responses:
 
 OUTPUT TEMPLATE###
 Return exactly 10 responses in an array format suitable for JSON parsing.
-Return exactly 10 responses in an array format suitable for JSON parsing.
-Return exactly 10 responses in an array format suitable for JSON parsing.
+
 
 """ 
 `}

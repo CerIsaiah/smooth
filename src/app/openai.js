@@ -34,12 +34,15 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
 
   if (file) {
     try {
+      // Compress and resize image before converting to base64
+      const compressedFile = await compressImage(file, 800); // Max width 800px
+      
       // Convert file to base64
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(compressedFile);
       });
       requestBody.imageBase64 = base64;
     } catch (error) {
@@ -52,6 +55,12 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
     throw new Error('No input provided. Please provide an image or text.');
   }
 
+  // Add a loading state UI indicator to ResponsesPage
+  
+  // Add timeout to fetch
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
   try {
     const response = await fetch('/api/openai', {
       method: 'POST',
@@ -60,8 +69,10 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
         ...(userEmail && { 'x-user-email': userEmail }),
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal
     });
-
+    
+    clearTimeout(timeoutId);
     const data = await response.json();
     
     if (!response.ok) {
@@ -81,8 +92,11 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
     // The response is now guaranteed to be an array of exactly 10 strings
     return data.responses;
   } catch (error) {
-    // Re-throw with more specific error message if possible
-    throw new Error(error.message || 'Failed to analyze input. Please try again.');
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    throw error;
   }
 }
 
@@ -93,5 +107,43 @@ function convertFileToBase64(file) {
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result);
     reader.onerror = error => reject(error);
+  });
+}
+
+// Add this helper function to compress images
+async function compressImage(file, maxWidth = 800) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      
+      // Calculate new dimensions
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Get compressed image as Blob
+      canvas.toBlob(
+        (blob) => {
+          resolve(new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          }));
+        },
+        'image/jpeg',
+        0.7 // quality
+      );
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
   });
 }
