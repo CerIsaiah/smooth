@@ -7,7 +7,8 @@ import {
   FREE_INCREMENT_PER_RESPONSE,
   PREMIUM_MAX_PERCENTAGE,
   FREE_MAX_PERCENTAGE,
-  MIN_LEARNING_PERCENTAGE
+  MIN_LEARNING_PERCENTAGE,
+  MATCH_PERCENTAGE_BASE
 } from '../constants';
 
 const DeleteButton = ({ onDelete, isDeleting }) => (
@@ -49,6 +50,7 @@ export default function SavedResponses() {
   const [showConfirmCancelModal, setShowConfirmCancelModal] = useState(false);
   const [copyingId, setCopyingId] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [matchPercentage, setMatchPercentage] = useState(MIN_LEARNING_PERCENTAGE);
 
   useEffect(() => {
     // Check if user is logged in
@@ -106,19 +108,25 @@ export default function SavedResponses() {
     fetchResponses();
   }, [user]);
 
-  // Calculate learning percentage based on responses and subscription status
-  const calculateLearningPercentage = () => {
-    const hasActiveSubscription = subscriptionStatus === 'premium' || subscriptionStatus === 'trial';
-    const incrementPerResponse = hasActiveSubscription ? PREMIUM_INCREMENT_PER_RESPONSE : FREE_INCREMENT_PER_RESPONSE;
-    const maxPercentage = hasActiveSubscription ? PREMIUM_MAX_PERCENTAGE : FREE_MAX_PERCENTAGE;
-    
-    const calculatedPercentage = Math.min(
-      responses.length * incrementPerResponse,
-      maxPercentage
-    );
-    
-    return responses.length > 0 ? Math.max(calculatedPercentage, MIN_LEARNING_PERCENTAGE) : 0;
-  };
+  useEffect(() => {
+    const fetchLearningPercentage = async () => {
+      try {
+        const headers = {};
+        if (user?.email) {
+          headers['x-user-email'] = user.email;
+        }
+
+        const response = await fetch('/api/learning-percentage', { headers });
+        const data = await response.json();
+        setMatchPercentage(data.percentage);
+      } catch (error) {
+        console.error('Error fetching learning percentage:', error);
+        setMatchPercentage(MIN_LEARNING_PERCENTAGE);
+      }
+    };
+
+    fetchLearningPercentage();
+  }, [user?.email, responses.length]);
 
   const copyToClipboard = async (text, id) => {
     try {
@@ -448,9 +456,6 @@ export default function SavedResponses() {
   // Check if user has active subscription
   const hasActiveSubscription = subscriptionStatus === 'premium' || subscriptionStatus === 'trial';
   
-  // Calculate learning percentage
-  const learningPercentage = calculateLearningPercentage();
-
   return (
     <div className="min-h-screen bg-[#171a29] text-white">
       {/* Header */}
@@ -529,12 +534,12 @@ export default function SavedResponses() {
               <div className="relative h-3 bg-gray-700 rounded-full overflow-hidden mb-2">
                 <div 
                   className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-pink-500 to-purple-500"
-                  style={{ width: `${learningPercentage}%` }}
+                  style={{ width: `${matchPercentage}%` }}
                 ></div>
               </div>
               
               <div className="flex justify-between text-xs">
-                <span className="text-green-400">{learningPercentage}% Learned</span>
+                <span className="text-green-400">{matchPercentage}% Learned</span>
                 <span className="text-gray-400 flex items-center">
                   100% with Premium
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">

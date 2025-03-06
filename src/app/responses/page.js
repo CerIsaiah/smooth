@@ -46,9 +46,6 @@ import { analyzeScreenshot } from '../openai';
  * - src/components/UpgradePopup.js: Premium upgrade UI
  */
 
-// Add this constant at the top with other imports
-const MATCH_PERCENTAGE_BASE = 60; // Base percentage for matches
-
 // Loading screen component
 function LoadingScreen() {
   return (
@@ -335,7 +332,7 @@ export default function ResponsesPage() {
     }
   }, [responses]);
 
-  // Update swiped function to only increase progress on right swipes
+  // Update swiped function to fetch the learning percentage after a right swipe
   const swiped = async (direction, responseToDelete) => {
     try {
       if (!direction) return;
@@ -347,10 +344,26 @@ export default function ResponsesPage() {
       if (currentIndex === responses.length - 1 - totalSwipes) {
         setTotalSwipes(prev => prev + 1);
         
-        // Only increase match percentage on right swipes
+        // Save response and update learning percentage on right swipe
         if (direction === 'right') {
-          const newPercentage = calculateLearningPercentage();
-          setMatchPercentage(Math.max(matchPercentage, newPercentage));
+          // Wait for the save response operation to complete
+          await fetch('/api/saved-responses', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(user?.email && { 'x-user-email': user.email })
+            },
+            body: JSON.stringify({ response: responseToDelete })
+          });
+
+          // After saving, fetch the updated learning percentage
+          const learningResponse = await fetch('/api/learning-percentage', {
+            headers: {
+              ...(user?.email && { 'x-user-email': user.email })
+            }
+          });
+          const data = await learningResponse.json();
+          setMatchPercentage(data.percentage);
         }
       }
 
@@ -527,36 +540,35 @@ export default function ResponsesPage() {
   const canSwipe = currentIndex >= 0;
   const canGoBack = currentIndex < responses.length - 1;
 
-  // Calculate match percentage for premium users
+  // Update the useEffect to fetch the learning percentage instead of calculating it
   useEffect(() => {
-    if (isPremium && responses.length > 0) {
-      // Simulate AI learning with a growing percentage
-      const basePercentage = Math.min(60 + (totalSwipes * 2), 98);
-      setMatchPercentage(basePercentage);
-      
-      // Set style insights for premium users
-      setStyleInsights({
-        style: 'Witty & Playful',
-        strengths: ['Humor', 'Creativity', 'Authenticity'],
-        personalityMatch: Math.floor(Math.random() * 20 + 80)
-      });
-    } else {
-      setMatchPercentage(Math.floor(Math.random() * 20 + 40)); // Lower match for free users
-    }
-  }, [isPremium, responses.length, totalSwipes]);
+    const fetchLearningPercentage = async () => {
+      if (user?.email) {
+        try {
+          const response = await fetch('/api/learning-percentage', {
+            headers: {
+              'x-user-email': user.email
+            }
+          });
+          const data = await response.json();
+          setMatchPercentage(data.percentage);
+        } catch (error) {
+          console.error('Error fetching learning percentage:', error);
+          setMatchPercentage(MIN_LEARNING_PERCENTAGE);
+        }
+      } else {
+        // For anonymous users, calculate directly from localStorage
+        const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
+        const percentage = Math.min(
+          savedResponses.length * FREE_INCREMENT_PER_RESPONSE,
+          FREE_MAX_PERCENTAGE
+        );
+        setMatchPercentage(Math.max(percentage, MIN_LEARNING_PERCENTAGE));
+      }
+    };
 
-  // Update calculateLearningPercentage function
-  const calculateLearningPercentage = () => {
-    const incrementPerResponse = isPremium ? PREMIUM_INCREMENT_PER_RESPONSE : FREE_INCREMENT_PER_RESPONSE;
-    const maxPercentage = isPremium ? PREMIUM_MAX_PERCENTAGE : FREE_MAX_PERCENTAGE;
-    
-    const calculatedPercentage = Math.min(
-      responses.length * incrementPerResponse,
-      maxPercentage
-    );
-    
-    return responses.length > 0 ? Math.max(calculatedPercentage, MIN_LEARNING_PERCENTAGE) : 0;
-  };
+    fetchLearningPercentage();
+  }, [user?.email, responses.length]);
 
   return (
     <>
@@ -596,12 +608,23 @@ export default function ResponsesPage() {
 
             {/* Preview toggle button */}
             {hasPreviewContent && (
-              <button
-                onClick={togglePreview}
-                className="absolute top-4 text-white hover:text-gray-200 z-50 px-6 py-2 rounded-full bg-black/20 backdrop-blur-sm text-sm mx-auto left-1/2 transform -translate-x-1/2"
-              >
-                Review Photo
-              </button>
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+                <button
+                  onClick={togglePreview}
+                  className="text-white hover:text-gray-200 z-50 px-6 py-2 rounded-full bg-black/20 backdrop-blur-sm text-sm"
+                >
+                  Review Photo
+                </button>
+                <button
+                  onClick={() => router.push('/saved')}
+                  className="text-white hover:text-gray-200 z-50 px-6 py-2 rounded-full bg-black/20 backdrop-blur-sm text-sm flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  Saved
+                </button>
+              </div>
             )}
 
             {/* Preview overlay */}
