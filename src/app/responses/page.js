@@ -346,24 +346,18 @@ export default function ResponsesPage() {
         
         // Save response and update learning percentage on right swipe
         if (direction === 'right') {
-          // Wait for the save response operation to complete
-          await fetch('/api/saved-responses', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(user?.email && { 'x-user-email': user.email })
-            },
-            body: JSON.stringify({ response: responseToDelete })
-          });
-
-          // After saving, fetch the updated learning percentage
-          const learningResponse = await fetch('/api/learning-percentage', {
-            headers: {
-              ...(user?.email && { 'x-user-email': user.email })
-            }
-          });
-          const data = await learningResponse.json();
-          setMatchPercentage(data.percentage);
+          await saveResponse(responseToDelete);
+          
+          // For signed-in users, fetch updated percentage from server
+          if (isSignedIn && user?.email) {
+            const learningResponse = await fetch('/api/learning-percentage', {
+              headers: {
+                'x-user-email': user.email
+              }
+            });
+            const data = await learningResponse.json();
+            setMatchPercentage(data.percentage);
+          }
         }
       }
 
@@ -375,11 +369,6 @@ export default function ResponsesPage() {
       // Add user email header if signed in
       if (isSignedIn && user?.email) {
         headers['x-user-email'] = user.email;
-      }
-
-      // Save response if swiped right
-      if (direction === 'right') {
-        await saveResponse(responseToDelete);
       }
 
       const response = await fetch('/api/swipes', {
@@ -420,7 +409,7 @@ export default function ResponsesPage() {
     }
   };
 
-  // Update saveResponse function to handle errors
+  // Update saveResponse function to handle percentage updates
   const saveResponse = async (response) => {
     try {
       if (isSignedIn && user?.email) {
@@ -439,13 +428,20 @@ export default function ResponsesPage() {
           console.error('Failed to save response:', await result.text());
         }
       } else {
-        // Save for anonymous users
+        // Save for anonymous users and update percentage immediately
         const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
         savedResponses.push({
           response,
           created_at: new Date().toISOString(),
         });
         localStorage.setItem('anonymous_saved_responses', JSON.stringify(savedResponses));
+        
+        // Update percentage for anonymous users immediately
+        const percentage = Math.min(
+          savedResponses.length * FREE_INCREMENT_PER_RESPONSE,
+          FREE_MAX_PERCENTAGE
+        );
+        setMatchPercentage(Math.max(percentage, MIN_LEARNING_PERCENTAGE));
       }
     } catch (error) {
       console.error('Error saving response:', error);
@@ -580,7 +576,7 @@ export default function ResponsesPage() {
 
       <div className="min-h-screen bg-white">
         <div className="fixed inset-0 bg-gradient-to-br from-pink-500/5 via-white/50 to-gray-100/50 backdrop-blur-sm z-50 flex flex-col">
-          {/* Premium Status Bar - Reduced height */}
+          {/* Premium Status Bar - Added more padding */}
           {!isPremium && (
             <div className="bg-gradient-to-r from-amber-500 to-amber-700 text-black py-1.5">
               <div className="max-w-5xl mx-auto px-4 flex justify-between items-center">
@@ -589,7 +585,7 @@ export default function ResponsesPage() {
                 </p>
                 <button
                   onClick={() => setShowUpgradePopup(true)}
-                  className="bg-black text-white px-3 py-0.5 rounded-full text-xs font-bold hover:bg-gray-800"
+                  className="bg-black text-white px-3 py-0.5 rounded-full text-xs font-medium hover:bg-gray-800 ml-3"
                 >
                   Try Free
                 </button>
@@ -598,28 +594,28 @@ export default function ResponsesPage() {
           )}
 
           <div className="relative flex-1 flex flex-col items-center justify-center p-4">
-            {/* Close button */}
+            {/* Close button - Increased padding and touch area */}
             <button
               onClick={handleClose}
-              className="absolute top-4 right-4 text-white hover:text-gray-200 z-50 text-2xl"
+              className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center text-white hover:text-gray-200 z-50 text-2xl"
             >
               ×
             </button>
 
-            {/* Preview toggle button */}
+            {/* Preview toggle buttons - Adjusted spacing and padding */}
             {hasPreviewContent && (
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2">
                 <button
                   onClick={togglePreview}
-                  className="text-white hover:text-gray-200 z-50 px-6 py-2 rounded-full bg-black/20 backdrop-blur-sm text-sm"
+                  className="text-white hover:text-gray-200 z-50 px-4 py-1.5 rounded-full bg-black/20 backdrop-blur-sm text-xs"
                 >
                   Review Photo
                 </button>
                 <button
                   onClick={() => router.push('/saved')}
-                  className="text-white hover:text-gray-200 z-50 px-6 py-2 rounded-full bg-black/20 backdrop-blur-sm text-sm flex items-center gap-2"
+                  className="text-white hover:text-gray-200 z-50 px-4 py-1.5 rounded-full bg-black/20 backdrop-blur-sm text-xs flex items-center gap-1.5"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                   Saved
@@ -644,21 +640,21 @@ export default function ResponsesPage() {
               </div>
             )}
 
-            {/* AI Learning Bar - Adjusted top spacing based on premium status */}
-            <div className={`absolute ${isPremium ? 'top-4' : 'top-14'} left-4 right-4 max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-lg p-2 border border-gray-200 shadow-sm`}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
+            {/* AI Learning Bar - Adjusted spacing */}
+            <div className={`absolute ${isPremium ? 'top-16' : 'top-20'} left-4 right-4 max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-lg p-2 border border-gray-200 shadow-sm`}>
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1.5">
                   <span className="text-pink-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                     </svg>
                   </span>
-                  <span className="text-xs font-medium text-gray-700">AI Learning</span>
+                  <span className="text-[10px] font-medium text-gray-700">AI Learning</span>
                 </div>
                 {!isPremium && (
                   <button
                     onClick={() => router.push('/saved?tab=profile')}
-                    className="text-xs text-pink-600 hover:text-pink-700 font-medium whitespace-nowrap"
+                    className="text-[10px] text-pink-600 hover:text-pink-700 font-medium whitespace-nowrap"
                   >
                     Upgrade →
                   </button>
@@ -686,8 +682,8 @@ export default function ResponsesPage() {
               </div>
             </div>
 
-            {/* Response cards - Increased spacing from AI learning bar */}
-            <div className={`w-full max-w-md mx-auto h-[calc(100vh-380px)] relative ${isPremium ? 'mt-24' : 'mt-32'}`} key={key}>
+            {/* Response cards - Adjusted spacing */}
+            <div className={`w-full max-w-md mx-auto h-[calc(100vh-380px)] relative ${isPremium ? 'mt-28' : 'mt-32'}`} key={key}>
               {responses && responses.map((response, index) => (
                 <TinderCard
                   ref={childRefs.current[index]}
@@ -702,16 +698,16 @@ export default function ResponsesPage() {
                       hover:scale-[1.02] relative border border-gray-200 shadow-lg"
                   >
                     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex items-center justify-center">
-                      <div className="prose prose-lg max-w-full text-center px-4">
-                        <p className="text-gray-800 whitespace-pre-wrap text-lg leading-relaxed font-medium">
+                      <div className="prose prose-sm max-w-full text-center px-3">
+                        <p className="text-gray-800 whitespace-pre-wrap text-base leading-relaxed font-medium">
                           {response}
                         </p>
                       </div>
                     </div>
 
                     {/* Simplified footer without match percentage */}
-                    <div className="mt-4 text-center">
-                      <span className="text-gray-500 text-sm">
+                    <div className="mt-3 text-center">
+                      <span className="text-gray-500 text-xs">
                         Swipe right to save
                       </span>
                     </div>
@@ -720,22 +716,22 @@ export default function ResponsesPage() {
               ))}
             </div>
 
-            {/* Swipes Counter - Made more visible and fixed positioning */}
+            {/* Swipes Counter - Adjusted spacing */}
             <div className="w-full max-w-md mx-auto mt-6 mb-4 flex justify-center">
               <div className="text-center">
                 {isPremium ? (
-                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-2.5 rounded-full inline-flex items-center space-x-3 shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2 rounded-full inline-flex items-center space-x-2 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                     </svg>
-                    <span className="text-base font-medium">Unlimited Swipes</span>
+                    <span className="text-sm font-medium">Unlimited Swipes</span>
                   </div>
                 ) : (
-                  <div className="bg-black/90 text-white px-6 py-2.5 rounded-full inline-flex items-center space-x-3 shadow-lg backdrop-blur-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="bg-black/90 text-white px-5 py-2 rounded-full inline-flex items-center space-x-2 shadow-lg backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-base font-medium">
+                    <span className="text-sm font-medium">
                       {isSignedIn 
                         ? `${FREE_USER_DAILY_LIMIT - usageCount} of ${FREE_USER_DAILY_LIMIT} swipes left`
                         : `${ANONYMOUS_USAGE_LIMIT - usageCount} of ${ANONYMOUS_USAGE_LIMIT} swipes left`
@@ -746,17 +742,17 @@ export default function ResponsesPage() {
               </div>
             </div>
 
-            {/* New Screenshot Button - Adjusted spacing */}
-            <div className="w-full max-w-md mx-auto mb-6">
+            {/* New Screenshot Button - Adjusted spacing and padding */}
+            <div className="w-full max-w-md mx-auto mb-6 px-4">
               <button
                 onClick={() => router.push('/')}
-                className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full inline-flex items-center justify-center space-x-2 transition-all duration-200 border border-white/20"
+                className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm px-5 py-2.5 rounded-full inline-flex items-center justify-center space-x-2 transition-all duration-200 border border-white/20"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span className="font-medium">New Screenshot</span>
+                <span className="text-sm font-medium">New Screenshot</span>
               </button>
             </div>
           </div>
