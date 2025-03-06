@@ -224,7 +224,29 @@ export default function Home() {
 
   // Single useEffect for initialization and auth state changes
   useEffect(() => {
-    // Check for stored user data
+    // Add version check to force sign out
+    const CURRENT_VERSION = '2.1'; // Increment this to force sign out
+    const storedVersion = localStorage.getItem('app_version');
+    
+    if (storedVersion !== CURRENT_VERSION) {
+      // Clear all auth data
+      localStorage.removeItem('smoothrizz_user');
+      localStorage.removeItem('anonymous_saved_responses');
+      
+      // Sign out of Google
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.disableAutoSelect();
+        window.google.accounts.id.revoke();
+      }
+      
+      // Store new version
+      localStorage.setItem('app_version', CURRENT_VERSION);
+      // Force refresh to ensure clean state
+      window.location.reload();
+      return;
+    }
+
+    // Rest of your existing initialization code
     const storedUser = localStorage.getItem('smoothrizz_user');
     if (storedUser) {
       try {
@@ -1192,21 +1214,6 @@ export default function Home() {
 
     checkSubscriptionStatus();
   }, [isSignedIn, user]);
-
-  // Add this useEffect to check for stored user data on component mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem('smoothrizz_user');
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        setIsSignedIn(true);
-      } catch (error) {
-        console.error('Error parsing stored user data:', error);
-        localStorage.removeItem('smoothrizz_user');
-      }
-    }
-  }, []);
 
   return (
     <>
