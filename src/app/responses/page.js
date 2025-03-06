@@ -3,7 +3,15 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useRouter } from 'next/navigation';
 import TinderCard from 'react-tinder-card';
 import Script from 'next/script';
-import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from '../constants';
+import { 
+  ANONYMOUS_USAGE_LIMIT, 
+  FREE_USER_DAILY_LIMIT,
+  PREMIUM_INCREMENT_PER_RESPONSE,
+  FREE_INCREMENT_PER_RESPONSE,
+  PREMIUM_MAX_PERCENTAGE,
+  FREE_MAX_PERCENTAGE,
+  MIN_LEARNING_PERCENTAGE
+} from '../constants';
 import { GoogleSignInOverlay } from '../components/GoogleSignInOverlay';
 import { UpgradePopup } from '../components/UpgradePopup';
 import useResponseStore from '../../store/responseStore';
@@ -37,6 +45,9 @@ import { analyzeScreenshot } from '../openai';
  * - src/components/GoogleSignInOverlay.js: Sign-in UI
  * - src/components/UpgradePopup.js: Premium upgrade UI
  */
+
+// Add this constant at the top with other imports
+const MATCH_PERCENTAGE_BASE = 60; // Base percentage for matches
 
 // Loading screen component
 function LoadingScreen() {
@@ -99,6 +110,10 @@ export default function ResponsesPage() {
   const [showSignInOverlay, setShowSignInOverlay] = useState(false);
   const [hasPreviewContent, setHasPreviewContent] = useState(false);
   const [key, setKey] = useState(0);
+
+  // Add new state for premium features
+  const [matchPercentage, setMatchPercentage] = useState(0);
+  const [styleInsights, setStyleInsights] = useState(null);
 
   const childRefs = useRef(
     Array(responses.length)
@@ -320,7 +335,7 @@ export default function ResponsesPage() {
     }
   }, [responses]);
 
-  // Update swiped function to properly track usage
+  // Update swiped function to only increase progress on right swipes
   const swiped = async (direction, responseToDelete) => {
     try {
       if (!direction) return;
@@ -331,6 +346,12 @@ export default function ResponsesPage() {
       // Only increment total swipes for new swipes (not regenerated cards)
       if (currentIndex === responses.length - 1 - totalSwipes) {
         setTotalSwipes(prev => prev + 1);
+        
+        // Only increase match percentage on right swipes
+        if (direction === 'right') {
+          const newPercentage = calculateLearningPercentage();
+          setMatchPercentage(Math.max(matchPercentage, newPercentage));
+        }
       }
 
       // Always make API call to track swipes, regardless of direction
@@ -426,8 +447,6 @@ export default function ResponsesPage() {
     }
   };
 
-
-
   // Update the swipe function to prevent swiping after going back
   const swipe = async (dir) => {
     if (canSwipe && currentIndex >= 0 && currentIndex < responses.length) {
@@ -508,6 +527,37 @@ export default function ResponsesPage() {
   const canSwipe = currentIndex >= 0;
   const canGoBack = currentIndex < responses.length - 1;
 
+  // Calculate match percentage for premium users
+  useEffect(() => {
+    if (isPremium && responses.length > 0) {
+      // Simulate AI learning with a growing percentage
+      const basePercentage = Math.min(60 + (totalSwipes * 2), 98);
+      setMatchPercentage(basePercentage);
+      
+      // Set style insights for premium users
+      setStyleInsights({
+        style: 'Witty & Playful',
+        strengths: ['Humor', 'Creativity', 'Authenticity'],
+        personalityMatch: Math.floor(Math.random() * 20 + 80)
+      });
+    } else {
+      setMatchPercentage(Math.floor(Math.random() * 20 + 40)); // Lower match for free users
+    }
+  }, [isPremium, responses.length, totalSwipes]);
+
+  // Update calculateLearningPercentage function
+  const calculateLearningPercentage = () => {
+    const incrementPerResponse = isPremium ? PREMIUM_INCREMENT_PER_RESPONSE : FREE_INCREMENT_PER_RESPONSE;
+    const maxPercentage = isPremium ? PREMIUM_MAX_PERCENTAGE : FREE_MAX_PERCENTAGE;
+    
+    const calculatedPercentage = Math.min(
+      responses.length * incrementPerResponse,
+      maxPercentage
+    );
+    
+    return responses.length > 0 ? Math.max(calculatedPercentage, MIN_LEARNING_PERCENTAGE) : 0;
+  };
+
   return (
     <>
       <Script
@@ -516,8 +566,25 @@ export default function ResponsesPage() {
         onLoad={() => setGoogleLoaded(true)}
       />
 
-      <div className="min-h-screen bg-[#fbfbfb]">
-        <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col">
+      <div className="min-h-screen bg-white">
+        <div className="fixed inset-0 bg-gradient-to-br from-pink-500/5 via-white/50 to-gray-100/50 backdrop-blur-sm z-50 flex flex-col">
+          {/* Premium Status Bar - Reduced height */}
+          {!isPremium && (
+            <div className="bg-gradient-to-r from-amber-500 to-amber-700 text-black py-1.5">
+              <div className="max-w-5xl mx-auto px-4 flex justify-between items-center">
+                <p className="text-xs font-medium">
+                  Unlock Premium for 3x more personalized responses
+                </p>
+                <button
+                  onClick={() => setShowUpgradePopup(true)}
+                  className="bg-black text-white px-3 py-0.5 rounded-full text-xs font-bold hover:bg-gray-800"
+                >
+                  Try Free
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="relative flex-1 flex flex-col items-center justify-center p-4">
             {/* Close button */}
             <button
@@ -537,7 +604,6 @@ export default function ResponsesPage() {
               </button>
             )}
 
-
             {/* Preview overlay */}
             {showPreview && previewUrl && (
               <div 
@@ -555,8 +621,50 @@ export default function ResponsesPage() {
               </div>
             )}
 
-            {/* Response cards */}
-            <div className="w-full max-w-md mx-auto h-[60vh] relative mt-14" key={key}>
+            {/* AI Learning Bar - Adjusted top spacing based on premium status */}
+            <div className={`absolute ${isPremium ? 'top-4' : 'top-14'} left-4 right-4 max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-lg p-2 border border-gray-200 shadow-sm`}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-pink-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                  </span>
+                  <span className="text-xs font-medium text-gray-700">AI Learning</span>
+                </div>
+                {!isPremium && (
+                  <button
+                    onClick={() => router.push('/saved?tab=profile')}
+                    className="text-xs text-pink-600 hover:text-pink-700 font-medium whitespace-nowrap"
+                  >
+                    Upgrade →
+                  </button>
+                )}
+              </div>
+              
+              <div className="relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${
+                    isPremium ? 'bg-gradient-to-r from-pink-500 to-purple-500' : 'bg-gray-400'
+                  }`}
+                  style={{ width: `${matchPercentage}%` }}
+                />
+              </div>
+              
+              <div className="flex justify-between text-[10px] mt-1">
+                <span className={isPremium ? 'text-green-600' : 'text-gray-600'}>
+                  {matchPercentage}% Learned
+                </span>
+                {!isPremium && (
+                  <span className="text-gray-500">
+                    Upgrade for better matches
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Response cards - Increased spacing from AI learning bar */}
+            <div className={`w-full max-w-md mx-auto h-[calc(100vh-380px)] relative ${isPremium ? 'mt-24' : 'mt-32'}`} key={key}>
               {responses && responses.map((response, index) => (
                 <TinderCard
                   ref={childRefs.current[index]}
@@ -567,93 +675,66 @@ export default function ResponsesPage() {
                   className="absolute w-full h-full cursor-grab active:cursor-grabbing"
                 >
                   <div 
-                    className={`bg-white rounded-2xl p-8 w-full h-full flex flex-col transform transition-all duration-200 
-                      hover:scale-[1.02] relative border-2 border-black`}
+                    className="bg-white rounded-2xl p-6 w-full h-full flex flex-col transform transition-all duration-200 
+                      hover:scale-[1.02] relative border border-gray-200 shadow-lg"
                   >
-                    {/* Swipe Indicators - Made Larger and More Visible */}
-                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-red-500 transform scale-0 transition-transform duration-300 group-hover:scale-100">
-                      <div className="flex flex-col items-center space-y-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        <span className="text-sm font-semibold">Discard</span>
-                      </div>
-                    </div>
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 text-green-500 transform scale-0 transition-transform duration-300 group-hover:scale-100">
-                      <div className="flex flex-col items-center space-y-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="text-sm font-semibold">Save</span>
-                      </div>
-                    </div>
-
-                    {/* Card Content */}
                     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex items-center justify-center">
-                      <div className="prose prose-lg max-w-full text-center px-8">
-                        <p className="text-gray-800 whitespace-pre-wrap text-xl leading-relaxed font-medium">
+                      <div className="prose prose-lg max-w-full text-center px-4">
+                        <p className="text-gray-800 whitespace-pre-wrap text-lg leading-relaxed font-medium">
                           {response}
                         </p>
                       </div>
                     </div>
 
-                    {/* Swipe Hint at Bottom */}
-                    <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
-                      <div className="flex items-center text-red-500 space-x-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        <span>Swipe Left to Discard</span>
-                      </div>
-                      <div className="flex items-center text-green-500 space-x-2">
-                        <span>Swipe Right to Save</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                      </div>
+                    {/* Simplified footer without match percentage */}
+                    <div className="mt-4 text-center">
+                      <span className="text-gray-500 text-sm">
+                        Swipe right to save
+                      </span>
                     </div>
                   </div>
                 </TinderCard>
               ))}
             </div>
 
-            {/* Enhanced Swipes Counter - Moved down */}
-            <div className="text-white text-center mt-6 mb-2">
-              {isPremium ? (
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-2 rounded-full inline-flex items-center space-x-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                  <span className="text-sm font-medium">Unlimited Swipes Available</span>
-                </div>
-              ) : (
-                <div className="bg-white/10 backdrop-blur-sm px-6 py-2 rounded-full inline-flex items-center space-x-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium">
-                    {isSignedIn 
-                      ? `${FREE_USER_DAILY_LIMIT - usageCount} of ${FREE_USER_DAILY_LIMIT} Free Swipes Left`
-                      : `${ANONYMOUS_USAGE_LIMIT - usageCount} of ${ANONYMOUS_USAGE_LIMIT} Free Swipes Left`
-                    }
-                  </span>
-                </div>
-              )}
+            {/* Swipes Counter - Made more visible and fixed positioning */}
+            <div className="w-full max-w-md mx-auto mt-6 mb-4 flex justify-center">
+              <div className="text-center">
+                {isPremium ? (
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-2.5 rounded-full inline-flex items-center space-x-3 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    <span className="text-base font-medium">Unlimited Swipes</span>
+                  </div>
+                ) : (
+                  <div className="bg-black/90 text-white px-6 py-2.5 rounded-full inline-flex items-center space-x-3 shadow-lg backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-base font-medium">
+                      {isSignedIn 
+                        ? `${FREE_USER_DAILY_LIMIT - usageCount} of ${FREE_USER_DAILY_LIMIT} swipes left`
+                        : `${ANONYMOUS_USAGE_LIMIT - usageCount} of ${ANONYMOUS_USAGE_LIMIT} swipes left`
+                      }
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* New Screenshot Button + Instructions */}
-            <div className="text-white text-center mt-6 space-y-4">
+            {/* New Screenshot Button - Adjusted spacing */}
+            <div className="w-full max-w-md mx-auto mb-6">
               <button
                 onClick={() => router.push('/')}
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-6 py-2.5 rounded-full inline-flex items-center space-x-2 transition-all duration-200"
+                className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full inline-flex items-center justify-center space-x-2 transition-all duration-200 border border-white/20"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>Add New Screenshot</span>
+                <span className="font-medium">New Screenshot</span>
               </button>
-              <p className="text-xs text-gray-300 opacity-75">Use arrow keys or swipe on mobile</p>
             </div>
           </div>
         </div>

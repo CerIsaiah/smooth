@@ -1333,7 +1333,7 @@ export default function Home() {
 
         {/* Header - Professional & Responsive */}
         <div className="flex justify-between items-center p-3 sm:p-4 bg-white/95 backdrop-blur-sm border-b border-pink-100">
-          <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
+          <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">
             SmoothRizz
           </div>
           <div className="scale-78 origin-right sm:scale-100">
@@ -1346,7 +1346,7 @@ export default function Home() {
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                 </svg>
-                Saved
+                Dashboard
               </Link>
             )}
           </div>
@@ -1355,11 +1355,11 @@ export default function Home() {
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-2 sm:mb-3">
-              Be a More <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent"> Interesting </span>Texter
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-4 sm:mb-6 leading-tight">
+              Be a More <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent italic">Interesting</span> Texter
             </h1>
-            <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8 max-w-2xl mx-auto">
-             Get Smooth Inspiration For Witty Responses
+            <p className="text-xl sm:text-2xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed bold">
+              Train it to learn your style 
             </p>
             <div className="relative max-w-[100%] sm:max-w-lg md:max-w-md mx-auto">
               <img
