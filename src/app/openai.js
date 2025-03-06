@@ -1,8 +1,36 @@
+/**
+ * OpenAI Client Utilities
+ * 
+ * This file provides client-side utilities for interacting with OpenAI services.
+ * 
+ * Main Features:
+ * - Image to base64 conversion
+ * - API request handling
+ * - Error handling and formatting
+ * - Response processing
+ * 
+ * Dependencies:
+ * - None (uses built-in fetch API)
+ * 
+ * Side Effects:
+ * - Converts files to base64
+ * - Makes API calls to /api/openai endpoint
+ * 
+ * Connected Files:
+ * - src/app/api/openai/route.js: Server endpoint
+ * - src/app/responses/page.js: Uses these utilities
+ * - src/app/page.js: Uses for initial response generation
+ */
+
 export async function analyzeScreenshot(file, mode, isSignedIn, context = '', lastText = '') {
   let requestBody = {
     mode,
     isSignedIn
   };
+
+  // Get user email from localStorage
+  const storedUser = localStorage.getItem('smoothrizz_user');
+  const userEmail = storedUser ? JSON.parse(storedUser).email : null;
 
   if (file) {
     try {
@@ -29,6 +57,7 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(userEmail && { 'x-user-email': userEmail }),
       },
       body: JSON.stringify(requestBody),
     });
@@ -39,7 +68,7 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
       // Handle specific error cases
       switch (response.status) {
         case 403:
-          throw new Error('Anonymous usage limit reached. Please sign in to continue.');
+          throw new Error(data.error || 'Usage limit reached. Please try again later.');
         case 429:
           throw new Error('Rate limit exceeded. Please try again later.');
         case 413:

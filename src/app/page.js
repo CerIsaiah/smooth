@@ -1,16 +1,16 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Head from "next/head";
 import { analyzeScreenshot } from "./openai";
-import { supabase } from "@/utils/supabase";
-import { Upload, ArrowDown } from "lucide-react";
+import { Upload } from "lucide-react";
 import Script from "next/script";
 import { loadStripe } from '@stripe/stripe-js';
-import TinderCard from 'react-tinder-card';
 import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from './constants';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import useResponseStore from '../store/responseStore';
+import { UpgradePopup } from './components/UpgradePopup';
 
 // Make sure to call `loadStripe` outside of a component's render
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
@@ -41,348 +41,6 @@ function GoogleSignInOverlay({ googleLoaded }) {
   );
 }
 
-// Add this new component near the top of the file, after other component definitions
-function ResponseOverlay({ responses, onClose, childRefs, currentIndex, swiped, outOfFrame, onGenerateMore, isGenerating, isSignedIn, router, setUsageCount, usageCount, isPremium }) {
-  const remainingSwipes = isPremium 
-    ? '∞' // Show infinity symbol for premium users
-    : isSignedIn 
-      ? FREE_USER_DAILY_LIMIT - usageCount
-      : ANONYMOUS_USAGE_LIMIT - usageCount;
-
-  const handleSavedResponsesClick = () => {
-    if (isSignedIn) {
-      router.push('/saved');
-    } else {
-      // Close the response overlay and show the sign-in overlay
-      onClose();
-      // This will trigger the sign-in overlay since we're setting count above limit
-      setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-    }
-  };
-
-  const handleLimitReached = () => {
-    // Don't show upgrade popup for premium users
-    if (isPremium) return;
-    
-    onClose(); // Close the response overlay
-    if (isSignedIn) {
-      setShowUpgradePopup(true);
-    } else {
-      setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-    }
-  };
-
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (!responses.length) return;
-      
-      if (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        
-        const direction = e.key.toLowerCase() === 'a' ? 'left' : 'right';
-        if (childRefs[currentIndex]?.current) {
-          childRefs[currentIndex].current.swipe(direction);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [responses, currentIndex, childRefs]);
-
-  // Initialize showSwipeHint state correctly
-  const [showSwipeHint, setShowSwipeHint] = useState(() => {
-    const hasShownHint = localStorage.getItem('smoothrizz_swipe_hint');
-    return !hasShownHint; // This will be true if hasShownHint is null or undefined
-  });
-
-  // Add console logs to debug
-  useEffect(() => {
-    console.log('showSwipeHint:', showSwipeHint);
-    console.log('isSignedIn:', isSignedIn);
-    
-    if (showSwipeHint) {
-      const timer = setTimeout(() => {
-        setShowSwipeHint(false);
-        localStorage.setItem('smoothrizz_swipe_hint', 'true');
-      }, 5000); // Increased to 5 seconds
-
-      return () => clearTimeout(timer);
-    }
-  }, [showSwipeHint]);
-
-  // Enhanced swipe position tracking with stronger visual feedback
-  const [swipePosition, setSwipePosition] = useState(0);
-
-  // Enhanced card styling with more depth and better transitions
-  const cardStyle = useMemo(() => {
-    const absPosition = Math.abs(swipePosition);
-    const opacity = Math.min(absPosition / 100, 0.15);
-    const rotation = swipePosition / 50;
-    const scale = Math.max(1 - absPosition / 1000, 0.93);
-    
-    return {
-      transform: `rotate(${rotation}deg) scale(${scale})`,
-      backgroundColor: 'white',
-      boxShadow: `0 4px 20px rgba(0, 0, 0, 0.1)`,
-      transition: 'all 0.2s ease'
-    };
-  }, [swipePosition]);
-
-  // Swipe direction indicators
-  const directionIndicators = useMemo(() => {
-    const absPosition = Math.abs(swipePosition);
-    const opacity = Math.min(absPosition / 100, 1);
-    
-    return {
-      left: {
-        opacity: swipePosition < 0 ? opacity : 0,
-        transform: `scale(${1 + opacity * 0.2})`,
-      },
-      right: {
-        opacity: swipePosition > 0 ? opacity : 0,
-        transform: `scale(${1 + opacity * 0.2})`,
-      }
-    };
-  }, [swipePosition]);
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-pink-500/10 via-black/50 to-gray-900/50 backdrop-blur-sm z-50 flex flex-col">
-      {/* Improved Header */}
-      <div className="bg-white/95 backdrop-blur-sm px-4 py-3 border-b border-pink-100">
-        <div className="max-w-[500px] mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="text-lg font-bold text-[#FE3C72]">
-              SmoothRizz
-            </span>
-            <span className="px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600">
-              {isPremium ? 'Unlimited swipes' : `${remainingSwipes} swipes left`}
-            </span>
-          </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* View Saved Button */}
-      <div className="max-w-[500px] mx-auto w-full px-4 mt-4">
-        <button
-          onClick={() => {
-            if (isSignedIn) {
-              router.push('/saved');
-            } else {
-              onClose();
-              setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-            }
-          }}
-          className="w-full px-4 py-3 rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-[#FE3C72] font-medium"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-          </svg>
-          View Saved Responses
-        </button>
-      </div>
-
-      {/* Cards Container */}
-      <div className="flex-1 w-full overflow-hidden flex items-center justify-center bg-gray-50/50 relative mt-4">
-        <div className="cardContainer w-[95vw] sm:w-[85vw] md:w-[75vw] lg:w-[500px] relative h-[60vh] sm:h-[65vh]">
-          {responses.map((response, index) => (
-            response && (
-              <TinderCard
-                className='swipe absolute w-full h-full'
-                key={`${response}-${index}`}
-                onSwipe={(dir) => {
-                  setSwipePosition(0);
-                  if (!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT - 1) {
-                    setShowResponseOverlay(false);
-                    setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-                    return;
-                  }
-                  if (isSignedIn && !isPremium && usageCount >= FREE_USER_DAILY_LIMIT - 1) {
-                    setShowResponseOverlay(false);
-                    setShowUpgradePopup(true);
-                    return;
-                  }
-                  swiped(dir, response);
-                }}
-                onCardLeftScreen={() => outOfFrame(response)}
-                preventSwipe={["up", "down"]}
-                ref={childRefs[index]}
-                onDrag={(_, data) => {
-                  setSwipePosition(data.x);
-                }}
-              >
-                <div 
-                  className='card rounded-2xl w-full h-full bg-white flex flex-col justify-center items-center relative overflow-hidden'
-                  style={cardStyle}
-                >
-                  {/* Direction Stamps */}
-                  <div 
-                    className="absolute left-6 top-6 rotate-[-12deg] border-4 border-red-500 rounded-xl px-4 py-2 transition-all duration-200"
-                    style={directionIndicators.left}
-                  >
-                    <span className="text-red-500 font-bold text-2xl">Dislike</span>
-                  </div>
-                  <div 
-                    className="absolute right-6 top-6 rotate-12 border-4 border-green-500 rounded-xl px-4 py-2 transition-all duration-200"
-                    style={directionIndicators.right}
-                  >
-                    <span className="text-green-500 font-bold text-2xl">Like</span>
-                  </div>
-
-                  {/* Card Content */}
-                  <div className='card-content text-xl font-medium text-gray-800 text-center w-full max-w-[85%] mx-auto px-6 py-4'>
-                    {response}
-                  </div>
-
-                  {/* Swipe Hint Text - Added above the actions */}
-                  <div className="absolute bottom-16 left-0 right-0 flex justify-center">
-                    <span className="text-gray-400 text-sm font-medium">- Swipe! -</span>
-                  </div>
-
-                  {/* Minimal Swipe Hint */}
-                  <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center gap-12 text-lg font-medium">
-                    <div className="flex items-center gap-2 text-red-400">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                      </svg>
-                      Dislike
-                    </div>
-                    <div className="flex items-center gap-2 text-green-400">
-                      Like
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </TinderCard>
-            )
-          )).filter(Boolean)}
-        </div>
-      </div>
-
-      {/* Simplified Need More Responses Popup */}
-      {responses.length <= 1 && !isGenerating && (
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-4 w-full max-w-xs text-center">
-            <h3 className="text-lg font-bold mb-2">Need more options?</h3>
-            <button
-              onClick={onGenerateMore}
-              disabled={isGenerating}
-              className={`w-full px-4 py-2 rounded-full text-white font-medium shadow-sm transition-all 
-                ${isGenerating 
-                  ? 'bg-gray-400 animate-pulse' 
-                  : 'hover:scale-[1.02] bg-gradient-to-r from-pink-500 to-rose-500'} 
-                disabled:opacity-50`}
-            >
-              {isGenerating ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Generating...</span>
-                </div>
-              ) : (
-                "Generate More ✨"
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Simplified Footer */}
-      <div className="bg-white/95 backdrop-blur-sm p-4 border-t border-pink-100">
-        <button
-          onClick={() => {
-            onClose();
-            document.querySelector("#upload-section")?.scrollIntoView({ behavior: "smooth" });
-          }}
-          className="w-full px-4 py-3 rounded-full font-medium border border-gray-200 hover:bg-gray-50 transition-colors"
-        >
-          Upload Another Screenshot
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Update the UpgradePopup component
-function UpgradePopup({ onClose, handleCheckout }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full relative">
-        {/* Add close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-
-        <div className="text-center mb-8">
-          <h3 className="text-2xl font-bold mb-3">Upgrade to Premium</h3>
-          <p className="text-gray-600">
-            You've used all your free swipes for today. Upgrade to premium for unlimited access!
-          </p>
-        </div>
-
-        <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-6 mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xl font-bold">Premium Plan</span>
-            <span className="text-2xl font-bold text-pink-600">$5/mo</span>
-          </div>
-          
-          <ul className="space-y-3 mb-6">
-            <li className="flex items-center gap-2 text-gray-700">
-              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              3-Day Free Trial
-            </li>
-            <li className="flex items-center gap-2 text-gray-700">
-              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Unlimited Swipes
-            </li>
-            <li className="flex items-center gap-2 text-gray-700">
-              <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Priority Support
-            </li>
-          </ul>
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-6 py-3 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
-          >
-            Maybe Later
-          </button>
-          <button
-            onClick={handleCheckout}
-            className="flex-1 px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium hover:shadow-lg transition-shadow"
-          >
-            Upgrade Now
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState([]);
@@ -404,7 +62,6 @@ export default function Home() {
   const currentIndexRef = useRef(currentIndex);
   const [showRegeneratePopup, setShowRegeneratePopup] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showResponseOverlay, setShowResponseOverlay] = useState(false);
   const [isOnPreview, setIsOnPreview] = useState(false);
   const router = useRouter();
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
@@ -469,7 +126,6 @@ export default function Home() {
         
         // Only show limits for non-premium users
         if (data.limitReached && !data.isPremium && !data.isTrial) {
-          setShowResponseOverlay(false);
           if (isSignedIn) {
             setShowUpgradePopup(true);
           } else {
@@ -480,7 +136,6 @@ export default function Home() {
       } else {
         // Handle anonymous users
         if (usageCount >= ANONYMOUS_USAGE_LIMIT) {
-          setShowResponseOverlay(false);
           setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
           return;
         }
@@ -539,39 +194,87 @@ export default function Home() {
     }
   };
 
-  // Fetch usage count (DB code unchanged)
-  const fetchUsageCount = async () => {
+  // Add this near the top of the component
+  const fetchingRef = useRef(false);
+
+  // Consolidate fetch operations into a single memoized function
+  const fetchUserData = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+
     try {
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-timezone-offset': new Date().getTimezoneOffset().toString()
-      };
-      
-      if (isSignedIn && user?.email) {
-        headers['x-user-email'] = user.email;
-      }
-      
-      const response = await fetch('/api/usage-status', { headers });
-      const data = await response.json();
-      
-      if (response.ok) {
-        setUsageCount(data.dailySwipes);
-        if (data.nextResetTime) {
-          localStorage.setItem('smoothrizz_next_reset', data.nextResetTime);
+      const response = await fetch('/api/usage', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isSignedIn && user?.email && { 'x-user-email': user.email })
         }
-        return data;
-      }
+      });
       
-      throw new Error('Failed to fetch usage count');
+      const data = await response.json();
+      if (response.ok) {
+        setUsageCount(data.dailySwipes || 0);
+        setIsPremium(data.isPremium || data.isTrial);
+      }
     } catch (error) {
-      console.error('Error fetching usage count:', error);
-      return { 
-        dailySwipes: 0, 
-        limitReached: false, 
-        nextResetTime: null 
-      };
+      console.error('Error fetching user data:', error);
+    } finally {
+      fetchingRef.current = false;
     }
-  };
+  }, [isSignedIn, user]);
+
+  // Single useEffect for initialization and auth state changes
+  useEffect(() => {
+    // Check for stored user data
+    const storedUser = localStorage.getItem('smoothrizz_user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setIsSignedIn(true);
+      } catch (error) {
+        console.error('Error parsing stored user data:', error);
+        localStorage.removeItem('smoothrizz_user');
+      }
+    }
+
+    // Initialize Google Sign-In
+    const initializeGoogleSignIn = async () => {
+      if (!document.getElementById("google-client-script")) {
+        const script = document.createElement("script");
+        script.src = "https://accounts.google.com/gsi/client";
+        script.async = true;
+        script.id = "google-client-script";
+        script.onload = async () => {
+          try {
+            const res = await fetch("/api/auth/google-client-id");
+            const { clientId } = await res.json();
+            window.google.accounts.id.initialize({
+              client_id: clientId,
+              callback: handleSignIn,
+              auto_select: !isSignedIn,
+            });
+            if (googleButtonRef.current) {
+              window.google.accounts.id.renderButton(googleButtonRef.current, {
+                theme: "outline",
+                size: "large",
+              });
+            }
+            setGoogleLoaded(true);
+          } catch (err) {
+            console.error("Error initializing Google Sign-In:", err);
+          }
+        };
+        document.body.appendChild(script);
+      }
+    };
+
+    initializeGoogleSignIn();
+  }, []); // Empty dependency array as this should only run once on mount
+
+  // Single useEffect for fetching user data
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData, isSignedIn]); // Only re-run when auth state changes
 
   // Update the handleSignIn function
   const handleSignIn = async (response) => {
@@ -634,8 +337,7 @@ export default function Home() {
     setIsSignedIn(false);
     setResponses([]);
     
-    const currentAnonymousCount = parseInt(localStorage.getItem('smoothrizz_anonymous_count') || '0');
-    setUsageCount(currentAnonymousCount);
+    setUsageCount(0);
     setDailyCount(0);
     
     localStorage.removeItem('smoothrizz_user');
@@ -732,44 +434,16 @@ export default function Home() {
     }
   };
 
-  // Add this useEffect for session tracking
-  useEffect(() => {
-    const initializeSession = () => {
-      // Check if this is a new session
-      const lastVisit = localStorage.getItem('smoothrizz_last_visit');
-      const now = new Date().getTime();
-      
-      // Consider it a new session if:
-      // 1. No last visit recorded, or
-      // 2. Last visit was more than 30 minutes ago
-      const isNewSession = !lastVisit || (now - parseInt(lastVisit)) > 30 * 60 * 1000;
-      
-      if (isNewSession) {
-        localStorage.setItem('isNewSession', 'true');
-      }
-      
-      // Update last visit time
-      localStorage.setItem('smoothrizz_last_visit', now.toString());
-    };
-
-    initializeSession();
-  }, []);
-
   // Update the handleSubmit function
   const handleSubmit = async () => {
     if (!selectedFile && (!context || !lastText)) {
-      alert("Please either upload a screenshot or provide conversation details");
-      return;
-    }
-
-    if (!mode) {
-      alert("Please select a conversation stage");
+      alert("Please select a screenshot or provide text input");
       return;
     }
 
     try {
-      // Check current usage status from DB
-      const statusResponse = await fetch('/api/usage-status', {
+      // Check usage status before proceeding
+      const statusResponse = await fetch('/api/usage', {
         headers: {
           'Content-Type': 'application/json',
           ...(isSignedIn && user?.email && { 'x-user-email': user.email }),
@@ -778,32 +452,41 @@ export default function Home() {
       
       const statusData = await statusResponse.json();
       
-      // Handle anonymous users
-      if (!isSignedIn && statusData.requiresSignIn) {
-        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
+      // For anonymous users at limit, show sign in overlay
+      if (!isSignedIn && statusData.dailySwipes >= ANONYMOUS_USAGE_LIMIT) {
+        setUsageCount(ANONYMOUS_USAGE_LIMIT);
         return;
       }
-
-      // Handle signed-in users who need to upgrade
-      if (isSignedIn && !isPremium && statusData.requiresUpgrade) {
-        if (statusData.timeRemaining) {
-          const hoursLeft = Math.ceil(statusData.timeRemaining / (60 * 60));
-          alert(`Please come back in ${hoursLeft} hours for more free swipes or upgrade to premium for unlimited access.`);
-          return;
-        }
+      
+      // For signed-in users at limit, show upgrade popup
+      if (isSignedIn && !statusData.isPremium && statusData.dailySwipes >= FREE_USER_DAILY_LIMIT) {
         setShowUpgradePopup(true);
         return;
       }
 
+      // Only proceed if user hasn't hit limits or is premium
       setIsLoading(true);
       setShowRegeneratePopup(false);
       
-      setResponses([]);
+      // Store current usage count before generating
+      const currentUsage = statusData.dailySwipes || 0;
       
       const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-      setResponses(result);
-      setCurrentIndex(result.length - 1);
-      setShowResponseOverlay(true);
+      
+      // Store the current input state for regeneration
+      useResponseStore.getState().setLastFile(selectedFile);
+      useResponseStore.getState().setLastMode(mode);
+      useResponseStore.getState().setLastContext(context);
+      useResponseStore.getState().setLastText(lastText);
+      
+      // Set responses in the store
+      useResponseStore.getState().setResponses(result);
+      
+      // Maintain the usage count
+      setUsageCount(currentUsage);
+      
+      // Navigate to responses page
+      router.push('/responses');
 
     } catch (error) {
       console.error('Error:', error);
@@ -819,7 +502,7 @@ export default function Home() {
     
     try {
       // Check usage status before generating
-      const statusResponse = await fetch('/api/usage-status', {
+      const statusResponse = await fetch('/api/usage', {
         headers: {
           'Content-Type': 'application/json',
           ...(isSignedIn && user?.email && { 'x-user-email': user.email }),
@@ -842,14 +525,12 @@ export default function Home() {
       
       // For non-premium users, show appropriate prompts
       if (isSignedIn && !statusData.isPremium && !statusData.isTrial) {
-        setShowResponseOverlay(false);
         setShowUpgradePopup(true);
         return;
       }
       
       // For anonymous users, show sign-in prompt if limit reached
       if (!isSignedIn && statusData.limitReached) {
-        setShowResponseOverlay(false); // Close the swipe overlay
         setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
         return;
       }
@@ -923,14 +604,6 @@ export default function Home() {
 
     initializeGoogleSignIn();
   }, [isSignedIn]);
-
-  useEffect(() => {
-    if (isSignedIn && user?.email) {
-      fetchUsageCount(user.email).then(({ dailySwipes }) => {
-        setUsageCount(dailySwipes);
-      });
-    }
-  }, [isSignedIn, user]);
 
   // Update the handleCheckout function
   const handleCheckout = async () => {
@@ -1299,27 +972,6 @@ export default function Home() {
       });
     }
   }, [responses]);
-
-  // Add this useEffect to fetch initial swipe count
-  useEffect(() => {
-    const fetchInitialCount = async () => {
-      if (!isSignedIn) {
-        try {
-          const response = await fetch('/api/swipes');
-          const data = await response.json();
-          
-          if (response.ok && !data.error) {
-            setUsageCount(data.dailySwipes);
-          }
-        } catch (error) {
-          console.error('Error fetching initial swipe count:', error);
-        }
-      }
-    };
-
-    // Only fetch once on component mount
-    fetchInitialCount();
-  }, [isSignedIn]);
 
   // Update mode selection to track completion
   const handleModeSelection = (selectedMode) => {
@@ -1697,10 +1349,10 @@ export default function Home() {
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-2 sm:mb-3">
-              Be the <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent">Smooth</span> Talker
+              Be a More <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent"> Interesting </span>Texter
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8 max-w-2xl mx-auto">
-              Get Smooth Inspiration For Witty Responses
+             Get Smooth Inspiration For Witty Responses
             </p>
             <div className="relative max-w-[100%] sm:max-w-lg md:max-w-md mx-auto">
               <img
@@ -1925,148 +1577,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Clear Section Divider */}
-          <div className="relative my-24">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center">
-              <div className="bg-white px-4 text-sm text-gray-500">Why SmoothRizz</div>
-            </div>
-          </div>
-
-          {/* Why Choose SmoothRizz Section - Updated with distinct styling */}
-          <section className="px-4 sm:px-0 mb-24">
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-gray-50 via-white to-pink-50 rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                {/* Header with updated styling */}
-                <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 sm:p-8 border-b border-gray-100">
-                  <h2 className="text-xl sm:text-2xl font-semibold text-white text-center">
-                    Why Choose SmoothRizz?
-                  </h2>
-                  <p className="mt-4 text-gray-300 text-sm sm:text-base text-center max-w-2xl mx-auto leading-relaxed">
-                    SmoothRizz uses advanced AI technology to help you create genuine, engaging conversations that lead to meaningful connections.
-                  </p>
-                </div>
-
-                {/* Content */}
-                <div className="p-6 sm:p-8 space-y-6">
-                  {/* Key Features */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                      <span className="text-gray-400">✨</span> Key Features
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {[
-                        {
-                          icon: "🎯",
-                          title: "Personalized Suggestions",
-                          desc: "Response suggestions based on conversation context"
-                        },
-                        {
-                          icon: "🧠",
-                          title: "Smart Analysis",
-                          desc: "Intelligent analysis of conversation tone and style"
-                        },
-                        {
-                          icon: "🔄",
-                          title: "Multiple Options",
-                          desc: "Various suggestions for every situation"
-                        },
-                        {
-                          icon: "🔒",
-                          title: "Privacy Focused",
-                          desc: "Secure design that protects your data"
-                        }
-                      ].map((feature, index) => (
-                        <div 
-                          key={index}
-                          className="p-4 rounded-xl bg-gray-50 hover:bg-pink-50 transition-colors"
-                        >
-                          <div className="flex items-start gap-3">
-                            <span className="text-2xl">{feature.icon}</span>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{feature.title}</h4>
-                              <p className="text-sm text-gray-600 mt-1">{feature.desc}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* How It Works */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                      <span className="text-gray-400">⚡️</span> How It Works
-                    </h3>
-                    <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-                      <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                        <div className="w-16 h-16 flex-shrink-0 bg-white rounded-full flex items-center justify-center shadow-sm">
-                          <svg className="w-8 h-8 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                        </div>
-                        <p className="text-gray-700 text-center sm:text-left">
-                          Simply share your conversation screenshot or type your context, and our AI will analyze the conversation's tone, context, and style. Within seconds, you'll receive multiple personalized response suggestions that maintain your authentic voice while enhancing your communication.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Premium Section */}
-          <section className="px-4 sm:px-0 mb-24">
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 rounded-xl shadow-lg border border-pink-100 overflow-hidden p-8">
-                <div className="max-w-2xl mx-auto text-center">
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-                    Unlock Unlimited Potential
-                  </h2>
-                  <p className="text-gray-600 mb-8">
-                    Start with a 3-day free trial, then $5/month for unlimited access
-                  </p>
-                  
-                  <div className="bg-white rounded-xl p-6 shadow-sm mb-8">
-                    <div className="flex justify-center items-center gap-2 mb-4">
-                      <span className="text-3xl font-bold text-pink-600">$5</span>
-                      <span className="text-gray-500">/month</span>
-                    </div>
-                    
-                    <ul className="space-y-3 max-w-xs mx-auto mb-6">
-                      <li className="flex items-center gap-2 text-gray-700">
-                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        3-Day Free Trial
-                      </li>
-                      <li className="flex items-center gap-2 text-gray-700">
-                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Unlimited Swipes
-                      </li>
-                      <li className="flex items-center gap-2 text-gray-700">
-                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Priority Support
-                      </li>
-                      <li className="flex items-center gap-2 text-gray-700">
-                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        No Waiting Period
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
+         
 
           <footer className="text-center pb-8">
             <div className="max-w-4xl mx-auto px-4">
@@ -2101,25 +1612,6 @@ export default function Home() {
 
           {/* Add the popup */}
           {showRegeneratePopup && <RegeneratePopup />}
-
-          {/* Response Overlay */}
-          {showResponseOverlay && responses.length > 0 && (
-            <ResponseOverlay
-              responses={responses}
-              onClose={() => setShowResponseOverlay(false)}
-              childRefs={childRefs}
-              currentIndex={currentIndex}
-              swiped={swiped}
-              outOfFrame={outOfFrame}
-              onGenerateMore={generateMoreResponses}
-              isGenerating={isGenerating}
-              isSignedIn={isSignedIn}
-              router={router}
-              setUsageCount={setUsageCount}
-              usageCount={usageCount}
-              isPremium={isPremium}
-            />
-          )}
         </main>
       </div>
     </>

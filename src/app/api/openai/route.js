@@ -1,7 +1,31 @@
+/**
+ * OpenAI API Route
+ * 
+ * This file handles communication with OpenAI for generating responses.
+ * 
+ * Main Features:
+ * - Processes image and text inputs
+ * - Generates response suggestions
+ * - Enforces usage limits
+ * - Handles rate limiting
+ * 
+ * Dependencies:
+ * - openai: For API communication
+ * - @/utils/usageTracking: For checking usage limits
+ * 
+ * Side Effects:
+ * - Makes external API calls to OpenAI
+ * - Logs request data for debugging
+ * 
+ * Connected Files:
+ * - src/app/openai.js: Client-side OpenAI utilities
+ * - src/app/responses/page.js: Uses generated responses
+ * - src/utils/usageTracking.js: Usage limit checks
+ */
+
 import OpenAI from "openai";
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { ANONYMOUS_USAGE_LIMIT, SIGNED_IN_USAGE_LIMIT, RESPONSES_PER_GENERATION } from '@/app/constants';
+import { checkUsageStatus } from '@/utils/usageTracking';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
@@ -63,117 +87,30 @@ Return exactly 10 responses in an array format suitable for JSON parsing.
 """ 
 `}
 
-async function checkAndUpdateSwipeCount(ip, supabase) {
-  try {
-    console.log('Debug - Checking Swipe Count:', ip);
-    
-    const { data, error } = await supabase
-      .from('ip_usage')
-      .select('*')
-      .eq('ip_address', ip)
-      .single();
-
-    console.log('Debug - Swipe Count Result:', {
-      data,
-      error,
-      timestamp: new Date().toISOString()
-    });
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    const swipeCount = data?.usage_count || 0;
-
-    // Check if swipe limit reached
-    if (swipeCount >= ANONYMOUS_USAGE_LIMIT) {
-      return { limitReached: true, swipeCount };
-    }
-
-    // Update the swipe count
-    const { error: updateError } = await supabase
-      .from('ip_usage')
-      .upsert({
-        ip_address: ip,
-        usage_count: swipeCount + 1,
-        last_used: new Date().toISOString()
-      }, {
-        onConflict: 'ip_address'
-      });
-
-    console.log('Debug - Swipe Count Update:', {
-      success: !updateError,
-      newCount: swipeCount + 1,
-      error: updateError,
-      timestamp: new Date().toISOString()
-    });
-
-    if (updateError) throw updateError;
-
-    return { limitReached: false, swipeCount: swipeCount + 1 };
-  } catch (error) {
-    console.error('Error in checkAndUpdateSwipeCount:', error);
-    throw error;
-  }
-}
-
 export async function POST(request) {
   try {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-    const { imageBase64, mode = 'first-move', isSignedIn, context, lastText } = await request.json();
+    const userEmail = request.headers.get('x-user-email');
+    
+    const { limitReached, isPremium } = await checkUsageStatus(requestIP, userEmail);
+
+    if (limitReached) {
+      return NextResponse.json({ 
+        error: userEmail ? 
+          'Daily limit reached. Please upgrade to continue.' : 
+          'Anonymous usage limit reached. Please sign in to continue.',
+        requestId: crypto.randomUUID()
+      }, { status: 403 });
+    }
+
+    const { imageBase64, mode = 'first-move', context, lastText } = await request.json();
     
     console.log('Debug - OpenAI Request:', {
       ip: requestIP,
-      isSignedIn,
+      isSignedIn: !!userEmail,
       timestamp: new Date().toISOString()
     });
 
-    // Check anonymous usage limit if not signed in
-    if (!isSignedIn) {
-      const supabase = createClient(
-        process.env.SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-      );
-
-      // Initialize usage record if it doesn't exist
-      const { data: existingData } = await supabase
-        .from('ip_usage')
-        .select('usage_count')
-        .eq('ip_address', requestIP)
-        .single();
-
-      if (!existingData) {
-        await supabase
-          .from('ip_usage')
-          .insert([
-            {
-              ip_address: requestIP,
-              usage_count: 0,
-              last_used: new Date().toISOString()
-            }
-          ]);
-      }
-
-      const { limitReached, swipeCount } = await checkAndUpdateSwipeCount(requestIP, supabase);
-      
-      console.log('Debug - Swipe Check Result:', {
-        ip: requestIP,
-        swipeCount,
-        limitReached,
-        ANONYMOUS_USAGE_LIMIT,
-        timestamp: new Date().toISOString()
-      });
-
-      if (limitReached) {
-        return NextResponse.json({ 
-          error: 'Anonymous usage limit reached. Please sign in to continue.',
-          requestId: crypto.randomUUID()
-        }, { status: 403 });
-      }
-    }
-
-    const systemPrompt = SYSTEM_PROMPTS['first-move'];
-    
     // Prepare the user message based on input type
     let userMessage;
 
@@ -216,12 +153,12 @@ export async function POST(request) {
     }
 
     const response = await openai.chat.completions.create({
-      model: "ft:gpt-4o-2024-08-06:personal:usepickup-3:Ax5yhop9",
-      temperature: 1.0,
+      model: "ft:gpt-4o-2024-08-06:personal:usepickup-6:B6vmJdwR:ckpt-step-56",
+      temperature: 0.7,
       messages: [
         {
           role: "system",
-          content: systemPrompt
+          content: SYSTEM_PROMPTS['first-move']
         },
         {
           role: "user",

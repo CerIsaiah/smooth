@@ -1,17 +1,33 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Google Authentication API Route
+ * 
+ * This file handles Google Sign-In authentication and user creation/updating.
+ * 
+ * Dependencies:
+ * - @/utils/dbOperations: For database operations (findOrCreateUser, getIPUsage)
+ * - google-auth-library: For verifying Google tokens
+ * 
+ * Side Effects:
+ * - Creates/updates user records in the users table
+ * - Transfers anonymous usage from ip_usage table to user account
+ * - Sets user session data
+ * 
+ * Connected Files:
+ * - src/app/responses/page.js: Calls this endpoint during Google Sign-In
+ * - src/app/page.js: Calls this endpoint during Google Sign-In
+ * - src/utils/dbOperations.js: Used for database operations
+ */
+
 import { NextResponse } from 'next/server';
 import { OAuth2Client } from 'google-auth-library';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { findOrCreateUser, getIPUsage } from '@/utils/dbOperations';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export async function POST(request) {
   try {
     const { credential } = await request.json();
+    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
 
     // Verify the Google token
     const ticket = await client.verifyIdToken({
@@ -22,48 +38,20 @@ export async function POST(request) {
     const payload = ticket.getPayload();
     const { email, name, picture } = payload;
 
-    console.log('Google auth payload:', { email, name });
+    // Get anonymous usage first
+    const ipUsage = await getIPUsage(requestIP);
+    const anonymousSwipes = ipUsage.total_usage;
 
-    // Check if user exists in Supabase
-    let { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
-
-    if (fetchError) {
-      console.log('Error fetching user:', fetchError);
-      
-      if (fetchError.code === 'PGRST116') {
-        // User doesn't exist, create new user
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert([
-            {
-              email,
-              name,
-              picture,
-              saved_responses: [],
-              daily_usage: 0,
-              total_usage: 0,
-            },
-          ])
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error creating new user:', insertError);
-          throw insertError;
-        }
-        
-        console.log('Created new user:', newUser);
-        user = newUser;
-      } else {
-        throw fetchError;
-      }
-    }
-
-    // Return user data with ID
+    // Get or create user using centralized function
+    const user = await findOrCreateUser(email, name, picture, anonymousSwipes);
+    
+    // Check if user is premium or in trial period
+    const isPremium = user.subscription_status === 'active';
+    const isTrialActive = user.is_trial && 
+      user.trial_end_date && 
+      new Date(user.trial_end_date) > new Date();
+    
+    // Return user data along with subscription status
     return NextResponse.json({
       user: {
         id: user.id,
@@ -71,6 +59,13 @@ export async function POST(request) {
         name: user.name,
         avatar_url: user.picture,
       },
+      dailySwipes: user.daily_usage,
+      totalSwipes: user.total_usage,
+      isPremium: isPremium,
+      isTrial: isTrialActive,
+      ...(isTrialActive && {
+        trialEndsAt: user.trial_end_date
+      })
     });
 
   } catch (error) {

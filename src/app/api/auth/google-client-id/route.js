@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  // Use the exact variable from your .env.local
+  // Use the server-side environment variable
   const clientId = process.env.GOOGLE_CLIENT_ID;
   
   console.log('Debug - Google Client ID Check:', {

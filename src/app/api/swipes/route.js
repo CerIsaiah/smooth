@@ -1,212 +1,33 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { ANONYMOUS_USAGE_LIMIT } from '@/app/constants';
+import { incrementUsage, getNextResetTime } from '@/utils/usageTracking';
 
-async function getOrCreateUsageRecord(supabase, identifier, isEmail = false) {
-  const table = isEmail ? 'users' : 'ip_usage';
-  const idField = isEmail ? 'email' : 'ip_address';
-  
-  try {
-    // First try to get the existing record
-    let { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq(idField, identifier)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // Create new record with proper initialization
-        const today = new Date().toISOString().split('T')[0];
-        const now = new Date().toISOString();
-        const newRecord = {
-          [idField]: identifier,
-          total_usage: 0,
-          daily_usage: 0,
-          last_used: now, // Initialize with current timestamp
-          last_reset: today,
-          login_count: isEmail ? 1 : 0, // Initialize login count for users
-          ...(isEmail && { 
-            is_premium: false,
-            is_trial: false,
-            trial_end_date: null,
-            trial_started_at: null
-          })
-        };
-        
-        const { data: newData, error: insertError } = await supabase
-          .from(table)
-          .insert([newRecord])
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        return newData;
-      }
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error in getOrCreateUsageRecord:', error);
-    throw error;
-  }
-}
-
-function getNextResetTime() {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-  return tomorrow.toISOString();
-}
-
-export async function POST(request) {
-  try {
-    const { direction, userEmail } = await request.json();
-    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-    
-    console.log('📝 Processing swipe request:', { userEmail, requestIP });
-
-    if (!direction) {
-      return NextResponse.json({ error: 'Direction is required' }, { status: 400 });
-    }
-
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-
-    // If user is signed in, check premium/trial status first
-    if (userEmail) {
-      console.log('🔍 Checking user status for:', userEmail);
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('is_trial, trial_end_date, subscription_status, subscription_type')
-        .eq('email', userEmail)
-        .single();
-
-      if (userError) {
-        console.error('❌ Error fetching user data:', userError);
-      } else {
-        console.log('👤 User data:', userData);
-      }
-
-      const now = new Date();
-      const isTrialActive = userData?.is_trial && 
-        userData?.trial_end_date && 
-        new Date(userData.trial_end_date) > now;
-
-      // Check if user has premium access (either through trial or subscription)
-      if (isTrialActive || userData?.subscription_status === 'active') {
-        console.log('🌟 Premium/Trial user detected - not counting swipes');
-        return NextResponse.json({
-          success: true,
-          isPremium: true,
-          dailySwipes: 0,
-          isTrial: isTrialActive,
-          limitReached: false,
-          ...(isTrialActive && {
-            trialEndsAt: userData.trial_end_date
-          })
-        });
-      }
-    }
-
-    // Only proceed with usage tracking for non-premium users
-    console.log('📊 Tracking usage for non-premium user');
-
-    // Get both anonymous and user records if available
-    const ipRecord = await getOrCreateUsageRecord(supabase, requestIP, false);
-    const userRecord = userEmail ? await getOrCreateUsageRecord(supabase, userEmail, true) : null;
-    
-    const now = new Date().toISOString();
-    const today = now.split('T')[0];
-
-    // Reset counts if it's a new day
-    const shouldReset = ipRecord.last_reset !== today;
-    
-    // Calculate total daily usage (anonymous + signed in)
-    const totalDailyUsage = shouldReset ? 1 : (
-      (ipRecord.last_reset === today ? ipRecord.daily_usage : 0) +
-      (userRecord?.last_reset === today ? userRecord.daily_usage : 0)
-    );
-
-    console.log('📈 Usage stats:', {
-      shouldReset,
-      totalDailyUsage,
-      ipUsage: ipRecord.daily_usage,
-      userUsage: userRecord?.daily_usage
-    });
-
-    // Check if combined usage exceeds limit
-    if (totalDailyUsage >= ANONYMOUS_USAGE_LIMIT) {
-      console.log('⚠️ Usage limit reached');
-      if (!userEmail) {
-        // Anonymous user needs to sign in
-        return NextResponse.json({
-          success: false,
-          requiresSignIn: true,
-          limitReached: true,
-          dailySwipes: totalDailyUsage,
-          nextResetTime: getNextResetTime()
-        });
-      } else {
-        // Signed in user needs to upgrade
-        const nextReset = getNextResetTime();
-        return NextResponse.json({
-          success: false,
-          requiresUpgrade: true,
-          limitReached: true,
-          dailySwipes: totalDailyUsage,
-          nextResetTime: nextReset,
-          timeRemaining: Math.ceil((new Date(nextReset).getTime() - now.getTime()) / 1000)
-        });
-      }
-    }
-
-    // Only update usage records for non-premium users
-    console.log('✏️ Updating usage records');
-    const updateData = {
-      daily_usage: shouldReset ? 1 : ipRecord.daily_usage + 1,
-      total_usage: ipRecord.total_usage + 1,
-      last_used: now, // Use ISO string for timestamp
-      last_reset: today
-    };
-
-    // Update IP usage
-    await supabase
-      .from('ip_usage')
-      .update(updateData)
-      .eq('ip_address', requestIP);
-
-    // Update user record if signed in
-    if (userEmail) {
-      const userUpdateData = {
-        ...updateData,
-        login_count: userRecord.login_count + 1 // Increment login count
-      };
-
-      await supabase
-        .from('users')
-        .update(userUpdateData)
-        .eq('email', userEmail);
-    }
-
-    console.log('✅ Successfully processed swipe');
-    return NextResponse.json({
-      success: true,
-      dailySwipes: totalDailyUsage + 1,
-      limitReached: false,
-      nextResetTime: getNextResetTime()
-    });
-
-  } catch (error) {
-    console.error('❌ Error in POST /api/swipes:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
+/**
+ * Swipes API Route
+ * 
+ * This file handles tracking user swipes and managing usage limits.
+ * 
+ * Main Features:
+ * - Tracks daily and total usage
+ * - Manages anonymous vs authenticated usage
+ * - Saves right-swiped responses
+ * - Enforces usage limits
+ * 
+ * Dependencies:
+ * - @supabase/supabase-js: For database operations
+ * - @/utils/usageTracking: For usage management
+ * 
+ * Side Effects:
+ * - Updates ip_usage and users tables
+ * - Creates usage records for new users/IPs
+ * - Saves responses to user accounts
+ * 
+ * Connected Files:
+ * - src/app/responses/page.js: Calls this endpoint for swipe actions
+ * - src/utils/dbOperations.js: Database operations
+ * - src/utils/usageTracking.js: Usage tracking logic
+ */
 export async function GET(request) {
   try {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
@@ -282,7 +103,7 @@ export async function GET(request) {
 
     const limitReached = totalDailyUsage >= ANONYMOUS_USAGE_LIMIT;
 
-    const nextResetTime = getNextResetTime();
+    const nextResetTime = getNextResetTime().toISOString();
 
     return NextResponse.json({ 
       dailySwipes: totalDailyUsage,
@@ -300,3 +121,60 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 } 
+
+export async function POST(request) {
+  try {
+    const { direction, response } = await request.json();
+    const userEmail = request.headers.get('x-user-email');
+    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    
+    console.log('Swipe request:', { direction, userEmail, requestIP }); // Debug log
+    
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    // First increment usage - make sure userEmail is passed if present
+    const usageData = await incrementUsage(requestIP, userEmail || null);
+
+    // If it's a right swipe and we have a response to save, save it
+    if (direction === 'right' && response && userEmail) {
+      const { error: saveError } = await supabase
+        .from('saved_responses')
+        .insert([{
+          response,
+          user_email: userEmail
+        }]);
+        
+      if (saveError) {
+        console.error('Error saving response:', saveError);
+      }
+    }
+
+    // Get fresh usage data after the increment
+    const { data: freshUserData } = userEmail ? await supabase
+      .from('users')
+      .select('daily_usage, total_usage, subscription_status, is_trial')
+      .eq('email', userEmail)
+      .single() : { data: null };
+
+    console.log('Fresh user data:', freshUserData); // Debug log
+
+    // Return the updated usage data
+    return NextResponse.json({
+      ...usageData,
+      ...(freshUserData && {
+        dailySwipes: freshUserData.daily_usage,
+        totalUsage: freshUserData.total_usage,
+        isPremium: freshUserData.subscription_status === 'active',
+        isTrial: freshUserData.is_trial
+      })
+    });
+
+  } catch (error) {
+    console.error('Error in POST /api/swipes:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
