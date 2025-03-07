@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { ANONYMOUS_USAGE_LIMIT } from '@/app/constants';
+import { 
+  ANONYMOUS_USAGE_LIMIT,
+  FREE_USER_DAILY_LIMIT 
+} from '@/app/constants';
 import { 
   checkUsageStatus, 
   incrementUsage, 
@@ -34,6 +37,32 @@ import { checkUsageLimits } from '@/utils/dbOperations';
  * - src/utils/dbOperations.js: Database operations
  * - src/utils/usageTracking.js: Usage tracking logic
  */
+
+// Add this function before the route handlers
+async function saveResponse(userEmail, response) {
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  try {
+    const { error } = await supabase
+      .from('saved_responses')
+      .insert([
+        {
+          user_email: userEmail,
+          response: response,
+          created_at: new Date().toISOString()
+        }
+      ]);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving response:', error);
+    throw error;
+  }
+}
+
 export async function GET(request) {
   try {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
