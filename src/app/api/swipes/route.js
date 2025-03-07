@@ -140,13 +140,6 @@ export async function POST(request) {
 
     // If it's a right swipe and we have a response to save, save it
     if (direction === 'right' && response && userEmail) {
-      console.log('Attempting to save response:', { 
-        response, 
-        userEmail,
-        responseType: typeof response,
-        responseStringified: JSON.stringify(response)
-      }); // Enhanced debug log
-
       // Create a properly formatted response object
       const responseObject = {
         context: null,
