@@ -664,6 +664,13 @@ export default function ResponsesPage() {
                 >
                   <div className="bg-white rounded-xl p-5 w-full h-full flex flex-col transform transition-all duration-200 
                     hover:scale-[1.02] relative border border-gray-200 shadow-lg">
+                    {/* Add swipe indicator at top */}
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="px-2 py-1 bg-white rounded-full text-[15px] font-medium text-gray-500 shadow-sm border border-gray-200">
+                        SWIPE
+                      </span>
+                    </div>
+
                     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex items-center justify-center">
                       <div className="prose prose-sm max-w-full text-center px-3">
                         <p className="text-gray-800 whitespace-pre-wrap text-base leading-relaxed font-medium">
@@ -674,8 +681,8 @@ export default function ResponsesPage() {
 
                     {/* Swipe instructions */}
                     <div className="absolute bottom-4 left-0 right-0 flex justify-between px-6">
-                      <span className="text-red-400 text-sm">← Skip</span>
-                      <span className="text-green-500 text-sm">Save →</span>
+                      <span className="text-red-400 text-sm">← Skip card</span>
+                      <span className="text-green-500 text-sm">Save style →</span>
                     </div>
                   </div>
                 </TinderCard>
@@ -695,18 +702,7 @@ export default function ResponsesPage() {
 
             {/* Bottom buttons with proper spacing */}
             <div className="w-full max-w-[280px] space-y-1.5 mt-4">
-              {/* Unlimited Swipes Badge */}
-              {isPremium && (
-                <div className="text-center">
-                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-1.5 rounded-full inline-flex items-center space-x-1.5 shadow-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                    <span className="text-xs font-medium text-white">Unlimited Swipes</span>
-                  </div>
-                </div>
-              )}
-
+          
               {/* New Screenshot Button */}
               <button
                 onClick={() => router.push('/')}
