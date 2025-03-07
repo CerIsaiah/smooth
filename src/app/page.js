@@ -1355,11 +1355,11 @@ export default function Home() {
         <main className="px-4 md:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
           {/* Hero Section - Enhanced */}
           <section className="text-center mb-12 sm:mb-16 px-4 sm:px-0 pt-8 sm:pt-12">
-            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-4 sm:mb-6 leading-tight">
+            <h1 className="text-5xl sm:text-6xl md:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
               Never Send a <span className="bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent italic">Boring</span> Text Again
             </h1>
-            <p className="text-xl sm:text-2xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed">
-              <span className="font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+            <p className="text-xl sm:text-1xl text-gray-600 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed">
+              <span className=" bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                 Rizz That Makes You Go From Ignored to Adored
               </span>
             </p>
