@@ -128,7 +128,7 @@ export async function POST(request) {
     const userEmail = request.headers.get('x-user-email');
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
-    console.log('Swipe request:', { direction, userEmail, requestIP }); // Debug log
+    console.log('Swipe request:', { direction, userEmail, requestIP });
     
     const supabase = createClient(
       process.env.SUPABASE_URL,
@@ -140,38 +140,41 @@ export async function POST(request) {
 
     // If it's a right swipe and we have a response to save, save it
     if (direction === 'right' && response && userEmail) {
-      // Create a properly formatted response object
-      const responseObject = {
+      // Get current saved responses
+      const { data: currentData, error: fetchError } = await supabase
+        .from('users')
+        .select('saved_responses')
+        .eq('email', userEmail)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching current responses:', fetchError);
+        throw fetchError;
+      }
+
+      // Create new response object
+      const newResponse = {
         context: null,
         response: typeof response === 'string' ? response : JSON.stringify(response),
         created_at: new Date().toISOString(),
         lastMessage: null
       };
 
-      const { data: saveData, error: saveError } = await supabase
+      // Initialize or update responses array
+      const currentResponses = currentData?.saved_responses || [];
+      const updatedResponses = [newResponse, ...currentResponses];
+
+      // Update user's saved responses
+      const { error: updateError } = await supabase
         .from('users')
         .update({
-          saved_responses: supabase.rpc('append_to_responses', {
-            new_response: responseObject,
-            user_email: userEmail
-          })
+          saved_responses: updatedResponses
         })
-        .eq('email', userEmail)
-        .select('saved_responses');
+        .eq('email', userEmail);
 
-      if (saveError) {
-        console.error('Error saving response:', {
-          error: saveError,
-          details: saveError.details,
-          message: saveError.message,
-          hint: saveError.hint,
-          responseObject
-        });
-      } else {
-        console.log('Response saved successfully:', {
-          saveData,
-          responseObject
-        });
+      if (updateError) {
+        console.error('Error saving response:', updateError);
+        throw updateError;
       }
     }
 
@@ -181,8 +184,6 @@ export async function POST(request) {
       .select('daily_usage, total_usage, subscription_status, is_trial')
       .eq('email', userEmail)
       .single() : { data: null };
-
-    console.log('Fresh user data:', freshUserData); // Debug log
 
     // Return the updated usage data
     return NextResponse.json({
