@@ -85,11 +85,10 @@ export async function checkUsageStatus(requestIP, userEmail) {
     console.log('IP usage data:', ipData);
 
     // For anonymous users, only check against ANONYMOUS_USAGE_LIMIT
-    const limitReached = (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT;
     return {
       isPremium: false,
       isTrial: false,
-      limitReached,
+      limitReached: (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT,
       dailySwipes: ipData?.daily_usage || 0
     };
 
