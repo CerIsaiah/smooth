@@ -576,114 +576,83 @@ export default function ResponsesPage() {
 
       <div className="min-h-screen bg-white">
         <div className="fixed inset-0 bg-gradient-to-br from-pink-500/5 via-white/50 to-gray-100/50 backdrop-blur-sm z-50 flex flex-col">
-          {/* Premium Status Bar - Added more padding */}
-          {!isPremium && (
-            <div className="bg-gradient-to-r from-amber-500 to-amber-700 text-black py-1.5">
-              <div className="max-w-5xl mx-auto px-4 flex justify-between items-center">
-                <p className="text-xs font-medium">
-                  Unlock Premium for 3x more personalized responses
-                </p>
-                <button
-                  onClick={() => setShowUpgradePopup(true)}
-                  className="bg-black text-white px-3 py-0.5 rounded-full text-xs font-medium hover:bg-gray-800 ml-3"
-                >
-                  Try Free
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Close button - smaller and higher */}
+          <button
+            onClick={() => router.push('/')}
+            className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 z-50 text-xl"
+          >
+            ×
+          </button>
 
-          <div className="relative flex-1 flex flex-col items-center justify-center p-4">
-            {/* Close button - Increased padding and touch area */}
-            <button
-              onClick={handleClose}
-              className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center text-white hover:text-gray-200 z-50 text-2xl"
-            >
-              ×
-            </button>
-
-            {/* Preview toggle buttons - Adjusted spacing and padding */}
-            {hasPreviewContent && (
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                <button
-                  onClick={togglePreview}
-                  className="text-white hover:text-gray-200 z-50 px-4 py-1.5 rounded-full bg-black/20 backdrop-blur-sm text-xs"
-                >
-                  Review Photo
-                </button>
-                <button
-                  onClick={() => router.push('/saved')}
-                  className="text-white hover:text-gray-200 z-50 px-4 py-1.5 rounded-full bg-black/20 backdrop-blur-sm text-xs flex items-center gap-1.5"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  Saved
-                </button>
-              </div>
-            )}
-
-            {/* Preview overlay */}
-            {showPreview && previewUrl && (
-              <div 
-                className="fixed inset-0 bg-black/80 z-[55] flex items-center justify-center p-4"
+          {/* Top section with fixed height */}
+          <div className="flex flex-col space-y-4 pt-3 pb-2">
+            {/* Top buttons container */}
+            <div className="flex justify-center gap-1.5 z-20">
+              <button
                 onClick={togglePreview}
+                className="text-gray-600 hover:text-gray-800 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[11px] shadow-sm font-medium"
               >
-                <div className="relative max-w-[100%] sm:max-w-lg md:max-w-md mx-auto">
-                  <img
-                    src={previewUrl}
-                    alt="Screenshot preview"
-                    className="w-full rounded-2xl"
-                    loading="lazy"
+                Review Photo
+              </button>
+              <button
+                onClick={() => router.push('/saved')}
+                className="text-gray-600 hover:text-gray-800 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[11px] shadow-sm font-medium flex items-center gap-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                Saved
+              </button>
+            </div>
+
+            {/* AI Learning Bar in fixed position */}
+            <div className="mx-auto w-full max-w-md px-4">
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg p-1.5 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="flex items-center gap-1">
+                    <span className="text-pink-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                      </svg>
+                    </span>
+                    <span className="text-[10px] font-medium text-gray-700">AI Learning</span>
+                  </div>
+                  {!isPremium && (
+                    <button
+                      onClick={() => router.push('/saved?tab=profile')}
+                      className="text-[10px] text-pink-600 hover:text-pink-700 font-medium whitespace-nowrap"
+                    >
+                      Upgrade →
+                    </button>
+                  )}
+                </div>
+                
+                <div className="relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${
+                      isPremium ? 'bg-gradient-to-r from-pink-500 to-purple-500' : 'bg-gray-400'
+                    }`}
+                    style={{ width: `${matchPercentage}%` }}
                   />
                 </div>
-              </div>
-            )}
-
-            {/* AI Learning Bar - Adjusted spacing */}
-            <div className={`absolute ${isPremium ? 'top-16' : 'top-20'} left-4 right-4 max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-lg p-2 border border-gray-200 shadow-sm`}>
-              <div className="flex items-center justify-between mb-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-pink-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                    </svg>
+                
+                <div className="flex justify-between text-[10px] mt-1">
+                  <span className={isPremium ? 'text-green-600' : 'text-gray-600'}>
+                    {matchPercentage}% Learned
                   </span>
-                  <span className="text-[10px] font-medium text-gray-700">AI Learning</span>
+                  {!isPremium && (
+                    <span className="text-gray-500">
+                      Upgrade for better matches
+                    </span>
+                  )}
                 </div>
-                {!isPremium && (
-                  <button
-                    onClick={() => router.push('/saved?tab=profile')}
-                    className="text-[10px] text-pink-600 hover:text-pink-700 font-medium whitespace-nowrap"
-                  >
-                    Upgrade →
-                  </button>
-                )}
-              </div>
-              
-              <div className="relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${
-                    isPremium ? 'bg-gradient-to-r from-pink-500 to-purple-500' : 'bg-gray-400'
-                  }`}
-                  style={{ width: `${matchPercentage}%` }}
-                />
-              </div>
-              
-              <div className="flex justify-between text-[10px] mt-1">
-                <span className={isPremium ? 'text-green-600' : 'text-gray-600'}>
-                  {matchPercentage}% Learned
-                </span>
-                {!isPremium && (
-                  <span className="text-gray-500">
-                    Upgrade for better matches
-                  </span>
-                )}
               </div>
             </div>
+          </div>
 
-            {/* Response cards - Adjusted spacing */}
-            <div className={`w-full max-w-md mx-auto h-[calc(100vh-380px)] relative ${isPremium ? 'mt-28' : 'mt-32'}`} key={key}>
+          {/* Cards container with smaller size */}
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="w-full max-w-[280px] h-[380px] relative" key={key}>
               {responses && responses.map((response, index) => (
                 <TinderCard
                   ref={childRefs.current[index]}
@@ -693,10 +662,8 @@ export default function ResponsesPage() {
                   preventSwipe={['up', 'down']}
                   className="absolute w-full h-full cursor-grab active:cursor-grabbing"
                 >
-                  <div 
-                    className="bg-white rounded-2xl p-6 w-full h-full flex flex-col transform transition-all duration-200 
-                      hover:scale-[1.02] relative border border-gray-200 shadow-lg"
-                  >
+                  <div className="bg-white rounded-xl p-5 w-full h-full flex flex-col transform transition-all duration-200 
+                    hover:scale-[1.02] relative border border-gray-200 shadow-lg">
                     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex items-center justify-center">
                       <div className="prose prose-sm max-w-full text-center px-3">
                         <p className="text-gray-800 whitespace-pre-wrap text-base leading-relaxed font-medium">
@@ -705,54 +672,50 @@ export default function ResponsesPage() {
                       </div>
                     </div>
 
-                    {/* Simplified footer without match percentage */}
-                    <div className="mt-3 text-center">
-                      <span className="text-gray-500 text-xs">
-                        Swipe right to save
-                      </span>
+                    {/* Swipe instructions */}
+                    <div className="absolute bottom-4 left-0 right-0 flex justify-between px-6">
+                      <span className="text-red-400 text-sm">← Skip</span>
+                      <span className="text-green-500 text-sm">Save →</span>
                     </div>
                   </div>
                 </TinderCard>
               ))}
             </div>
 
-            {/* Swipes Counter - Adjusted spacing */}
-            <div className="w-full max-w-md mx-auto mt-6 mb-4 flex justify-center">
-              <div className="text-center">
+            {/* Swipe Counter - Moved below card */}
+            <div className="text-center mt-4">
+              <span className="text-xs font-medium text-gray-600">
                 {isPremium ? (
-                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2 rounded-full inline-flex items-center space-x-2 shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                    <span className="text-sm font-medium">Unlimited Swipes</span>
-                  </div>
+                  'Unlimited Swipes Available'
                 ) : (
-                  <div className="bg-black/90 text-white px-5 py-2 rounded-full inline-flex items-center space-x-2 shadow-lg backdrop-blur-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-medium">
-                      {isSignedIn 
-                        ? `${FREE_USER_DAILY_LIMIT - usageCount} of ${FREE_USER_DAILY_LIMIT} swipes left`
-                        : `${ANONYMOUS_USAGE_LIMIT - usageCount} of ${ANONYMOUS_USAGE_LIMIT} swipes left`
-                      }
-                    </span>
-                  </div>
+                  `${isSignedIn ? FREE_USER_DAILY_LIMIT - usageCount : ANONYMOUS_USAGE_LIMIT - usageCount} Daily Free Swipes Left`
                 )}
-              </div>
+              </span>
             </div>
 
-            {/* New Screenshot Button - Adjusted spacing and padding */}
-            <div className="w-full max-w-md mx-auto mb-6 px-4">
+            {/* Bottom buttons with proper spacing */}
+            <div className="w-full max-w-[280px] space-y-1.5 mt-4">
+              {/* Unlimited Swipes Badge */}
+              {isPremium && (
+                <div className="text-center">
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-1.5 rounded-full inline-flex items-center space-x-1.5 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    <span className="text-xs font-medium text-white">Unlimited Swipes</span>
+                  </div>
+                </div>
+              )}
+
+              {/* New Screenshot Button */}
               <button
                 onClick={() => router.push('/')}
-                className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm px-5 py-2.5 rounded-full inline-flex items-center justify-center space-x-2 transition-all duration-200 border border-white/20"
+                className="w-full bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full inline-flex items-center justify-center space-x-1.5 transition-all duration-200"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span className="text-sm font-medium">New Screenshot</span>
+                <span className="text-xs font-medium">New Screenshot</span>
               </button>
             </div>
           </div>
