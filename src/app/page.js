@@ -1230,19 +1230,21 @@ export default function Home() {
 
         {/* Add this right after the header, before the main content */}
         <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white py-1.5 relative overflow-hidden">
-          <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="bg-yellow-400 text-yellow-800 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">NEW</span>
-              <p className="text-xs sm:text-sm font-medium">
-                No more boring texts. Get 3x faster learning and unlimited swipes with a free 3 day trial!
-              </p>
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-center gap-4">
+              <div className="flex items-center justify-center gap-1.5">
+                <span className="bg-yellow-400 text-yellow-800 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">NEW</span>
+                <p className="text-xs sm:text-sm font-medium">
+                  3x faster learning and unlimited swipes with free 3 day trial!
+                </p>
+              </div>
+              <button
+                onClick={handleCheckout}
+                className="text-[10px] sm:text-xs bg-white text-pink-600 px-2.5 py-0.5 rounded-full font-medium hover:bg-pink-50 transition-colors whitespace-nowrap"
+              >
+                Try Free
+              </button>
             </div>
-            <button
-              onClick={handleCheckout}
-              className="text-[10px] sm:text-xs bg-white text-pink-600 px-2.5 py-0.5 rounded-full font-medium hover:bg-pink-50 transition-colors whitespace-nowrap ml-2"
-            >
-              Try Free
-            </button>
           </div>
           {/* Smaller sparkle effects */}
           <div className="absolute inset-0 pointer-events-none">
