@@ -26,6 +26,11 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { RESET_TIMEZONE } from './usageTracking';
+import { 
+  ANONYMOUS_USAGE_LIMIT, 
+  FREE_USER_DAILY_LIMIT,
+  SIGNED_IN_USAGE_LIMIT 
+} from '@/app/constants';
 
 // Helper function to get Supabase client
 function getSupabaseClient() {
@@ -261,7 +266,7 @@ export async function checkAndResetUsage(identifier, isEmail = false) {
   }
 }
 
-// Add this new function to centralize limit checking
+// Update checkUsageLimits to use the imported constants
 export async function checkUsageLimits(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
   
