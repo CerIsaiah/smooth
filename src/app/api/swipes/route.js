@@ -147,13 +147,21 @@ export async function POST(request) {
         responseStringified: JSON.stringify(response)
       }); // Enhanced debug log
 
-      // Ensure response is properly formatted as a JSON string
-      const formattedResponse = typeof response === 'string' ? response : JSON.stringify(response);
+      // Create a properly formatted response object
+      const responseObject = {
+        context: null,
+        response: typeof response === 'string' ? response : JSON.stringify(response),
+        created_at: new Date().toISOString(),
+        lastMessage: null
+      };
 
       const { data: saveData, error: saveError } = await supabase
         .from('users')
         .update({
-          saved_responses: supabase.sql`array_append(COALESCE(saved_responses, '[]'::jsonb), ${formattedResponse}::jsonb)`
+          saved_responses: supabase.rpc('append_to_responses', {
+            new_response: responseObject,
+            user_email: userEmail
+          })
         })
         .eq('email', userEmail)
         .select('saved_responses');
@@ -164,12 +172,12 @@ export async function POST(request) {
           details: saveError.details,
           message: saveError.message,
           hint: saveError.hint,
-          formattedResponse
+          responseObject
         });
       } else {
         console.log('Response saved successfully:', {
           saveData,
-          formattedResponse
+          responseObject
         });
       }
     }
