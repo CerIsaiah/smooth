@@ -87,7 +87,7 @@ function RegeneratePopup({ onRegenerate, onClose }) {
 }
 
 export default function ResponsesPage() {
-  const { responses, setResponses, lastFile, lastMode, lastContext, lastText } = useResponseStore();
+  const { responses, setResponses, lastFile, lastMode, lastContext, lastText, clearAll } = useResponseStore();
   const [currentIndex, setCurrentIndex] = useState(responses.length - 1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -111,6 +111,9 @@ export default function ResponsesPage() {
   // Add new state for premium features
   const [matchPercentage, setMatchPercentage] = useState(0);
   const [styleInsights, setStyleInsights] = useState(null);
+
+  // Add new state for tracking if user can swipe
+  const [canInteract, setCanInteract] = useState(false);
 
   const childRefs = useRef(
     Array(responses.length)
@@ -249,6 +252,41 @@ export default function ResponsesPage() {
     }
   }, []);
 
+  // Add this effect to check limits on mount
+  useEffect(() => {
+    const checkInitialLimits = async () => {
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(user?.email && { 'x-user-email': user.email })
+        };
+
+        const response = await fetch('/api/swipes', { headers });
+        const data = await response.json();
+
+        if (!data.canSwipe) {
+          clearAll(); // Clear responses
+          setCanInteract(false); // Prevent interactions
+          
+          if (data.requiresSignIn) {
+            setShowSignInOverlay(true);
+          } else if (data.requiresUpgrade) {
+            setShowUpgradePopup(true);
+          }
+          return;
+        }
+
+        setCanInteract(true); // Allow interactions
+        setUsageCount(data.dailySwipes || 0);
+      } catch (error) {
+        console.error('Error checking initial limits:', error);
+        setCanInteract(false); // Prevent interactions on error
+      }
+    };
+
+    checkInitialLimits();
+  }, [user, clearAll]); // Run when user changes
+
   // Update handleRegenerate to maintain usage count
   const handleRegenerate = async () => {
     if (isGenerating) return;
@@ -339,71 +377,44 @@ export default function ResponsesPage() {
 
       setLastDirection(direction);
       updateCurrentIndex(currentIndex - 1);
-      
-      // Only increment total swipes for new swipes (not regenerated cards)
+
+      // Only track new swipes
       if (currentIndex === responses.length - 1 - totalSwipes) {
-        setTotalSwipes(prev => prev + 1);
-        
-        // Save response and update learning percentage on right swipe
-        if (direction === 'right') {
-          await saveResponse(responseToDelete);
-          
-          // For signed-in users, fetch updated percentage from server
-          if (isSignedIn && user?.email) {
-            const learningResponse = await fetch('/api/learning-percentage', {
-              headers: {
-                'x-user-email': user.email
-              }
-            });
-            const data = await learningResponse.json();
-            setMatchPercentage(data.percentage);
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(user?.email && { 'x-user-email': user.email })
+        };
+
+        const response = await fetch('/api/swipes', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ 
+            direction,
+            response: direction === 'right' ? responseToDelete : undefined
+          })
+        });
+
+        const data = await response.json();
+
+        // If limits reached, clear responses and show appropriate overlay
+        if (!data.canSwipe) {
+          clearAll(); // Clear the response store
+          if (data.requiresSignIn) {
+            setShowSignInOverlay(true);
+          } else if (data.requiresUpgrade) {
+            setShowUpgradePopup(true);
           }
+          return;
         }
-      }
 
-      // Always make API call to track swipes, regardless of direction
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-      
-      // Add user email header if signed in
-      if (isSignedIn && user?.email) {
-        headers['x-user-email'] = user.email;
-      }
-
-      const response = await fetch('/api/swipes', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ 
-          direction,
-          response: direction === 'right' ? responseToDelete : undefined
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && !isPremium) {
         setUsageCount(data.dailySwipes || 0);
-        
-        // For anonymous users at limit, show sign in overlay and set flag
-        if (!isSignedIn && data.dailySwipes >= ANONYMOUS_USAGE_LIMIT) {
-          localStorage.setItem('just_signed_in', 'true');
-          setShowSignInOverlay(true);
-          return;
-        }
-        
-        // For signed-in users at limit, show upgrade popup
-        if (isSignedIn && data.dailySwipes >= FREE_USER_DAILY_LIMIT) {
-          setShowUpgradePopup(true);
-          return;
-        }
+        setTotalSwipes(prev => prev + 1);
       }
-      
-      // Only show regenerate popup when all responses are gone
+
+      // Show regenerate popup when all responses are gone
       if (currentIndex === 0) {
         setShowRegeneratePopup(true);
       }
-      
     } catch (error) {
       console.error('Error in swiped function:', error);
     }
@@ -456,10 +467,11 @@ export default function ResponsesPage() {
     }
   };
 
-  // Update the swipe function to prevent swiping after going back
+  // Update the swipe function to check canInteract
   const swipe = async (dir) => {
+    if (!canInteract) return; // Prevent swipes if not allowed
+    
     if (canSwipe && currentIndex >= 0 && currentIndex < responses.length) {
-      // Only allow swiping if we're at the highest index we've reached
       if (currentIndex === responses.length - 1 - totalSwipes) {
         try {
           const currentRef = childRefs.current[currentIndex];
@@ -657,9 +669,9 @@ export default function ResponsesPage() {
                 <TinderCard
                   ref={childRefs.current[index]}
                   key={index}
-                  onSwipe={(dir) => swiped(dir, response, index)}
+                  onSwipe={(dir) => canInteract && swiped(dir, response, index)}
                   onCardLeftScreen={() => outOfFrame()}
-                  preventSwipe={['up', 'down']}
+                  preventSwipe={canInteract ? ['up', 'down'] : ['up', 'down', 'left', 'right']}
                   className="absolute w-full h-full cursor-grab active:cursor-grabbing"
                 >
                   <div className="bg-white rounded-xl p-5 w-full h-full flex flex-col transform transition-all duration-200 

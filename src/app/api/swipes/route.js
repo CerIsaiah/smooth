@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { ANONYMOUS_USAGE_LIMIT } from '@/app/constants';
-import { incrementUsage, getNextResetTime } from '@/utils/usageTracking';
+import { incrementUsage, getNextResetTime, checkUsageLimits } from '@/utils/usageTracking';
 
 /**
  * Swipes API Route
@@ -33,175 +33,43 @@ export async function GET(request) {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     const userEmail = request.headers.get('x-user-email');
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Check limits for either user or IP
+    const limitCheck = await checkUsageLimits(
+      userEmail || requestIP, 
+      Boolean(userEmail)
     );
 
-    // Check premium/trial status for signed-in users
-    if (userEmail) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('is_premium, is_trial, trial_end_date, subscription_status')
-        .eq('email', userEmail)
-        .single();
-
-      const now = new Date();
-      const isTrialActive = userData?.is_trial && 
-        userData?.trial_end_date && 
-        new Date(userData.trial_end_date) > now;
-
-      // Treat trial users same as premium users
-      if (userData?.is_premium || isTrialActive || userData?.subscription_status === 'active') {
-        return NextResponse.json({ 
-          isPremium: true,
-          dailySwipes: 0, // Don't count swipes for premium/trial users
-          isTrial: isTrialActive,
-          limitReached: false,
-          ...(isTrialActive && {
-            trialEndsAt: userData.trial_end_date
-          })
-        });
-      }
-    }
-
-    // Get both records
-    const { data: ipData } = await supabase
-      .from('ip_usage')
-      .select('*')
-      .eq('ip_address', requestIP)
-      .single();
-
-    const { data: userData } = userEmail ? await supabase
-      .from('users')
-      .select('*')
-      .eq('email', userEmail)
-      .single() : { data: null };
-
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    // Check if user is in trial period
-    const isTrialActive = userData?.is_trial && 
-      userData?.trial_end_date && 
-      new Date(userData.trial_end_date) > now;
-
-    // If user is in trial, treat them as premium
-    if (isTrialActive) {
-      return NextResponse.json({ 
-        isPremium: true,
-        isTrial: true,
-        limitReached: false,
-        trialEndsAt: userData.trial_end_date
-      });
-    }
-
-    // Calculate total daily usage for non-premium/non-trial users
-    const ipUsage = ipData?.last_reset === today ? ipData.daily_usage : 0;
-    const userUsage = userData?.last_reset === today ? userData.daily_usage : 0;
-    const totalDailyUsage = ipUsage + userUsage;
-
-    const limitReached = totalDailyUsage >= ANONYMOUS_USAGE_LIMIT;
-
-    const nextResetTime = getNextResetTime().toISOString();
-
-    return NextResponse.json({ 
-      dailySwipes: totalDailyUsage,
-      limitReached,
-      requiresSignIn: limitReached && !userEmail,
-      requiresUpgrade: limitReached && userEmail,
-      nextResetTime,
-      ...(limitReached && userEmail && {
-        timeRemaining: Math.ceil((new Date(nextResetTime).getTime() - now.getTime()) / 1000)
-      })
-    });
+    return NextResponse.json(limitCheck);
 
   } catch (error) {
-    console.error('Error fetching swipe count:', error);
+    console.error('Error in GET /api/swipes:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-} 
+}
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const direction = body.direction;
-    const response = body.response;
     const userEmail = request.headers.get('x-user-email');
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
-    console.log('Swipe request:', { direction, userEmail, requestIP });
-    
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Increment usage for either user or IP
+    const usageResult = await incrementUsage(
+      userEmail || requestIP, 
+      Boolean(userEmail)
     );
 
-    // First increment usage - make sure userEmail is passed if present
-    const usageData = await incrementUsage(requestIP, userEmail || null) || {};
-
-    // If it's a right swipe and we have a response to save for a logged-in user
-    if (direction === 'right' && response && userEmail) {
-      try {
-        // Get current saved responses
-        const { data: userData } = await supabase
-          .from('users')
-          .select('saved_responses')
-          .eq('email', userEmail)
-          .single();
-
-        // Create new response object
-        const newResponse = {
-          context: null,
-          response: typeof response === 'string' ? response : response.response || response,
-          created_at: new Date().toISOString(),
-          lastMessage: null
-        };
-
-        // Initialize or update responses array
-        const currentResponses = Array.isArray(userData?.saved_responses) 
-          ? userData.saved_responses 
-          : [];
-        const updatedResponses = [newResponse, ...currentResponses];
-
-        // Update user's saved responses
-        await supabase
-          .from('users')
-          .update({
-            saved_responses: updatedResponses
-          })
-          .eq('email', userEmail);
-
-      } catch (saveError) {
-        console.error('Error saving response:', saveError);
-      }
+    // If can't swipe, return error
+    if (!usageResult.canSwipe) {
+      return NextResponse.json(usageResult, { status: 429 });
     }
 
-    // Get fresh usage data after the increment
-    let freshUserData = null;
-    if (userEmail) {
-      const { data } = await supabase
-        .from('users')
-        .select('daily_usage, total_usage, subscription_status, is_trial')
-        .eq('email', userEmail)
-        .single();
-      freshUserData = data;
+    // Handle response saving if it's a right swipe
+    if (body.direction === 'right' && body.response && userEmail) {
+      await saveResponse(userEmail, body.response);
     }
 
-    // Build response object
-    const responseObject = {
-      ...usageData
-    };
-
-    // Add user data if available
-    if (freshUserData) {
-      responseObject.dailySwipes = freshUserData.daily_usage;
-      responseObject.totalUsage = freshUserData.total_usage;
-      responseObject.isPremium = freshUserData.subscription_status === 'active';
-      responseObject.isTrial = freshUserData.is_trial;
-    }
-
-    return NextResponse.json(responseObject);
+    return NextResponse.json(usageResult);
 
   } catch (error) {
     console.error('Error in POST /api/swipes:', error);

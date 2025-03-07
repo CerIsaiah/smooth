@@ -259,4 +259,116 @@ export async function checkAndResetUsage(identifier, isEmail = false) {
     console.error('Error in checkAndResetUsage:', error);
     throw error;
   }
+}
+
+// Add this new function to centralize limit checking
+export async function checkUsageLimits(identifier, isEmail = false) {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // For signed-in users, check premium/trial status first
+    if (isEmail) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('daily_usage, subscription_status, is_trial, trial_end_date')
+        .eq('email', identifier)
+        .single();
+
+      if (!userData) return { error: 'User not found' };
+
+      const now = new Date();
+      const isTrialActive = userData?.is_trial && 
+        userData?.trial_end_date && 
+        new Date(userData.trial_end_date) > now;
+
+      // Premium/trial users have unlimited usage
+      if (userData.subscription_status === 'active' || isTrialActive) {
+        return {
+          canSwipe: true,
+          isPremium: userData.subscription_status === 'active',
+          isTrial: isTrialActive,
+          dailySwipes: userData.daily_usage || 0,
+          ...(isTrialActive && { trialEndsAt: userData.trial_end_date })
+        };
+      }
+
+      // Regular signed-in users
+      return {
+        canSwipe: (userData.daily_usage || 0) < FREE_USER_DAILY_LIMIT,
+        isPremium: false,
+        isTrial: false,
+        dailySwipes: userData.daily_usage || 0,
+        requiresUpgrade: (userData.daily_usage || 0) >= FREE_USER_DAILY_LIMIT
+      };
+    }
+
+    // For anonymous users
+    const { data: ipData } = await supabase
+      .from('ip_usage')
+      .select('daily_usage')
+      .eq('ip_address', identifier)
+      .single();
+
+    return {
+      canSwipe: !ipData || (ipData.daily_usage || 0) < ANONYMOUS_USAGE_LIMIT,
+      isPremium: false,
+      isTrial: false,
+      dailySwipes: ipData?.daily_usage || 0,
+      requiresSignIn: (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT
+    };
+
+  } catch (error) {
+    console.error('Error checking usage limits:', error);
+    throw error;
+  }
+}
+
+// Update the existing incrementUsage function
+export async function incrementUsage(identifier, isEmail = false) {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Check limits first
+    const limitCheck = await checkUsageLimits(identifier, isEmail);
+    if (!limitCheck.canSwipe) {
+      return limitCheck; // Return the limit check result
+    }
+
+    const now = new Date().toISOString();
+    
+    if (isEmail) {
+      // Update user usage
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          daily_usage: (limitCheck.dailySwipes || 0) + 1,
+          total_usage: supabase.raw('total_usage + 1'),
+          last_used: now
+        })
+        .eq('email', identifier)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { ...limitCheck, dailySwipes: data.daily_usage };
+    } else {
+      // Update IP usage
+      const { data, error } = await supabase
+        .from('ip_usage')
+        .upsert({
+          ip_address: identifier,
+          daily_usage: (limitCheck.dailySwipes || 0) + 1,
+          total_usage: supabase.raw('COALESCE(total_usage, 0) + 1'),
+          last_used: now
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { ...limitCheck, dailySwipes: data.daily_usage };
+    }
+  } catch (error) {
+    console.error('Error incrementing usage:', error);
+    throw error;
+  }
 } 
