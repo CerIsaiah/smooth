@@ -110,6 +110,10 @@ export async function incrementUsage(requestIP, userEmail = null) {
         };
       }
 
+      // Update or initialize today's usage in the history
+      const dailyUsageHistory = userData.daily_usage_history || {};
+      dailyUsageHistory[today] = (dailyUsageHistory[today] || 0) + 1;
+
       const newDailyUsage = (userData.daily_usage || 0) + 1;
       const newTotalUsage = (userData.total_usage || 0) + 1;
 
@@ -119,7 +123,8 @@ export async function incrementUsage(requestIP, userEmail = null) {
         .update({
           daily_usage: newDailyUsage,
           total_usage: newTotalUsage,
-          last_used: now.toISOString()
+          last_used: now.toISOString(),
+          daily_usage_history: dailyUsageHistory
         })
         .eq('email', userEmail);
 
@@ -129,7 +134,8 @@ export async function incrementUsage(requestIP, userEmail = null) {
         dailySwipes: newDailyUsage,
         totalUsage: newTotalUsage,
         isPremium: userData.subscription_status === 'active',
-        isTrial: userData.is_trial
+        isTrial: userData.is_trial,
+        dailyUsageHistory
       };
     } else {
       // Handle anonymous users with IP tracking
