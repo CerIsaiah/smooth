@@ -140,15 +140,25 @@ export async function POST(request) {
 
     // If it's a right swipe and we have a response to save, save it
     if (direction === 'right' && response && userEmail) {
-      const { error: saveError } = await supabase
+      console.log('Attempting to save response:', { response, userEmail }); // Debug log
+
+      const { data: saveData, error: saveError } = await supabase
         .from('saved_responses')
         .insert([{
           response,
           user_email: userEmail
-        }]);
-        
+        }])
+        .select(); // Add select() to get more detailed error information
+
       if (saveError) {
-        console.error('Error saving response:', saveError);
+        console.error('Error saving response:', {
+          error: saveError,
+          details: saveError.details,
+          message: saveError.message,
+          hint: saveError.hint
+        });
+      } else {
+        console.log('Response saved successfully:', saveData);
       }
     }
 
