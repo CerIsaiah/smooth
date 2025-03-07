@@ -606,8 +606,10 @@ export default function ResponsesPage() {
               >
                 Review Photo
               </button>
+              
+              {/* Show Saved button for everyone, but prompt sign in if not authenticated */}
               <button
-                onClick={() => router.push('/saved')}
+                onClick={() => isSignedIn ? router.push('/saved') : setShowSignInOverlay(true)}
                 className="text-gray-600 hover:text-gray-800 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[11px] shadow-sm font-medium flex items-center gap-1"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
