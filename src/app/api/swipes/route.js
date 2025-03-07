@@ -124,7 +124,9 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { direction, response } = await request.json();
+    const body = await request.json();
+    const direction = body.direction;
+    const response = body.response;
     const userEmail = request.headers.get('x-user-email');
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
@@ -136,65 +138,70 @@ export async function POST(request) {
     );
 
     // First increment usage - make sure userEmail is passed if present
-    const usageData = await incrementUsage(requestIP, userEmail || null);
+    const usageData = await incrementUsage(requestIP, userEmail || null) || {};
 
-    // If it's a right swipe and we have a response to save, save it
+    // If it's a right swipe and we have a response to save for a logged-in user
     if (direction === 'right' && response && userEmail) {
-      // Get current saved responses
-      const { data: currentData, error: fetchError } = await supabase
-        .from('users')
-        .select('saved_responses')
-        .eq('email', userEmail)
-        .single();
+      try {
+        // Get current saved responses
+        const { data: userData } = await supabase
+          .from('users')
+          .select('saved_responses')
+          .eq('email', userEmail)
+          .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error fetching current responses:', fetchError);
-        throw fetchError;
-      }
+        // Create new response object
+        const newResponse = {
+          context: null,
+          response: typeof response === 'string' ? response : response.response || response,
+          created_at: new Date().toISOString(),
+          lastMessage: null
+        };
 
-      // Create new response object
-      const newResponse = {
-        context: null,
-        response: typeof response === 'string' ? response : JSON.stringify(response),
-        created_at: new Date().toISOString(),
-        lastMessage: null
-      };
+        // Initialize or update responses array
+        const currentResponses = Array.isArray(userData?.saved_responses) 
+          ? userData.saved_responses 
+          : [];
+        const updatedResponses = [newResponse, ...currentResponses];
 
-      // Initialize or update responses array
-      const currentResponses = currentData?.saved_responses || [];
-      const updatedResponses = [newResponse, ...currentResponses];
+        // Update user's saved responses
+        await supabase
+          .from('users')
+          .update({
+            saved_responses: updatedResponses
+          })
+          .eq('email', userEmail);
 
-      // Update user's saved responses
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          saved_responses: updatedResponses
-        })
-        .eq('email', userEmail);
-
-      if (updateError) {
-        console.error('Error saving response:', updateError);
-        throw updateError;
+      } catch (saveError) {
+        console.error('Error saving response:', saveError);
       }
     }
 
     // Get fresh usage data after the increment
-    const { data: freshUserData } = userEmail ? await supabase
-      .from('users')
-      .select('daily_usage, total_usage, subscription_status, is_trial')
-      .eq('email', userEmail)
-      .single() : { data: null };
+    let freshUserData = null;
+    if (userEmail) {
+      const { data } = await supabase
+        .from('users')
+        .select('daily_usage, total_usage, subscription_status, is_trial')
+        .eq('email', userEmail)
+        .single();
+      freshUserData = data;
+    }
 
-    // Return the updated usage data
-    return NextResponse.json({
-      ...usageData,
-      ...(freshUserData && {
-        dailySwipes: freshUserData.daily_usage,
-        totalUsage: freshUserData.total_usage,
-        isPremium: freshUserData.subscription_status === 'active',
-        isTrial: freshUserData.is_trial
-      })
-    });
+    // Build response object
+    const responseObject = {
+      ...usageData
+    };
+
+    // Add user data if available
+    if (freshUserData) {
+      responseObject.dailySwipes = freshUserData.daily_usage;
+      responseObject.totalUsage = freshUserData.total_usage;
+      responseObject.isPremium = freshUserData.subscription_status === 'active';
+      responseObject.isTrial = freshUserData.is_trial;
+    }
+
+    return NextResponse.json(responseObject);
 
   } catch (error) {
     console.error('Error in POST /api/swipes:', error);
