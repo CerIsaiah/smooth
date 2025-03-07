@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { ANONYMOUS_USAGE_LIMIT } from '@/app/constants';
-import { incrementUsage, getNextResetTime, checkUsageLimits } from '@/utils/usageTracking';
+import { 
+  checkUsageStatus, 
+  incrementUsage, 
+  getNextResetTime 
+} from '@/utils/usageTracking';
+import { checkUsageLimits } from '@/utils/dbOperations';
 
 /**
  * Swipes API Route
@@ -17,6 +22,7 @@ import { incrementUsage, getNextResetTime, checkUsageLimits } from '@/utils/usag
  * Dependencies:
  * - @supabase/supabase-js: For database operations
  * - @/utils/usageTracking: For usage management
+ * - @/utils/dbOperations: For usage management
  * 
  * Side Effects:
  * - Updates ip_usage and users tables
