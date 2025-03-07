@@ -30,22 +30,11 @@ export async function checkUsageStatus(requestIP, userEmail) {
   try {
     console.log('Checking usage for:', { requestIP, userEmail });
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-    
     // For signed-in users, prioritize their user data
     if (userEmail) {
-      // Get user data first
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', userEmail)
-        .single();
-
-      if (userError) throw userError;
-
+      // Use getUserData which now includes reset check
+      const userData = await getUserData(userEmail);
+      if (!userData) throw new Error('No user data found');
 
       const now = new Date();
       const isTrialActive = userData?.is_trial && 
@@ -74,15 +63,8 @@ export async function checkUsageStatus(requestIP, userEmail) {
       };
     }
 
-    // For anonymous users, check IP usage
-    const { data: ipData, error: ipError } = await supabase
-      .from('ip_usage')
-      .select('*')
-      .eq('ip_address', requestIP)
-      .single();
-
-    if (ipError && ipError.code !== 'PGRST116') throw ipError;
-    console.log('IP usage data:', ipData);
+    // For anonymous users, check IP usage using getIPUsage which includes reset check
+    const ipData = await getIPUsage(requestIP);
 
     // For anonymous users, only check against ANONYMOUS_USAGE_LIMIT
     return {

@@ -22,29 +22,41 @@ export function UpgradePopup({ onClose, handleCheckout }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] p-4">
-      <div className="bg-white p-6 rounded-xl w-full max-w-md mx-auto relative">
-        <h2 className="text-2xl font-bold mb-4">Upgrade to Premium</h2>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-[60] p-3">
+      <div className="bg-white p-6 sm:p-7 rounded-xl w-full max-w-sm mx-auto relative shadow-xl">
+        <h2 className="text-2xl sm:text-2xl font-bold mb-4 bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+          Never Lose a Moment to Impress
+        </h2>
         
         {/* Benefits section */}
         <div className="mb-6 space-y-3">
-          <div className="flex items-center gap-2 text-gray-700">
-            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-start gap-2.5 text-gray-700 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+            <svg className="w-4 h-4 text-green-500 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Unlimited responses daily</span>
+            <span className="text-sm sm:text-base text-gray-800">
+              <strong>Unlimited Suggestions</strong> - Always know exactly what to say, no matter how tricky the conversation.
+
+
+            </span>
           </div>
-          <div className="flex items-center gap-2 text-gray-700">
-            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-start gap-2.5 text-gray-700 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+            <svg className="w-4 h-4 text-green-500 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Learns from right swipes</span>
+            <span className="text-sm sm:text-base text-gray-800">
+              <strong>3x Faster AI Learning</strong> - Text like the best version of you
+            </span>
           </div>
-          <div className="flex items-center gap-2 text-gray-700">
-            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex items-start gap-2.5 text-gray-700 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+            <svg className="w-4 h-4 text-green-500 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Priority support</span>
+            <span className="text-sm sm:text-base text-gray-800">
+              <strong>Priority Support</strong> - Instant answers to ensure you're never stuck overthinking again.
+
+
+            </span>
           </div>
         </div>
 
@@ -52,17 +64,17 @@ export function UpgradePopup({ onClose, handleCheckout }) {
         <div className="space-y-3">
           <button
             onClick={handleCheckout}
-            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-lg hover:opacity-90 transition-opacity"
+            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-all duration-200 transform hover:scale-[1.01] shadow-md text-sm sm:text-base"
           >
-            Free 3 Day Trial - then $4.99/month
+            Start Free Trial - $4.99/mo after
           </button>
           
           <button
             onClick={handleFreePlan}
-            className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors"
+            className="w-full bg-gray-50 text-gray-700 py-2.5 rounded-lg hover:bg-gray-100 transition-all duration-200 text-sm sm:text-base"
           >
-            Continue with Free Plan
-            <div className="text-sm text-gray-500 mt-1">
+            Stay on Free Plan
+            <div className="text-xs sm:text-sm text-gray-500 mt-0.5 font-medium">
               Next reset in {timeUntilReset}
             </div>
           </button>
