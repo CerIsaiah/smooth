@@ -140,25 +140,37 @@ export async function POST(request) {
 
     // If it's a right swipe and we have a response to save, save it
     if (direction === 'right' && response && userEmail) {
-      console.log('Attempting to save response:', { response, userEmail }); // Debug log
+      console.log('Attempting to save response:', { 
+        response, 
+        userEmail,
+        responseType: typeof response,
+        responseStringified: JSON.stringify(response)
+      }); // Enhanced debug log
+
+      // Ensure response is properly formatted as a JSON string
+      const formattedResponse = typeof response === 'string' ? response : JSON.stringify(response);
 
       const { data: saveData, error: saveError } = await supabase
-        .from('saved_responses')
-        .insert([{
-          response,
-          user_email: userEmail
-        }])
-        .select(); // Add select() to get more detailed error information
+        .from('users')
+        .update({
+          saved_responses: supabase.sql`array_append(COALESCE(saved_responses, '[]'::jsonb), ${formattedResponse}::jsonb)`
+        })
+        .eq('email', userEmail)
+        .select('saved_responses');
 
       if (saveError) {
         console.error('Error saving response:', {
           error: saveError,
           details: saveError.details,
           message: saveError.message,
-          hint: saveError.hint
+          hint: saveError.hint,
+          formattedResponse
         });
       } else {
-        console.log('Response saved successfully:', saveData);
+        console.log('Response saved successfully:', {
+          saveData,
+          formattedResponse
+        });
       }
     }
 
