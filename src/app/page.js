@@ -82,118 +82,6 @@ export default function Home() {
     [responses.length]
   );
 
-  const updateCurrentIndex = (val) => {
-    setCurrentIndex(val);
-    currentIndexRef.current = val;
-  };
-
-  const canGoBack = currentIndex < responses.length - 1;
-  const canSwipe = currentIndex >= 0;
-
-  const swiped = async (direction, responseToDelete) => {
-    try {
-      if (!direction) return;
-
-      // Only make API call if user is signed in
-      if (isSignedIn) {
-        const response = await fetch('/api/swipes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            direction,
-            userEmail: user?.email 
-          }),
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || `HTTP error! status: ${response.status}`);
-        }
-
-        // If user is premium/trial, don't update usage count or show limits
-        if (data.isPremium || data.isTrial) {
-          if (direction === 'right') {
-            await saveResponse(responseToDelete);
-          }
-          setResponses(prev => prev.filter(response => response !== responseToDelete));
-          return;
-        }
-        
-        setUsageCount(data.dailySwipes);
-        
-        // Only show limits for non-premium users
-        if (data.limitReached && !data.isPremium && !data.isTrial) {
-          if (isSignedIn) {
-            setShowUpgradePopup(true);
-          } else {
-            setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-          }
-          return;
-        }
-      } else {
-        // Handle anonymous users
-        if (usageCount >= ANONYMOUS_USAGE_LIMIT) {
-          setUsageCount(ANONYMOUS_USAGE_LIMIT + 1);
-          return;
-        }
-        setUsageCount(prev => prev + 1);
-      }
-
-      // If right swipe, save the response
-      if (direction === 'right') {
-        await saveResponse(responseToDelete);
-      }
-
-      setResponses(prev => prev.filter(response => response !== responseToDelete));
-      
-    } catch (error) {
-      console.error('Error in swiped function:', error);
-    }
-  };
-
-  const outOfFrame = (response) => {
-    setResponses(prev => prev.filter(r => r !== response));
-    
-    // Only show regenerate popup when there are NO cards left (not when there's 1 remaining)
-    if (responses.length === 1 && !isGenerating && !isPremium) {
-      setShowRegeneratePopup(true);
-    }
-  };
-
-  const swipe = async (dir) => {
-    if (canSwipe && currentIndex < responses.length) {
-      await childRefs[currentIndex].current.swipe(dir);
-    }
-  };
-
-  const goBack = async () => {
-    if (!canGoBack) return;
-    const newIndex = currentIndex + 1;
-    updateCurrentIndex(newIndex);
-    await childRefs[newIndex].current.restoreCard();
-  };
-
-  // Helper function to save responses
-  const saveResponse = async (response) => {
-    if (isSignedIn && user?.email) {
-      await fetch('/api/saved-responses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          response,
-          userEmail: user.email,
-          context: context || null,
-          lastMessage: lastText || null,
-        }),
-      });
-    }
-  };
-
   // Add this near the top of the component
   const fetchingRef = useRef(false);
 
@@ -225,7 +113,7 @@ export default function Home() {
   // Single useEffect for initialization and auth state changes
   useEffect(() => {
     // Add version check to force sign out
-    const CURRENT_VERSION = '2.1'; // Increment this to force sign out
+    /* const CURRENT_VERSION = '2.1'; // Increment this to force sign out
     const storedVersion = localStorage.getItem('app_version');
     
     if (storedVersion !== CURRENT_VERSION) {
@@ -244,7 +132,7 @@ export default function Home() {
       // Force refresh to ensure clean state
       window.location.reload();
       return;
-    }
+    } */
 
     // Rest of your existing initialization code
     const storedUser = localStorage.getItem('smoothrizz_user');
@@ -937,18 +825,6 @@ export default function Home() {
     });
   };
 
-  // Add these new event handlers
-  const handleTouchStart = (event) => {
-    // Prevent scrolling while swiping
-    event.preventDefault();
-  };
-
-  const handleDragEnd = (event) => {
-    // Prevent any default drag behavior
-    event.preventDefault();
-    handleMouseUp(event);
-  };
-
   // Add the regenerate popup component
   const RegeneratePopup = () => {
     // Don't show upgrade prompt for premium/trial users
@@ -1349,6 +1225,30 @@ export default function Home() {
                 Dashboard
               </Link>
             )}
+          </div>
+        </div>
+
+        {/* Add this right after the header, before the main content */}
+        <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white py-1.5 relative overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="bg-yellow-400 text-yellow-800 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">NEW</span>
+              <p className="text-xs sm:text-sm font-medium">
+                No more boring texts. Get 3x faster learning and unlimited swipes with a free 3 day trial!
+              </p>
+            </div>
+            <button
+              onClick={handleCheckout}
+              className="text-[10px] sm:text-xs bg-white text-pink-600 px-2.5 py-0.5 rounded-full font-medium hover:bg-pink-50 transition-colors whitespace-nowrap ml-2"
+            >
+              Try Free
+            </button>
+          </div>
+          {/* Smaller sparkle effects */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/4 w-0.5 h-0.5 bg-white rounded-full opacity-75 animate-ping"></div>
+            <div className="absolute top-1/3 right-1/3 w-0.5 h-0.5 bg-white rounded-full opacity-75 animate-ping delay-300"></div>
+            <div className="absolute bottom-1/2 right-1/4 w-0.5 h-0.5 bg-white rounded-full opacity-75 animate-ping delay-700"></div>
           </div>
         </div>
 

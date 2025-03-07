@@ -556,7 +556,7 @@ export default function SavedResponses() {
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                   <div>
                     <h3 className="text-xl font-bold mb-1">Unlock Your Full Rizz Potential!</h3>
-                    <p className="text-sm">Get 3x more personalized responses & advanced features</p>
+                    <p className="text-sm">Get 3x more personalized responses & unlimited swipes</p>
                   </div>
                   <button 
                     onClick={handleCheckout}

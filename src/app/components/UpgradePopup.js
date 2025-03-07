@@ -66,7 +66,7 @@ export function UpgradePopup({ onClose, handleCheckout }) {
             onClick={handleCheckout}
             className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-all duration-200 transform hover:scale-[1.01] shadow-md text-sm sm:text-base"
           >
-            Start Free Trial - $4.99/mo after
+            Free 3 Day Trial - $4.99/mo after
           </button>
           
           <button
