@@ -23,89 +23,144 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from '@/app/constants';
+import { 
+  ANONYMOUS_USAGE_LIMIT, 
+  FREE_USER_DAILY_LIMIT,
+  PREMIUM_INCREMENT_PER_RESPONSE,
+  FREE_INCREMENT_PER_RESPONSE,
+  PREMIUM_MAX_PERCENTAGE,
+  FREE_MAX_PERCENTAGE,
+  MIN_LEARNING_PERCENTAGE
+} from '@/app/constants';
 import { getUserData, getIPUsage } from './dbOperations';
 
-export async function checkUsageStatus(requestIP, userEmail) {
+let supabaseClient = null;
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    supabaseClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        db: {
+          schema: 'public',
+          connectionTimeout: 10000, // 10 seconds
+          queryTimeout: 15000 // 15 seconds
+        }
+      }
+    );
+  }
+  return supabaseClient;
+}
+
+export async function checkUsageStatus(identifier, isEmail) {
   try {
-    console.log('Checking usage for:', { requestIP, userEmail });
+    console.log('Checking usage for:', { identifier, isEmail });
     
-    if (userEmail) {
+    // Validate isEmail parameter matches identifier format
+    if (isEmail && !identifier.includes('@')) {
+      console.error('Invalid email format:', identifier);
+      throw new Error('Invalid email format');
+    }
+    
+    if (!isEmail && identifier.includes('@')) {
+      console.error('IP address contains @:', identifier);
+      throw new Error('Invalid IP address format');
+    }
+    
+    if (isEmail) {
       // Get user data with built-in timeout from dbOperations
-      const userData = await getUserData(userEmail);
+      let userData = await getUserData(identifier);
       
-      if (!userData) throw new Error('No user data found');
+      if (!userData) {
+        console.log('Creating new user record in checkUsageStatus');
+        // Create new user record if none exists
+        const supabase = getSupabaseClient();
+        
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert({
+            email: identifier,
+            daily_usage: 0,
+            total_usage: 0,
+            last_used: new Date().toISOString(),
+            subscription_status: 'inactive',
+            is_trial: false
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        userData = newUser;
+      }
 
       const now = new Date();
       const isTrialActive = userData?.is_trial && 
         userData?.trial_end_date && 
         new Date(userData.trial_end_date) > now;
 
-      // Premium/trial users have unlimited usage
-      if (isTrialActive || userData?.subscription_status === 'active') {
-        return { 
-          isPremium: userData?.subscription_status === 'active',
-          isTrial: isTrialActive,
-          limitReached: false,
-          dailySwipes: userData?.daily_usage || 0,
-          ...(isTrialActive && {
-            trialEndsAt: userData.trial_end_date
-          })
-        };
-      }
+      return { 
+        isPremium: userData?.subscription_status === 'active',
+        isTrial: isTrialActive,
+        limitReached: false,
+        dailySwipes: userData?.daily_usage || 0,
+        ...(isTrialActive && {
+          trialEndsAt: userData.trial_end_date
+        })
+      };
+    } else {
+      // For anonymous users - use getIPUsage with built-in timeout
+      const ipData = await getIPUsage(identifier);
 
-      // Regular signed-in users - use their daily_usage
       return {
         isPremium: false,
         isTrial: false,
-        limitReached: (userData?.daily_usage || 0) >= FREE_USER_DAILY_LIMIT,
-        dailySwipes: userData?.daily_usage || 0
+        limitReached: (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT,
+        dailySwipes: ipData?.daily_usage || 0
       };
     }
 
-    // For anonymous users - use getIPUsage with built-in timeout
-    const ipData = await getIPUsage(requestIP);
-
-    return {
-      isPremium: false,
-      isTrial: false,
-      limitReached: (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT,
-      dailySwipes: ipData?.daily_usage || 0
-    };
-
   } catch (error) {
     console.error('Error in checkUsageStatus:', error);
-    
-    if (error.message.includes('timed out')) {
-      throw new Error('Request timed out while checking usage limits');
-    }
     throw error;
   }
 }
 
-export async function incrementUsage(requestIP, userEmail = null) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+export async function incrementUsage(identifier, isEmail) {
+  const supabase = getSupabaseClient();
+  const startTime = performance.now();
+  const now = new Date().toISOString();
 
   try {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    if (userEmail) {
-      // Get user data first
-      const { data: userData, error: userError } = await supabase
+    if (isEmail) {
+      // First fetch current values
+      const { data: currentUser, error: fetchError } = await supabase
         .from('users')
-        .select('*')
-        .eq('email', userEmail)
+        .select('daily_usage, total_usage')
+        .eq('email', identifier)
         .single();
 
-      if (userError) throw userError;
+      if (fetchError) throw fetchError;
 
-      // If no user data found, return early
-      if (!userData) {
-        console.error('No user data found for email:', userEmail);
+      const newDailyUsage = (currentUser?.daily_usage || 0) + 1;
+      const newTotalUsage = (currentUser?.total_usage || 0) + 1;
+
+      // Then update with new values
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({
+          daily_usage: newDailyUsage,
+          total_usage: newTotalUsage,
+          last_used: now
+        })
+        .eq('email', identifier)
+        .select('daily_usage, total_usage, subscription_status, is_trial')
+        .single();
+
+      if (updateError) throw updateError;
+
+      if (!updatedUser) {
+        console.error('No user found for email:', identifier);
         return {
           dailySwipes: 0,
           isPremium: false,
@@ -113,91 +168,52 @@ export async function incrementUsage(requestIP, userEmail = null) {
         };
       }
 
-      // Update or initialize today's usage in the history
-      const dailyUsageHistory = userData.daily_usage_history || {};
-      dailyUsageHistory[today] = (dailyUsageHistory[today] || 0) + 1;
+      return {
+        dailySwipes: updatedUser.daily_usage,
+        totalUsage: updatedUser.total_usage,
+        isPremium: updatedUser.subscription_status === 'active',
+        isTrial: updatedUser.is_trial
+      };
+    } else {
+      // First fetch current IP usage
+      const { data: currentIp, error: fetchError } = await supabase
+        .from('ip_usage')
+        .select('daily_usage, total_usage')
+        .eq('ip_address', identifier)
+        .single();
 
-      const newDailyUsage = (userData.daily_usage || 0) + 1;
-      const newTotalUsage = (userData.total_usage || 0) + 1;
+      const newDailyUsage = (currentIp?.daily_usage || 0) + 1;
+      const newTotalUsage = (currentIp?.total_usage || 0) + 1;
 
-      // Update user's usage counts
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
+      // Then update with new values
+      const { data: updatedIp, error: updateError } = await supabase
+        .from('ip_usage')
+        .upsert({
+          ip_address: identifier,
           daily_usage: newDailyUsage,
           total_usage: newTotalUsage,
-          last_used: now.toISOString(),
-          daily_usage_history: dailyUsageHistory
+          last_used: now
         })
-        .eq('email', userEmail);
+        .select('daily_usage, total_usage')
+        .single();
 
       if (updateError) throw updateError;
 
       return {
-        dailySwipes: newDailyUsage,
-        totalUsage: newTotalUsage,
-        isPremium: userData.subscription_status === 'active',
-        isTrial: userData.is_trial,
-        dailyUsageHistory
+        dailySwipes: updatedIp.daily_usage,
+        totalUsage: updatedIp.total_usage,
+        isPremium: false,
+        isTrial: false
       };
-    } else {
-      // Get existing IP record first
-      const { data: existingData, error: getError } = await supabase
-        .from('ip_usage')
-        .select('*')
-        .eq('ip_address', requestIP)
-        .single();
-
-      if (getError && getError.code !== 'PGRST116') { // Not found error
-        throw getError;
-      }
-
-      if (existingData) {
-        // Update existing record
-        const newDailyUsage = (existingData.daily_usage || 0) + 1;
-        const newTotalUsage = (existingData.total_usage || 0) + 1;
-
-        const { error: updateError } = await supabase
-          .from('ip_usage')
-          .update({
-            daily_usage: newDailyUsage,
-            total_usage: newTotalUsage,
-            last_used: now.toISOString()
-          })
-          .eq('ip_address', requestIP);
-
-        if (updateError) throw updateError;
-
-        return {
-          dailySwipes: newDailyUsage,
-          totalUsage: newTotalUsage,
-          isPremium: false,
-          isTrial: false
-        };
-      } else {
-        // Insert new record
-        const { error: insertError } = await supabase
-          .from('ip_usage')
-          .insert({
-            ip_address: requestIP,
-            daily_usage: 1,
-            total_usage: 1,
-            last_used: now.toISOString(),
-            last_reset: today
-          });
-
-        if (insertError) throw insertError;
-
-        return {
-          dailySwipes: 1,
-          totalUsage: 1,
-          isPremium: false,
-          isTrial: false
-        };
-      }
     }
   } catch (error) {
-    console.error('Error in incrementUsage:', error);
+    const duration = performance.now() - startTime;
+    console.error('Operation failed after:', duration, 'ms:', {
+      error,
+      operation: 'incrementUsage',
+      identifier,
+      isEmail
+    });
     throw error;
   }
 }
@@ -236,4 +252,59 @@ export function convertFileToBase64(file) {
     reader.onload = () => resolve(reader.result);
     reader.onerror = error => reject(error);
   });
+}
+
+/**
+ * Gets user's learning percentage and related data
+ * @param {string} email - User's email
+ * @returns {Promise<Object>} Learning percentage data
+ */
+export async function getLearningPercentage(email) {
+  if (!email) {
+    return { percentage: MIN_LEARNING_PERCENTAGE };
+  }
+
+  const supabase = getSupabaseClient();
+
+  try {
+    // Single query to get all needed user data
+    const { data: userData, error } = await supabase
+      .from('users')
+      .select('subscription_status, is_trial, trial_end_date, saved_responses')
+      .eq('email', email)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user data:', error);
+      return { percentage: MIN_LEARNING_PERCENTAGE };
+    }
+
+    const savedResponsesCount = userData?.saved_responses?.length ?? 0;
+    const now = new Date();
+    const hasActiveSubscription = 
+      userData?.subscription_status === 'active' || 
+      (userData?.is_trial && userData?.trial_end_date && new Date(userData.trial_end_date) > now);
+
+    const incrementPerResponse = hasActiveSubscription ? PREMIUM_INCREMENT_PER_RESPONSE : FREE_INCREMENT_PER_RESPONSE;
+    const maxPercentage = hasActiveSubscription ? PREMIUM_MAX_PERCENTAGE : FREE_MAX_PERCENTAGE;
+    
+    const percentage = Math.min(
+      savedResponsesCount * incrementPerResponse,
+      maxPercentage
+    );
+
+    return {
+      percentage: Math.max(percentage, MIN_LEARNING_PERCENTAGE),
+      savedResponsesCount,
+      debug: {
+        increment: incrementPerResponse,
+        max: maxPercentage,
+        calculated: savedResponsesCount * incrementPerResponse,
+        final: percentage
+      }
+    };
+  } catch (error) {
+    console.error('Error in getLearningPercentage:', error);
+    return { percentage: MIN_LEARNING_PERCENTAGE };
+  }
 } 

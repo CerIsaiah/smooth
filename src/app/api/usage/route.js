@@ -28,8 +28,11 @@ export async function GET(request) {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     const userEmail = request.headers.get('x-user-email');
     
-    const usageStatus = await checkUsageStatus(requestIP, userEmail);
+    // Check if we have a valid email, otherwise use IP
+    const identifier = userEmail || requestIP;
+    const isEmail = Boolean(userEmail && userEmail.includes('@'));
     
+    const usageStatus = await checkUsageStatus(identifier, isEmail);
     
     return NextResponse.json(usageStatus);
   } catch (error) {

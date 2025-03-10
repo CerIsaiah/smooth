@@ -90,9 +90,14 @@ export async function POST(request) {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     const userEmail = request.headers.get('x-user-email');
     
-    const { limitReached, isPremium } = await checkUsageStatus(requestIP, userEmail);
+    // Check if we have a valid email, otherwise use IP
+    const identifier = userEmail || requestIP;
+    const isEmail = Boolean(userEmail && userEmail.includes('@'));
+    
+    // Check usage status
+    const usageStatus = await checkUsageStatus(identifier, isEmail);
 
-    if (limitReached) {
+    if (usageStatus.limitReached) {
       return NextResponse.json({ 
         error: userEmail ? 
           'Daily limit reached. Please upgrade to continue.' : 

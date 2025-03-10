@@ -79,53 +79,95 @@ function isPastResetTime(lastResetTime) {
 export async function getUserData(email) {
   console.time('getUserData');
   try {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database operation timed out')), 5000);
-    });
-
-    const dbPromise = getSupabaseClient()
+    if (!email) {
+      console.error('No email provided to getUserData');
+      throw new Error('Email is required');
+    }
+    
+    console.log('Querying user with email:', email);
+    
+    const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
+    
+    // Calculate next reset time properly
+    const nextResetDate = new Date();
+    nextResetDate.setDate(nextResetDate.getDate() + 1);
+    nextResetDate.setHours(0, 0, 0, 0);
+    const nextReset = nextResetDate.toISOString(); // Convert to ISO string
+    
+    // First, try to get the user
+    const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
-      .single();
-
-    const { data, error } = await Promise.race([
-      dbPromise,
-      timeoutPromise
-    ]);
-    
-    console.timeEnd('getUserData');
-    
+      .eq('email', email.trim().toLowerCase()) // Normalize email
+      .maybeSingle();
+      
     if (error) {
-      console.error('Supabase getUserData error:', error);
+      console.error('Database error in getUserData:', error);
       throw error;
     }
-
-    await checkAndResetUsage(email, true);
     
+    if (!data) {
+      console.log('No user found, creating new user record for:', email);
+      // Create new user with all required fields
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          email: email.trim().toLowerCase(),
+          created_at: now,
+          daily_usage: 0,
+          saved_responses: [],
+          total_usage: 0,
+          last_used: now,
+          last_reset: now,
+          subscription_type: 'standard',
+          subscription_status: 'inactive',
+          subscription_updated_at: now,
+          next_reset: nextReset,
+          is_trial: false,
+          trial_end_date: null,
+          trial_started_at: null,
+          subscription_end_date: null,
+          trial_ending_soon: false,
+          stripe_customer_id: null,
+          cancel_at_period_end: false
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating new user:', createError);
+        throw createError;
+      }
+      
+      console.log('New user created:', newUser);
+      return newUser;
+    }
+    
+    console.log('Found existing user:', data);
     return data;
+    
   } catch (error) {
     console.error('getUserData failed:', error);
     throw error;
+  } finally {
+    console.timeEnd('getUserData');
   }
 }
 
 export async function getIPUsage(ip) {
   console.time('getIPUsage');
   try {
-    // Create a promise that rejects after timeout
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Database operation timed out')), 5000);
     });
 
-    // Create the actual database query
     const dbPromise = getSupabaseClient()
       .from('ip_usage')
       .select('*')
       .eq('ip_address', ip)
       .single();
 
-    // Race between timeout and database query
     const { data, error } = await Promise.race([
       dbPromise,
       timeoutPromise
@@ -133,12 +175,10 @@ export async function getIPUsage(ip) {
 
     console.timeEnd('getIPUsage');
 
-    if (error && error.code !== 'PGRST116') { // Not found error is ok
+    if (error && error.code !== 'PGRST116') {
       console.error('Supabase getIPUsage error:', error);
       throw error;
     }
-
-    await checkAndResetUsage(ip, false);
     
     return data || { ip_address: ip, daily_usage: 0, total_usage: 0 };
   } catch (error) {
@@ -268,6 +308,7 @@ export async function resetDailyUsage(supabase, identifier, isEmail = false) {
 }
 
 export async function checkAndResetUsage(identifier, isEmail = false) {
+  console.log(`Checking reset for ${isEmail ? 'email' : 'IP'}: ${identifier}`);
   const supabase = getSupabaseClient();
   const currentPSTTime = getCurrentPSTTime();
   const today = new Date(currentPSTTime).toISOString().split('T')[0]; // Just the date portion
@@ -331,11 +372,13 @@ export async function checkAndResetUsage(identifier, isEmail = false) {
   }
 }
 
-// Update checkUsageLimits to use the imported constants
+// Update checkUsageLimits to handle the identifier correctly
 export async function checkUsageLimits(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
   
   try {
+    console.log('Checking usage limits for:', { identifier, isEmail });
+    
     // For signed-in users, check premium/trial status first
     if (isEmail) {
       const { data: userData } = await supabase
@@ -372,7 +415,7 @@ export async function checkUsageLimits(identifier, isEmail = false) {
       };
     }
 
-    // For anonymous users
+    // For anonymous users, use IP tracking
     const { data: ipData } = await supabase
       .from('ip_usage')
       .select('daily_usage')

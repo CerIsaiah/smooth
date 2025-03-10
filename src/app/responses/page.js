@@ -163,6 +163,29 @@ export default function ResponsesPage() {
         setUser(parsedUser);
         setIsSignedIn(true);
         
+        // Check for anonymous saved responses to migrate
+        const anonymousResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
+        if (anonymousResponses.length > 0) {
+          try {
+            // Migrate anonymous responses to user account
+            await fetch('/api/saved-responses', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                userEmail: parsedUser.email,
+                responses: anonymousResponses // Send as bulk migration
+              })
+            });
+            
+            // Clear anonymous responses after successful migration
+            localStorage.removeItem('anonymous_saved_responses');
+          } catch (error) {
+            console.error('Error migrating anonymous responses:', error);
+          }
+        }
+        
         const justSignedIn = localStorage.getItem('just_signed_in');
         if (justSignedIn) {
           localStorage.removeItem('just_signed_in');
@@ -214,7 +237,7 @@ export default function ResponsesPage() {
     }
   }, [currentIndex, responses]);
 
-  // Update swiped function to handle swipe tracking and state updates
+  // Update swiped function to handle local storage and API calls
   const swiped = async (direction, responseToDelete, index) => {
     if (!canInteract) return;
     
@@ -228,7 +251,7 @@ export default function ResponsesPage() {
       const response = await fetch('/api/swipes', {
         method: 'POST',
         headers,
-        body: JSON.stringify({})
+        body: JSON.stringify({ direction })
       });
 
       const data = await response.json();
@@ -247,24 +270,44 @@ export default function ResponsesPage() {
       // Update usage count from response
       setUsageCount(data.dailySwipes || 0);
       
+      // Save response to localStorage if right swipe
+      if (direction === 'right') {
+        const newResponse = {
+          response: responseToDelete,
+          context: lastContext,
+          lastMessage: lastText,
+          created_at: new Date().toISOString()
+        };
+
+        // Always save to localStorage for potential migration later
+        const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
+        savedResponses.unshift(newResponse);
+        localStorage.setItem('anonymous_saved_responses', JSON.stringify(savedResponses));
+        
+        // If user is signed in, also save to their account
+        if (user?.email) {
+          try {
+            await fetch('/api/saved-responses', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                userEmail: user.email,
+                ...newResponse
+              })
+            });
+          } catch (error) {
+            console.error('Error saving response to account:', error);
+          }
+        }
+      }
+
       // Update current index
       const newIndex = index - 1;
       setCurrentIndex(newIndex);
       
-      // Save response if right swipe
-      if (direction === 'right' && user?.email) {
-        try {
-          await fetch('/api/save-response', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ response: responseToDelete })
-          });
-        } catch (error) {
-          console.error('Error saving response:', error);
-        }
-      }
-
-      // Update localStorage
+      // Update localStorage for current responses state
       const savedData = JSON.parse(localStorage.getItem('current_responses') || '{}');
       if (savedData.responses) {
         savedData.currentIndex = newIndex;
