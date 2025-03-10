@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Head from "next/head";
-import { analyzeScreenshot } from "./openai";
 import { Upload } from "lucide-react";
 import Script from "next/script";
 import { loadStripe } from '@stripe/stripe-js';
@@ -9,8 +8,9 @@ import { ANONYMOUS_USAGE_LIMIT, FREE_USER_DAILY_LIMIT } from './constants';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import useResponseStore from '../store/responseStore';
 import { UpgradePopup } from './components/UpgradePopup';
+import { analyzeScreenshot } from './openai';
+import { convertFileToBase64 } from '@/utils/usageTracking';
 
 // Make sure to call `loadStripe` outside of a component's render
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
@@ -43,7 +43,8 @@ function GoogleSignInOverlay({ googleLoaded }) {
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
-  const [responses, setResponses] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isOnPreview, setIsOnPreview] = useState(false);
   const [mode, setMode] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -57,15 +58,12 @@ export default function Home() {
   const [context, setContext] = useState('');
   const [lastText, setLastText] = useState('');
   const [inputMode, setInputMode] = useState('screenshot');
-  const [currentIndex, setCurrentIndex] = useState(responses.length - 1);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const [lastDirection, setLastDirection] = useState();
   const currentIndexRef = useRef(currentIndex);
-  const [showRegeneratePopup, setShowRegeneratePopup] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isOnPreview, setIsOnPreview] = useState(false);
-  const router = useRouter();
   const [showUpgradePopup, setShowUpgradePopup] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const router = useRouter();
 
   // Add this state for tracking steps
   const [completedSteps, setCompletedSteps] = useState({
@@ -73,14 +71,6 @@ export default function Home() {
     stage: false,
     preview: false
   });
-
-  const childRefs = useMemo(
-    () =>
-      Array(responses.length)
-        .fill(0)
-        .map(() => React.createRef()),
-    [responses.length]
-  );
 
   // Add this near the top of the component
   const fetchingRef = useRef(false);
@@ -346,13 +336,28 @@ export default function Home() {
 
   // Update the handleSubmit function
   const handleSubmit = async () => {
+    console.log('Starting handleSubmit with:', {
+      hasFile: !!selectedFile,
+      hasContext: !!context,
+      hasLastText: !!lastText,
+      mode,
+      isSignedIn,
+      userEmail: user?.email
+    });
+
     if (!selectedFile && (!context || !lastText)) {
+      console.warn('Missing required input');
       alert("Please select a screenshot or provide text input");
       return;
     }
 
     try {
+      setIsGenerating(true);
+      console.log('Clearing existing responses from localStorage');
+      localStorage.removeItem('current_responses');
+      
       // Check usage status before proceeding
+      console.log('Checking usage status...');
       const statusResponse = await fetch('/api/usage', {
         headers: {
           'Content-Type': 'application/json',
@@ -361,97 +366,143 @@ export default function Home() {
       });
       
       const statusData = await statusResponse.json();
+      console.log('Usage status:', statusData);
       
       // For anonymous users at limit, show sign in overlay
       if (!isSignedIn && statusData.dailySwipes >= ANONYMOUS_USAGE_LIMIT) {
+        console.log('Anonymous user reached limit');
         setUsageCount(ANONYMOUS_USAGE_LIMIT);
+        setShowSignInOverlay(true);
         return;
       }
       
       // For signed-in users at limit, show upgrade popup
       if (isSignedIn && !statusData.isPremium && statusData.dailySwipes >= FREE_USER_DAILY_LIMIT) {
+        console.log('Free user reached limit');
         setShowUpgradePopup(true);
         return;
       }
 
-      // Only proceed if user hasn't hit limits or is premium
       setIsLoading(true);
-      setShowRegeneratePopup(false);
       
-      // Store current usage count before generating
-      const currentUsage = statusData.dailySwipes || 0;
-      
-      const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-      
-      // Store the current input state for regeneration
-      useResponseStore.getState().setLastFile(selectedFile);
-      useResponseStore.getState().setLastMode(mode);
-      useResponseStore.getState().setLastContext(context);
-      useResponseStore.getState().setLastText(lastText);
-      
-      // Set responses in the store
-      useResponseStore.getState().setResponses(result);
-      
-      // Maintain the usage count
-      setUsageCount(currentUsage);
-      
-      // Navigate to responses page
-      router.push('/responses');
+      console.log('Generating responses...');
+      // Generate responses using OpenAI
+      const responses = await analyzeScreenshot(
+        selectedFile,
+        mode,
+        isSignedIn,
+        context,
+        lastText
+      );
+
+      console.log('Received responses:', {
+        responseCount: responses?.length,
+        isArray: Array.isArray(responses),
+        firstResponse: responses?.[0]?.slice(0, 50) + '...' // First 50 chars of first response
+      });
+
+      // Validate responses
+      if (!Array.isArray(responses) || responses.length === 0) {
+        console.error('Invalid response format:', responses);
+        throw new Error('Invalid response format received');
+      }
+
+      // Save new responses with error handling
+      try {
+        console.log('Preparing response data for storage');
+        const responseData = {
+          responses,
+          currentIndex: responses.length - 1,
+          mode,
+          lastContext: context,
+          lastText,
+          timestamp: Date.now()
+        };
+
+        // Handle file conversion separately to avoid timing issues
+        if (selectedFile) {
+          console.log('Converting file to base64...');
+          const base64File = await convertFileToBase64(selectedFile);
+          responseData.lastFile = base64File;
+          console.log('File conversion successful');
+        }
+
+        console.log('Saving to localStorage:', {
+          responseCount: responseData.responses.length,
+          mode: responseData.mode,
+          hasFile: !!responseData.lastFile,
+          timestamp: responseData.timestamp
+        });
+
+        localStorage.setItem('current_responses', JSON.stringify(responseData));
+        console.log('Successfully saved to localStorage');
+
+        // Verify the save was successful
+        const savedData = localStorage.getItem('current_responses');
+        if (!savedData) {
+          throw new Error('Verification failed: Data not found in localStorage after save');
+        }
+
+        console.log('Navigating to responses page...');
+        router.push('/responses');
+
+      } catch (storageError) {
+        console.error('Storage error details:', {
+          error: storageError,
+          message: storageError.message,
+          stack: storageError.stack
+        });
+        throw new Error('Failed to save responses. Please try again.');
+      }
 
     } catch (error) {
-      console.error('Error:', error);
-      alert("Error analyzing input. Please try again.");
+      console.error('Main error details:', {
+        error,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // More specific error messages
+      if (error.message.includes('usage limit')) {
+        alert("You've reached your usage limit. Please try again later.");
+      } else if (error.message.includes('Invalid response')) {
+        alert("Received invalid response from server. Please try again.");
+      } else if (error.message.includes('Failed to save')) {
+        alert("Failed to save responses. Please try again.");
+      } else {
+        alert("Error processing input. Please try again.");
+      }
+      
     } finally {
+      console.log('Cleaning up...');
+      setIsGenerating(false);
       setIsLoading(false);
     }
   };
 
-  // Update generateMoreResponses
-  const generateMoreResponses = async () => {
-    if (isGenerating) return;
+  // Add debugging to convertFileToBase64
+  const convertFileToBase64 = (file) => {
+    console.log('Starting file conversion:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
     
-    try {
-      // Check usage status before generating
-      const statusResponse = await fetch('/api/usage', {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(isSignedIn && user?.email && { 'x-user-email': user.email }),
-        },
-      });
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
       
-      const statusData = await statusResponse.json();
+      reader.onload = () => {
+        console.log('File conversion successful');
+        resolve(reader.result);
+      };
       
-      // Skip limit checks for premium/trial users
-      if (statusData.isPremium || statusData.isTrial) {
-        setIsGenerating(true);
-        setShowRegeneratePopup(false);
-        setResponses([]);
-        
-        const result = await analyzeScreenshot(selectedFile, mode, isSignedIn, context, lastText);
-        setResponses(result);
-        setCurrentIndex(result.length - 1);
-        return;
-      }
+      reader.onerror = (error) => {
+        console.error('File conversion error:', error);
+        reject(error);
+      };
       
-      // For non-premium users, show appropriate prompts
-      if (isSignedIn && !statusData.isPremium && !statusData.isTrial) {
-        setShowUpgradePopup(true);
-        return;
-      }
-      
-      // For anonymous users, show sign-in prompt if limit reached
-      if (!isSignedIn && statusData.limitReached) {
-        setUsageCount(ANONYMOUS_USAGE_LIMIT + 1); // Trigger sign-in overlay
-        return;
-      }
-
-      // ... rest of the function for non-premium users ...
-    } catch (error) {
-      console.error('Error:', error);
-      alert("Error generating new responses. Please try again.");
-    } finally {
-      setIsGenerating(false);
-    }
+      reader.readAsDataURL(file);
+    });
   };
 
   useEffect(() => {
@@ -796,80 +847,6 @@ export default function Home() {
                    0 0 40px rgba(254, 60, 114, 0.4);
     }
   `;
-
-  // Add this useEffect for cleanup
-  useEffect(() => {
-    const cleanup = () => {
-      // Reset any stuck cards
-      responses.forEach((_, index) => {
-        if (childRefs[index].current) {
-          childRefs[index].current.restoreCard();
-        }
-      });
-    };
-
-    // Cleanup on unmount or when responses change
-    return cleanup;
-  }, [responses]);
-
-  // Update the handleMouseUp function to be more robust
-  const handleMouseUp = (event) => {
-    // Prevent any default browser behavior
-    event.preventDefault();
-    
-    // Restore all cards that might be stuck
-    responses.forEach((_, index) => {
-      if (childRefs[index].current) {
-        childRefs[index].current.restoreCard();
-      }
-    });
-  };
-
-  // Add the regenerate popup component
-  const RegeneratePopup = () => {
-    // Don't show upgrade prompt for premium/trial users
-    const buttonText = isPremium ? "Generate More" : (isSignedIn ? "Upgrade Now" : "Generate More");
-    const description = isPremium 
-      ? "Generate more responses to find the perfect reply!"
-      : (isSignedIn 
-        ? "Upgrade to premium to generate unlimited responses!"
-        : "Generate 10 new responses to find the perfect reply!");
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full mx-4">
-          <h3 className="text-xl font-bold mb-4 text-center">Need more options?</h3>
-          <p className="text-gray-600 mb-6 text-center">{description}</p>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setShowRegeneratePopup(false)}
-              className="flex-1 px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={generateMoreResponses}
-              disabled={isGenerating}
-              className="flex-1 px-4 py-2 rounded-full text-white hover:opacity-90 transition"
-              style={{ backgroundColor: "#FE3C72" }}
-            >
-              {buttonText}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Add this to your useEffect for scrolling
-  useEffect(() => {
-    if (responses.length > 0) {
-      document.querySelector("#responses-section")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  }, [responses]);
 
   // Update mode selection to track completion
   const handleModeSelection = (selectedMode) => {
@@ -1520,9 +1497,6 @@ export default function Home() {
           {!isSignedIn && usageCount >= ANONYMOUS_USAGE_LIMIT && (
             <GoogleSignInOverlay googleLoaded={googleLoaded} />
           )}
-
-          {/* Add the popup */}
-          {showRegeneratePopup && <RegeneratePopup />}
         </main>
       </div>
     </>

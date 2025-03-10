@@ -32,12 +32,17 @@ import {
   SIGNED_IN_USAGE_LIMIT 
 } from '@/app/constants';
 
-// Helper function to get Supabase client
+// Modify the getSupabaseClient function to cache the client
+let supabaseClient = null;
+
 function getSupabaseClient() {
-  return createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  if (!supabaseClient) {
+    supabaseClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  }
+  return supabaseClient;
 }
 
 // Helper function to get current PST/PDT time
@@ -72,37 +77,74 @@ function isPastResetTime(lastResetTime) {
 }
 
 export async function getUserData(email) {
-  const supabase = getSupabaseClient();
-  
-  await checkAndResetUsage(email, true);
-  
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', email)
-    .single();
+  console.time('getUserData');
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database operation timed out')), 5000);
+    });
 
-  if (error) {
-    console.error('Error fetching user data:', error);
+    const dbPromise = getSupabaseClient()
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    const { data, error } = await Promise.race([
+      dbPromise,
+      timeoutPromise
+    ]);
+    
+    console.timeEnd('getUserData');
+    
+    if (error) {
+      console.error('Supabase getUserData error:', error);
+      throw error;
+    }
+
+    await checkAndResetUsage(email, true);
+    
+    return data;
+  } catch (error) {
+    console.error('getUserData failed:', error);
     throw error;
   }
-  
-  return data;
 }
 
 export async function getIPUsage(ip) {
-  const supabase = getSupabaseClient();
-  
-  await checkAndResetUsage(ip, false);
-  
-  const { data, error } = await supabase
-    .from('ip_usage')
-    .select('*')
-    .eq('ip_address', ip)
-    .single();
+  console.time('getIPUsage');
+  try {
+    // Create a promise that rejects after timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database operation timed out')), 5000);
+    });
 
-  if (error && error.code !== 'PGRST116') throw error;
-  return data;
+    // Create the actual database query
+    const dbPromise = getSupabaseClient()
+      .from('ip_usage')
+      .select('*')
+      .eq('ip_address', ip)
+      .single();
+
+    // Race between timeout and database query
+    const { data, error } = await Promise.race([
+      dbPromise,
+      timeoutPromise
+    ]);
+
+    console.timeEnd('getIPUsage');
+
+    if (error && error.code !== 'PGRST116') { // Not found error is ok
+      console.error('Supabase getIPUsage error:', error);
+      throw error;
+    }
+
+    await checkAndResetUsage(ip, false);
+    
+    return data || { ip_address: ip, daily_usage: 0, total_usage: 0 };
+  } catch (error) {
+    console.error('getIPUsage failed:', error);
+    throw error;
+  }
 }
 
 export async function updateIPUsage(ip, updateData) {
@@ -228,38 +270,61 @@ export async function resetDailyUsage(supabase, identifier, isEmail = false) {
 export async function checkAndResetUsage(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
   const currentPSTTime = getCurrentPSTTime();
+  const today = new Date(currentPSTTime).toISOString().split('T')[0]; // Just the date portion
   const table = isEmail ? 'users' : 'ip_usage';
   const idField = isEmail ? 'email' : 'ip_address';
   
   try {
-    const { data, error } = await supabase
+    if (!isEmail) {
+      // For IP addresses, use upsert pattern to avoid race conditions
+      const { data, error } = await supabase
+        .from(table)
+        .upsert({
+          [idField]: identifier,
+          daily_usage: 0, // Will be overridden if record exists and doesn't need reset
+          total_usage: 0, // Will be overridden if record exists
+          last_reset: today
+        }, {
+          onConflict: idField,
+          // Don't update fields if the record already exists, we'll do that after checking reset
+          ignoreDuplicates: true
+        });
+      
+      if (error) throw error;
+    }
+    
+    // Now get the most current record
+    const { data: record, error: getError } = await supabase
       .from(table)
-      .select('last_reset, daily_usage')
+      .select('last_reset, daily_usage, total_usage')
       .eq(idField, identifier)
       .single();
-
-    if (error && error.code !== 'PGRST116') throw error;
-
-    // Only reset if:
-    // 1. No last_reset exists, OR
-    // 2. Current time is past the reset time since last reset
-    const shouldReset = !data?.last_reset || 
-      isPastResetTime(data.last_reset);
-
+    
+    if (getError) {
+      if (getError.code === 'PGRST116' && !isEmail) {
+        // This should not happen since we just upserted, but handle it anyway
+        return true;
+      }
+      throw getError;
+    }
+    
+    // Check if reset is needed
+    const shouldReset = !record?.last_reset || isPastResetTime(record.last_reset);
+    
     if (shouldReset) {
       const { error: resetError } = await supabase
         .from(table)
         .update({
           daily_usage: 0,
-          last_reset: currentPSTTime // Store full timestamp now
+          last_reset: today
         })
         .eq(idField, identifier);
-
+      
       if (resetError) throw resetError;
-      return true; // Usage was reset
+      return true;
     }
-
-    return false; // No reset needed
+    
+    return false;
   } catch (error) {
     console.error('Error in checkAndResetUsage:', error);
     throw error;
@@ -328,17 +393,20 @@ export async function checkUsageLimits(identifier, isEmail = false) {
   }
 }
 
-// Update the existing incrementUsage function
+// Update incrementUsage to handle race conditions better
 export async function incrementUsage(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
   
   try {
-    // Check limits first
+    // Check and reset usage first
+    await checkAndResetUsage(identifier, isEmail);
+    
+    // Then check limits
     const limitCheck = await checkUsageLimits(identifier, isEmail);
     if (!limitCheck.canSwipe) {
       return limitCheck; // Return the limit check result
     }
-
+    
     const now = new Date().toISOString();
     
     if (isEmail) {
@@ -353,24 +421,55 @@ export async function incrementUsage(identifier, isEmail = false) {
         .eq('email', identifier)
         .select()
         .single();
-
+        
       if (error) throw error;
       return { ...limitCheck, dailySwipes: data.daily_usage };
     } else {
-      // Update IP usage
-      const { data, error } = await supabase
+      // For IP addresses, use RLS-safe update - get, then update approach
+      let currentData;
+      
+      // First, get the latest data
+      const { data: ipData, error: getError } = await supabase
         .from('ip_usage')
-        .upsert({
-          ip_address: identifier,
-          daily_usage: (limitCheck.dailySwipes || 0) + 1,
-          total_usage: supabase.raw('COALESCE(total_usage, 0) + 1'),
+        .select('daily_usage, total_usage')
+        .eq('ip_address', identifier)
+        .single();
+        
+      if (getError) {
+        if (getError.code === 'PGRST116') {
+          // Record doesn't exist, create it with upsert
+          const { data, error } = await supabase
+            .from('ip_usage')
+            .upsert({
+              ip_address: identifier,
+              daily_usage: 1,
+              total_usage: 1,
+              last_used: now,
+              last_reset: new Date(getCurrentPSTTime()).toISOString().split('T')[0]
+            })
+            .select();
+            
+          if (error) throw error;
+          return { ...limitCheck, dailySwipes: 1 };
+        }
+        throw getError;
+      }
+      
+      // Record exists, update it
+      const newDailyUsage = (ipData.daily_usage || 0) + 1;
+      const newTotalUsage = (ipData.total_usage || 0) + 1;
+      
+      const { error: updateError } = await supabase
+        .from('ip_usage')
+        .update({
+          daily_usage: newDailyUsage,
+          total_usage: newTotalUsage,
           last_used: now
         })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { ...limitCheck, dailySwipes: data.daily_usage };
+        .eq('ip_address', identifier);
+        
+      if (updateError) throw updateError;
+      return { ...limitCheck, dailySwipes: newDailyUsage };
     }
   } catch (error) {
     console.error('Error incrementing usage:', error);

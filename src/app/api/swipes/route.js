@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { 
   ANONYMOUS_USAGE_LIMIT,
@@ -38,37 +37,13 @@ import { checkUsageLimits } from '@/utils/dbOperations';
  * - src/utils/usageTracking.js: Usage tracking logic
  */
 
-// Add this function before the route handlers
-async function saveResponse(userEmail, response) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
 
-  try {
-    const { error } = await supabase
-      .from('saved_responses')
-      .insert([
-        {
-          user_email: userEmail,
-          response: response,
-          created_at: new Date().toISOString()
-        }
-      ]);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error saving response:', error);
-    throw error;
-  }
-}
 
 export async function GET(request) {
   try {
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     const userEmail = request.headers.get('x-user-email');
     
-    // Check limits for either user or IP
     const limitCheck = await checkUsageLimits(
       userEmail || requestIP, 
       Boolean(userEmail)
@@ -84,31 +59,64 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    let body = {};
+    try {
+      body = await request.json();
+    } catch (error) {
+      console.warn('Invalid or empty JSON body received:', error);
+    }
+
     const userEmail = request.headers.get('x-user-email');
     const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     
-    // Increment usage for either user or IP
-    const usageResult = await incrementUsage(
+    console.log('Processing swipe for:', { userEmail, requestIP });
+    
+    // Check usage first
+    const currentUsage = await checkUsageLimits(
       userEmail || requestIP, 
       Boolean(userEmail)
     );
-
-    // If can't swipe, return error
-    if (!usageResult.canSwipe) {
-      return NextResponse.json(usageResult, { status: 429 });
+    
+    console.log('Current usage:', currentUsage);
+    
+    // Determine if user can swipe
+    const canSwipe = userEmail 
+      ? (currentUsage.isPremium || currentUsage.dailySwipes < FREE_USER_DAILY_LIMIT)
+      : (currentUsage.dailySwipes < ANONYMOUS_USAGE_LIMIT);
+      
+    // Only increment usage if under limit or premium
+    let usageResult = currentUsage;
+    if (canSwipe) {
+      try {
+        console.log('Incrementing usage...');
+        usageResult = await incrementUsage(
+          userEmail || requestIP, 
+          Boolean(userEmail)
+        );
+        console.log('Usage incremented:', usageResult);
+      } catch (error) {
+        console.error('Error incrementing usage:', error);
+        throw error; // Propagate the error instead of silently falling back
+      }
     }
-
-    // Handle response saving if it's a right swipe
-    if (body.direction === 'right' && body.response && userEmail) {
-      await saveResponse(userEmail, body.response);
-    }
-
-    return NextResponse.json(usageResult);
+    
+    // Return detailed response
+    const response = {
+      ...usageResult,
+      canSwipe,
+      requiresSignIn: !userEmail && usageResult.dailySwipes >= ANONYMOUS_USAGE_LIMIT,
+      requiresUpgrade: userEmail && !usageResult.isPremium && usageResult.dailySwipes >= FREE_USER_DAILY_LIMIT
+    };
+    
+    console.log('Returning response:', response);
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('Error in POST /api/swipes:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: error.message,
+      canSwipe: false  // Changed to false on error
+    }, { status: 500 });
   }
 }
 

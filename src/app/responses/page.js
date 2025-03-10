@@ -6,15 +6,12 @@ import Script from 'next/script';
 import { 
   ANONYMOUS_USAGE_LIMIT, 
   FREE_USER_DAILY_LIMIT,
-  PREMIUM_INCREMENT_PER_RESPONSE,
   FREE_INCREMENT_PER_RESPONSE,
-  PREMIUM_MAX_PERCENTAGE,
   FREE_MAX_PERCENTAGE,
   MIN_LEARNING_PERCENTAGE
 } from '../constants';
 import { GoogleSignInOverlay } from '../components/GoogleSignInOverlay';
 import { UpgradePopup } from '../components/UpgradePopup';
-import useResponseStore from '../../store/responseStore';
 import { analyzeScreenshot } from '../openai';
 
 /**
@@ -87,8 +84,12 @@ function RegeneratePopup({ onRegenerate, onClose }) {
 }
 
 export default function ResponsesPage() {
-  const { responses, setResponses, lastFile, lastMode, lastContext, lastText, clearAll } = useResponseStore();
-  const [currentIndex, setCurrentIndex] = useState(responses.length - 1);
+  const [responses, setResponses] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [mode, setMode] = useState(null);
+  const [lastFile, setLastFile] = useState(null);
+  const [lastContext, setLastContext] = useState('');
+  const [lastText, setLastText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
@@ -98,22 +99,20 @@ export default function ResponsesPage() {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const [showRegeneratePopup, setShowRegeneratePopup] = useState(false);
   const [lastDirection, setLastDirection] = useState();
-  const currentIndexRef = useRef(currentIndex);
   const router = useRouter();
-  const [totalSwipes, setTotalSwipes] = useState(0);
+
   const [showPreview, setShowPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
-  const [showResponseOverlay, setShowResponseOverlay] = useState(false);
+
   const [showSignInOverlay, setShowSignInOverlay] = useState(false);
-  const [hasPreviewContent, setHasPreviewContent] = useState(false);
+
   const [key, setKey] = useState(0);
 
   // Add new state for premium features
   const [matchPercentage, setMatchPercentage] = useState(0);
-  const [styleInsights, setStyleInsights] = useState(null);
 
   // Add new state for tracking if user can swipe
-  const [canInteract, setCanInteract] = useState(false);
+  const [canInteract, setCanInteract] = useState(true);
 
   const childRefs = useRef(
     Array(responses.length)
@@ -121,16 +120,42 @@ export default function ResponsesPage() {
       .map(() => React.createRef())
   );
 
-  // Add safety check for responses
+  // Update initialization effect to maintain card position
   useEffect(() => {
-    if (!Array.isArray(responses)) {
-      setResponses([]);
+    console.log('Initializing responses page...');
+    const savedData = JSON.parse(localStorage.getItem('current_responses') || '{}');
+    console.log('Saved data from localStorage:', savedData);
+    
+    if (savedData.responses?.length > 0) {
+      console.log('Found saved responses:', {
+        responseCount: savedData.responses.length,
+        savedIndex: savedData.currentIndex,
+        defaultIndex: savedData.responses.length - 1
+      });
+      
+      setResponses(savedData.responses);
+      // Ensure we use the saved currentIndex, defaulting to the last card if not available
+      const savedIndex = savedData.currentIndex !== undefined ? savedData.currentIndex : savedData.responses.length - 1;
+      console.log('Setting current index to:', savedIndex);
+      setCurrentIndex(savedIndex);
+      setMode(savedData.mode);
+      setLastFile(savedData.lastFile);
+      setLastContext(savedData.lastContext);
+      setLastText(savedData.lastText);
+      
+      // Update childRefs to match the number of responses
+      childRefs.current = Array(savedData.responses.length)
+        .fill(0)
+        .map(() => React.createRef());
+      console.log('Updated childRefs array length:', childRefs.current.length);
+    } else {
+      console.log('No saved responses found, redirecting to home');
+      router.push('/');
     }
-  }, [responses, setResponses]);
+  }, [router]);
 
-  // Add effect to check auth status and redirect if needed
+  // Auth status check effect
   useEffect(() => {
-    // Only check auth status
     const checkAuth = async () => {
       const savedUser = localStorage.getItem('smoothrizz_user');
       if (savedUser) {
@@ -138,21 +163,20 @@ export default function ResponsesPage() {
         setUser(parsedUser);
         setIsSignedIn(true);
         
-        // If user just signed in (check for flag in localStorage)
         const justSignedIn = localStorage.getItem('just_signed_in');
         if (justSignedIn) {
-          localStorage.removeItem('just_signed_in'); // Clear the flag
-          router.push('/'); // Redirect to homepage
+          localStorage.removeItem('just_signed_in');
+          router.push('/');
         }
       }
     };
     checkAuth();
   }, []); 
 
+  // Usage check effect
   useEffect(() => {
     const checkInitialUsage = async () => {
       try {
-        // Get user from localStorage
         const savedUser = localStorage.getItem('smoothrizz_user');
         if (savedUser) {
           const parsedUser = JSON.parse(savedUser);
@@ -160,16 +184,10 @@ export default function ResponsesPage() {
           setIsSignedIn(true);
         }
 
-        // Make API call with proper headers
         const headers = {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(savedUser && { 'x-user-email': JSON.parse(savedUser).email })
         };
-        
-        // Add user email header if we have a user
-        if (savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          headers['x-user-email'] = parsedUser.email;
-        }
 
         const response = await fetch('/api/usage', { headers });
         const data = await response.json();
@@ -187,63 +205,101 @@ export default function ResponsesPage() {
     };
 
     checkInitialUsage();
-  }, []); // Only run once on mount
-
-  // Add effect to load stored responses on mount
-  useEffect(() => {
-    const storedData = localStorage.getItem('smoothrizz_responses');
-    if (storedData) {
-      const { responses: savedResponses, currentIndex: savedIndex } = JSON.parse(storedData);
-      if (Array.isArray(savedResponses) && savedResponses.length > 0) {
-        setResponses(savedResponses);
-        setCurrentIndex(savedIndex);
-        currentIndexRef.current = savedIndex;
-      }
-    }
   }, []);
 
-  // Update localStorage whenever responses or currentIndex changes
+  // Update useEffect to handle last card and show regenerate popup
   useEffect(() => {
-    if (Array.isArray(responses)) {
-      localStorage.setItem('smoothrizz_responses', JSON.stringify({
-        responses,
-        currentIndex
-      }));
+    if (responses && responses.length > 0 && currentIndex === -1) {
+      setShowRegeneratePopup(true);
     }
-  }, [responses, currentIndex]);
+  }, [currentIndex, responses]);
 
-  // Update the effect that handles preview URL
-  useEffect(() => {
-    const loadPreview = async () => {
-      if (lastFile) {
-        // For new file uploads
-        const url = URL.createObjectURL(lastFile);
-        setPreviewUrl(url);
-        setHasPreviewContent(true);
-        
-        // Store in localStorage as base64
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64String = reader.result;
-          localStorage.setItem('smoothrizz_preview', base64String);
-          // Update previewUrl to use base64 string directly
-          setPreviewUrl(base64String);
-        };
-        reader.readAsDataURL(lastFile);
-        
-        return () => URL.revokeObjectURL(url);
-      } else {
-        // Try to load from localStorage
-        const storedPreview = localStorage.getItem('smoothrizz_preview');
-        if (storedPreview) {
-          setPreviewUrl(storedPreview);
-          setHasPreviewContent(true);
+  // Update swiped function to handle swipe tracking and state updates
+  const swiped = async (direction, responseToDelete, index) => {
+    if (!canInteract) return;
+    
+    try {
+      // Track swipe first
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(user?.email && { 'x-user-email': user.email })
+      };
+      
+      const response = await fetch('/api/swipes', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({})
+      });
+
+      const data = await response.json();
+      
+      // Handle usage limits
+      if (!data.canSwipe) {
+        if (data.requiresSignIn) {
+          setShowSignInOverlay(true);
+          return;
+        } else if (data.requiresUpgrade) {
+          setShowUpgradePopup(true);
+          return;
         }
       }
-    };
+
+      // Update usage count from response
+      setUsageCount(data.dailySwipes || 0);
+      
+      // Update current index
+      const newIndex = index - 1;
+      setCurrentIndex(newIndex);
+      
+      // Save response if right swipe
+      if (direction === 'right' && user?.email) {
+        try {
+          await fetch('/api/save-response', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ response: responseToDelete })
+          });
+        } catch (error) {
+          console.error('Error saving response:', error);
+        }
+      }
+
+      // Update localStorage
+      const savedData = JSON.parse(localStorage.getItem('current_responses') || '{}');
+      if (savedData.responses) {
+        savedData.currentIndex = newIndex;
+        localStorage.setItem('current_responses', JSON.stringify(savedData));
+      }
+
+      // Show regenerate popup if we've reached the end
+      if (newIndex === -1) {
+        setShowRegeneratePopup(true);
+      }
+
+    } catch (error) {
+      console.error('Error tracking swipe:', error);
+      // Still update UI on error to maintain responsiveness
+      setCurrentIndex(index - 1);
+    }
+  };
+  
+  const outOfFrame = (index) => {
+    console.log(`Card ${index} left the screen`);
+  };
+
+  const swipe = async (dir) => {
+    if (!canInteract || currentIndex < 0) return;
     
-    loadPreview();
-  }, [lastFile]);
+    try {
+      const currentRef = childRefs.current[currentIndex];
+      if (currentRef && currentRef.current) {
+        await currentRef.current.swipe(dir);
+      }
+    } catch (error) {
+      console.error("Error in manual swipe:", error);
+      swiped(dir, responses[currentIndex], currentIndex);
+    }
+  };
 
   // Add Google Sign-In initialization
   useEffect(() => {
@@ -265,7 +321,7 @@ export default function ResponsesPage() {
         const data = await response.json();
 
         if (!data.canSwipe) {
-          clearAll(); // Clear responses
+          localStorage.removeItem('current_responses');
           setCanInteract(false); // Prevent interactions
           
           if (data.requiresSignIn) {
@@ -285,206 +341,7 @@ export default function ResponsesPage() {
     };
 
     checkInitialLimits();
-  }, [user, clearAll]); // Run when user changes
-
-  // Update handleRegenerate to maintain usage count
-  const handleRegenerate = async () => {
-    if (isGenerating) return;
-    
-    // Get the stored values directly from the store
-    const store = useResponseStore.getState();
-    console.log('Store state:', store); // Debug log
-    
-    try {
-      // Check if we have any input to regenerate from
-      if (!store.lastFile && !store.lastContext && !store.lastText) {
-        console.log('Missing input data:', { 
-          lastFile: store.lastFile,
-          lastContext: store.lastContext,
-          lastText: store.lastText
-        });
-        alert("No input available for regeneration. Please return to home and try again.");
-        router.push('/');
-        return;
-      }
-
-      // Get current usage status before regenerating
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(isSignedIn && user?.email && { 'x-user-email': user.email })
-      };
-      
-      const statusResponse = await fetch('/api/usage', { headers });
-      const statusData = await statusResponse.json();
-      const currentUsage = statusData.dailySwipes ;
-      
-      setIsGenerating(true);
-      setShowRegeneratePopup(false);
-      
-      // Generate new responses using stored context
-      const result = await analyzeScreenshot(
-        store.lastFile,
-        store.lastMode,
-        isSignedIn,
-        store.lastContext,
-        store.lastText
-      );
-      
-      if (Array.isArray(result) && result.length > 0) {
-        // Set the new responses
-        setResponses(result);
-        
-        // Reset card-related state but maintain usage count
-        childRefs.current = new Array(result.length).fill(0).map(() => React.createRef());
-        setLastDirection(undefined);
-        setCurrentIndex(result.length - 1);
-        currentIndexRef.current = result.length - 1;
-        
-        // Maintain the usage count
-        setUsageCount(currentUsage);
-        
-        // Force a re-render
-        setKey(prev => prev + 1);
-      }
-    } catch (error) {
-      console.error('Error in handleRegenerate:', error);
-      if (error.message === 'No input provided. Please provide an image or text.') {
-        alert("No input available for regeneration. Please return to home and try again.");
-        router.push('/');
-      } else {
-        alert("Error generating new responses. Please try again.");
-      }
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Add this effect to update childRefs when responses change
-  useEffect(() => {
-    if (responses.length > 0) {
-      // Reset refs when responses change
-      const newRefs = Array(responses.length)
-        .fill(0)
-        .map(() => React.createRef());
-      childRefs.current = newRefs;
-    }
-  }, [responses]);
-
-  // Update swiped function to fetch the learning percentage after a right swipe
-  const swiped = async (direction, responseToDelete) => {
-    try {
-      if (!direction) return;
-
-      setLastDirection(direction);
-      updateCurrentIndex(currentIndex - 1);
-
-      // Only track new swipes
-      if (currentIndex === responses.length - 1 - totalSwipes) {
-        const headers = {
-          'Content-Type': 'application/json',
-          ...(user?.email && { 'x-user-email': user.email })
-        };
-
-        const response = await fetch('/api/swipes', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ 
-            direction,
-            response: direction === 'right' ? responseToDelete : undefined
-          })
-        });
-
-        const data = await response.json();
-
-        // If limits reached, clear responses and show appropriate overlay
-        if (!data.canSwipe) {
-          clearAll(); // Clear the response store
-          if (data.requiresSignIn) {
-            setShowSignInOverlay(true);
-          } else if (data.requiresUpgrade) {
-            setShowUpgradePopup(true);
-          }
-          return;
-        }
-
-        setUsageCount(data.dailySwipes || 0);
-        setTotalSwipes(prev => prev + 1);
-      }
-
-      // Show regenerate popup when all responses are gone
-      if (currentIndex === 0) {
-        setShowRegeneratePopup(true);
-      }
-    } catch (error) {
-      console.error('Error in swiped function:', error);
-    }
-  };
-
-  // Update saveResponse function to handle percentage updates
-  const saveResponse = async (response) => {
-    try {
-      if (isSignedIn && user?.email) {
-        const result = await fetch('/api/saved-responses', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            response,
-            userEmail: user.email,
-          }),
-        });
-        
-        if (!result.ok) {
-          console.error('Failed to save response:', await result.text());
-        }
-      } else {
-        // Save for anonymous users and update percentage immediately
-        const savedResponses = JSON.parse(localStorage.getItem('anonymous_saved_responses') || '[]');
-        savedResponses.push({
-          response,
-          created_at: new Date().toISOString(),
-        });
-        localStorage.setItem('anonymous_saved_responses', JSON.stringify(savedResponses));
-        
-        // Update percentage for anonymous users immediately
-        const percentage = Math.min(
-          savedResponses.length * FREE_INCREMENT_PER_RESPONSE,
-          FREE_MAX_PERCENTAGE
-        );
-        setMatchPercentage(Math.max(percentage, MIN_LEARNING_PERCENTAGE));
-      }
-    } catch (error) {
-      console.error('Error saving response:', error);
-    }
-  };
-
-  // Remove the outOfFrame handler as we don't need to modify the responses array
-  const outOfFrame = () => {
-    // Only show regenerate popup when all responses are gone
-    if (currentIndex === 0) {
-      setShowRegeneratePopup(true);
-    }
-  };
-
-  // Update the swipe function to check canInteract
-  const swipe = async (dir) => {
-    if (!canInteract) return; // Prevent swipes if not allowed
-    
-    if (canSwipe && currentIndex >= 0 && currentIndex < responses.length) {
-      if (currentIndex === responses.length - 1 - totalSwipes) {
-        try {
-          const currentRef = childRefs.current[currentIndex];
-          if (currentRef && currentRef.current) {
-            await currentRef.current.swipe(dir);
-            setTotalSwipes(prev => prev + 1);
-          }
-        } catch (error) {
-          swiped(dir, responses[currentIndex], currentIndex);
-        }
-      }
-    }
-  };
+  }, [user]); // Run when user changes
 
   // Update keyboard handler to prevent rapid firing
   useEffect(() => {
@@ -538,12 +395,6 @@ export default function ResponsesPage() {
     setShowPreview(!showPreview);
   };
 
-  // Add updateCurrentIndex function
-  const updateCurrentIndex = useCallback((index) => {
-    setCurrentIndex(index);
-    currentIndexRef.current = index;
-  }, []);
-
   // Add computed properties for swipe controls
   const canSwipe = currentIndex >= 0;
   const canGoBack = currentIndex < responses.length - 1;
@@ -577,6 +428,68 @@ export default function ResponsesPage() {
 
     fetchLearningPercentage();
   }, [user?.email, responses.length]);
+
+  // Helper function to convert base64 to File
+  const base64ToFile = async (base64String, filename) => {
+    const res = await fetch(base64String);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type });
+  };
+
+  // Also add cleanup when component unmounts
+  useEffect(() => {
+    return () => {
+      // Only clean up if navigating away from responses page
+      if (window.location.pathname !== '/responses') {
+        localStorage.removeItem('current_responses');
+      }
+    };
+  }, []);
+
+  // Add handleRegenerate function
+  const handleRegenerate = async () => {
+    try {
+      setIsGenerating(true);
+      
+      // Convert base64 back to File object if lastFile exists
+      const file = lastFile ? await base64ToFile(lastFile, 'screenshot.png') : null;
+      
+      if (!file) {
+        console.error('No screenshot available for regeneration');
+        router.push('/');
+        return;
+      }
+
+      // Reuse analyzeScreenshot with existing file and context
+      const newResponses = await analyzeScreenshot(file, lastContext, lastText);
+      
+      // Update responses state and localStorage
+      setResponses(newResponses);
+      setCurrentIndex(newResponses.length - 1);
+      setKey(prevKey => prevKey + 1); // Force re-render of cards
+      
+      // Update localStorage with new responses
+      const savedData = {
+        responses: newResponses,
+        currentIndex: newResponses.length - 1,
+        mode,
+        lastFile,
+        lastContext,
+        lastText
+      };
+      localStorage.setItem('current_responses', JSON.stringify(savedData));
+      
+      // Update childRefs for new responses
+      childRefs.current = Array(newResponses.length)
+        .fill(0)
+        .map(() => React.createRef());
+        
+    } catch (error) {
+      console.error('Error regenerating responses:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <>
@@ -667,40 +580,48 @@ export default function ResponsesPage() {
           {/* Cards container with smaller size */}
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="w-full max-w-[280px] h-[380px] relative" key={key}>
-              {responses && responses.map((response, index) => (
-                <TinderCard
-                  ref={childRefs.current[index]}
-                  key={index}
-                  onSwipe={(dir) => canInteract && swiped(dir, response, index)}
-                  onCardLeftScreen={() => outOfFrame()}
-                  preventSwipe={canInteract ? ['up', 'down'] : ['up', 'down', 'left', 'right']}
-                  className="absolute w-full h-full cursor-grab active:cursor-grabbing"
-                >
-                  <div className="bg-white rounded-xl p-5 w-full h-full flex flex-col transform transition-all duration-200 
-                    hover:scale-[1.02] relative border border-gray-200 shadow-lg">
-                    {/* Add swipe indicator at top */}
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                      <span className="px-2 py-1 bg-white rounded-full text-[15px] font-medium text-gray-500 shadow-sm border border-gray-200">
-                        SWIPE
-                      </span>
-                    </div>
+              {responses && responses.map((response, index) => {
+                // Log card rendering for debugging
+                console.log('Rendering card:', { index, currentIndex, response });
+                
+                // Only render cards from currentIndex down to 0
+                if (index > currentIndex) return null;
+                
+                return (
+                  <TinderCard
+                    ref={childRefs.current[index]}
+                    key={`card-${index}-${key}`}
+                    onSwipe={(dir) => canInteract && swiped(dir, response, index)}
+                    onCardLeftScreen={() => outOfFrame(index)}
+                    preventSwipe={canInteract ? ['up', 'down'] : ['up', 'down', 'left', 'right']}
+                    className="absolute w-full h-full cursor-grab active:cursor-grabbing"
+                  >
+                    <div className="bg-white rounded-xl p-5 w-full h-full flex flex-col transform transition-all duration-200 
+                      hover:scale-[1.02] relative border border-gray-200 shadow-lg">
+                      {/* Card content */}
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <span className="px-2 py-1 bg-white rounded-full text-[15px] font-medium text-gray-500 shadow-sm border border-gray-200">
+                          SWIPE
+                        </span>
+                      </div>
 
-                    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex items-center justify-center">
-                      <div className="prose prose-sm max-w-full text-center px-3">
-                        <p className="text-gray-800 whitespace-pre-wrap text-base leading-relaxed font-medium">
-                          {response}
-                        </p>
+                      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex items-center justify-center">
+                        <div className="prose prose-sm max-w-full text-center px-3">
+                          <p className="text-gray-800 whitespace-pre-wrap text-base leading-relaxed font-medium">
+                            {response}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Swipe instructions */}
+                      <div className="absolute bottom-4 left-0 right-0 flex justify-between px-6">
+                        <span className="text-red-400 text-sm">← Skip card</span>
+                        <span className="text-green-500 text-sm">Save style →</span>
                       </div>
                     </div>
-
-                    {/* Swipe instructions */}
-                    <div className="absolute bottom-4 left-0 right-0 flex justify-between px-6">
-                      <span className="text-red-400 text-sm">← Skip card</span>
-                      <span className="text-green-500 text-sm">Save style →</span>
-                    </div>
-                  </div>
-                </TinderCard>
-              ))}
+                  </TinderCard>
+                );
+              })}
             </div>
 
             {/* Swipe Counter - Moved below card */}
@@ -754,7 +675,10 @@ export default function ResponsesPage() {
 
         {showRegeneratePopup && (
           <RegeneratePopup 
-            onRegenerate={handleRegenerate}
+            onRegenerate={() => {
+              handleRegenerate();
+              setShowRegeneratePopup(false);
+            }}
             onClose={() => router.push('/')}
           />
         )}
@@ -762,3 +686,5 @@ export default function ResponsesPage() {
     </>
   );
 } 
+ 
+ 

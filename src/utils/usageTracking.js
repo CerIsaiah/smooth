@@ -30,10 +30,10 @@ export async function checkUsageStatus(requestIP, userEmail) {
   try {
     console.log('Checking usage for:', { requestIP, userEmail });
     
-    // For signed-in users, prioritize their user data
     if (userEmail) {
-      // Use getUserData which now includes reset check
+      // Get user data with built-in timeout from dbOperations
       const userData = await getUserData(userEmail);
+      
       if (!userData) throw new Error('No user data found');
 
       const now = new Date();
@@ -63,10 +63,9 @@ export async function checkUsageStatus(requestIP, userEmail) {
       };
     }
 
-    // For anonymous users, check IP usage using getIPUsage which includes reset check
+    // For anonymous users - use getIPUsage with built-in timeout
     const ipData = await getIPUsage(requestIP);
 
-    // For anonymous users, only check against ANONYMOUS_USAGE_LIMIT
     return {
       isPremium: false,
       isTrial: false,
@@ -76,6 +75,10 @@ export async function checkUsageStatus(requestIP, userEmail) {
 
   } catch (error) {
     console.error('Error in checkUsageStatus:', error);
+    
+    if (error.message.includes('timed out')) {
+      throw new Error('Request timed out while checking usage limits');
+    }
     throw error;
   }
 }
@@ -138,28 +141,50 @@ export async function incrementUsage(requestIP, userEmail = null) {
         dailyUsageHistory
       };
     } else {
-      // Handle anonymous users with IP tracking
-      const { data: ipData, error: ipError } = await supabase
+      // Get existing IP record first
+      const { data: existingData, error: getError } = await supabase
         .from('ip_usage')
         .select('*')
         .eq('ip_address', requestIP)
         .single();
 
-      if (ipError && ipError.code !== 'PGRST116') throw ipError;
+      if (getError && getError.code !== 'PGRST116') { // Not found error
+        throw getError;
+      }
 
-      if (!ipData) {
-        // Create new record for IP
-        const { data, error: insertError } = await supabase
+      if (existingData) {
+        // Update existing record
+        const newDailyUsage = (existingData.daily_usage || 0) + 1;
+        const newTotalUsage = (existingData.total_usage || 0) + 1;
+
+        const { error: updateError } = await supabase
           .from('ip_usage')
-          .insert([{
+          .update({
+            daily_usage: newDailyUsage,
+            total_usage: newTotalUsage,
+            last_used: now.toISOString()
+          })
+          .eq('ip_address', requestIP);
+
+        if (updateError) throw updateError;
+
+        return {
+          dailySwipes: newDailyUsage,
+          totalUsage: newTotalUsage,
+          isPremium: false,
+          isTrial: false
+        };
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('ip_usage')
+          .insert({
             ip_address: requestIP,
             daily_usage: 1,
             total_usage: 1,
             last_used: now.toISOString(),
             last_reset: today
-          }])
-          .select()
-          .single();
+          });
 
         if (insertError) throw insertError;
 
@@ -170,28 +195,6 @@ export async function incrementUsage(requestIP, userEmail = null) {
           isTrial: false
         };
       }
-
-      // Update existing IP record
-      const newDailyUsage = (ipData.daily_usage || 0) + 1;
-      const newTotalUsage = (ipData.total_usage || 0) + 1;
-
-      const { error: updateError } = await supabase
-        .from('ip_usage')
-        .update({
-          daily_usage: newDailyUsage,
-          total_usage: newTotalUsage,
-          last_used: now.toISOString()
-        })
-        .eq('ip_address', requestIP);
-
-      if (updateError) throw updateError;
-
-      return {
-        dailySwipes: newDailyUsage,
-        totalUsage: newTotalUsage,
-        isPremium: false,
-        isTrial: false
-      };
     }
   } catch (error) {
     console.error('Error in incrementUsage:', error);
@@ -219,4 +222,18 @@ export function getFormattedTimeUntilReset() {
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
   
   return `${hours}h ${minutes}m`;
+}
+
+/**
+ * Converts a File object to a base64 string
+ * @param {File} file - The file to convert
+ * @returns {Promise<string>} A promise that resolves with the base64 string
+ */
+export function convertFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
 } 
