@@ -32,7 +32,7 @@ import {
   FREE_MAX_PERCENTAGE,
   MIN_LEARNING_PERCENTAGE
 } from '@/app/constants';
-import { getUserData, getIPUsage } from './dbOperations';
+import { getUserData, getIPUsage, findOrCreateUser } from './dbOperations';
 
 let supabaseClient = null;
 
@@ -53,7 +53,7 @@ function getSupabaseClient() {
   return supabaseClient;
 }
 
-export async function checkUsageStatus(identifier, isEmail) {
+export async function checkUsageStatus(identifier, isEmail, name = null, picture = null) {
   try {
     console.log('Checking usage for:', { identifier, isEmail });
     
@@ -69,31 +69,9 @@ export async function checkUsageStatus(identifier, isEmail) {
     }
     
     if (isEmail) {
-      // Get user data with built-in timeout from dbOperations
-      let userData = await getUserData(identifier);
+      // Use findOrCreateUser instead of direct database operations
+      const userData = await findOrCreateUser(identifier, name, picture);
       
-      if (!userData) {
-        console.log('Creating new user record in checkUsageStatus');
-        // Create new user record if none exists
-        const supabase = getSupabaseClient();
-        
-        const { data: newUser, error: createError } = await supabase
-          .from('users')
-          .insert({
-            email: identifier,
-            daily_usage: 0,
-            total_usage: 0,
-            last_used: new Date().toISOString(),
-            subscription_status: 'inactive',
-            is_trial: false
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        userData = newUser;
-      }
-
       const now = new Date();
       const isTrialActive = userData?.is_trial && 
         userData?.trial_end_date && 
@@ -108,18 +86,16 @@ export async function checkUsageStatus(identifier, isEmail) {
           trialEndsAt: userData.trial_end_date
         })
       };
-    } else {
-      // For anonymous users - use getIPUsage with built-in timeout
-      const ipData = await getIPUsage(identifier);
-
-      return {
-        isPremium: false,
-        isTrial: false,
-        limitReached: (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT,
-        dailySwipes: ipData?.daily_usage || 0
-      };
     }
-
+    
+    // Handle IP-based usage check
+    const ipData = await getIPUsage(identifier);
+    return {
+      isPremium: false,
+      isTrial: false,
+      limitReached: false,
+      dailySwipes: ipData?.daily_usage || 0
+    };
   } catch (error) {
     console.error('Error in checkUsageStatus:', error);
     throw error;
