@@ -282,18 +282,29 @@ export async function resetDailyUsage(supabase, identifier, isEmail = false) {
   const table = isEmail ? 'users' : 'ip_usage';
   const idField = isEmail ? 'email' : 'ip_address';
   const now = new Date(getCurrentPSTTime());
-  const today = now.toISOString(); // Store full ISO string instead of just date portion
+  const today = now.toISOString();
 
   try {
-    const { error } = await supabase
-      .from(table)
-      .update({
-        daily_usage: 0,
-        last_reset: today // Store just the date, not the full timestamp
-      })
-      .eq(idField, identifier);
+    if (isEmail) {
+      // For users, maintain the history when resetting
+      const { data: currentUser } = await supabase
+        .from(table)
+        .select('daily_usage_history')
+        .eq(idField, identifier)
+        .single();
 
-    if (error) throw error;
+      const { error } = await supabase
+        .from(table)
+        .update({
+          daily_usage: 0,
+          last_reset: today,
+          // Preserve the existing history
+          daily_usage_history: currentUser?.daily_usage_history || {}
+        })
+        .eq(idField, identifier);
+
+      if (error) throw error;
+    } 
   } catch (error) {
     console.error(`Error resetting daily usage for ${idField}:${identifier}:`, error);
     throw error;
@@ -327,7 +338,6 @@ export async function checkAndResetUsage(identifier, isEmail = false) {
           last_reset: today
         }, {
           onConflict: idField,
-          // Don't update fields if the record already exists, we'll do that after checking reset
           ignoreDuplicates: true
         });
       
@@ -452,26 +462,41 @@ export async function incrementUsage(identifier, isEmail = false) {
     // Then check limits
     const limitCheck = await checkUsageLimits(identifier, isEmail);
     if (!limitCheck.canSwipe) {
-      return limitCheck; // Return the limit check result
+      return limitCheck;
     }
     
     const now = new Date().toISOString();
+    const today = new Date(getCurrentPSTTime()).toISOString().split('T')[0];
     
     if (isEmail) {
-      // Update user usage
-      const { data, error } = await supabase
+      // First fetch current values including daily_usage_history
+      const { data: currentUser, error: fetchError } = await supabase
+        .from('users')
+        .select('daily_usage, total_usage, daily_usage_history')
+        .eq('email', identifier)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update or initialize daily_usage_history
+      const currentHistory = currentUser?.daily_usage_history || {};
+      currentHistory[today] = (currentHistory[today] || 0) + 1;
+
+      // Then update with new values
+      const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
-          daily_usage: (limitCheck.dailySwipes || 0) + 1,
-          total_usage: supabase.raw('total_usage + 1'),
+          daily_usage: (currentUser?.daily_usage || 0) + 1,
+          total_usage: (currentUser?.total_usage || 0) + 1,
+          daily_usage_history: currentHistory,
           last_used: now
         })
         .eq('email', identifier)
         .select()
         .single();
         
-      if (error) throw error;
-      return { ...limitCheck, dailySwipes: data.daily_usage };
+      if (updateError) throw updateError;
+      return { ...limitCheck, dailySwipes: updatedUser.daily_usage };
     } else {
       // For IP addresses, use RLS-safe update - get, then update approach
       let currentData;
