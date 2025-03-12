@@ -330,27 +330,27 @@ export async function checkAndResetUsage(identifier, isEmail) {
   
   try {
     // Get the most current record
-      if (isEmail) {
-        const { data: record, error: getError } = await supabase
-          .from('users')
-          .select('last_reset, daily_usage, total_usage')
-          .eq('email', isEmail)
-          .single();
-        
-        if (getError) throw getError;
-        
-        // Check if reset is needed
-        const shouldReset = !record?.last_reset || isPastResetTime(record.last_reset);
-        
-        if (shouldReset) {
-          await resetDailyUsage(supabase, email);
-          console.log('Reset Result:', {
-            email,
-            wasReset: shouldReset,
-            newLastReset: today
-          });
-          return true;
-        }
+    if (isEmail) {
+      const { data: record, error: getError } = await supabase
+        .from('users')
+        .select('last_reset, daily_usage, total_usage')
+        .eq('email', identifier)
+        .single();
+      
+      if (getError) throw getError;
+      
+      // Check if reset is needed
+      const shouldReset = !record?.last_reset || isPastResetTime(record.last_reset);
+      
+      if (shouldReset) {
+        await resetDailyUsage(supabase, identifier);
+        console.log('Reset Result:', {
+          identifier,
+          wasReset: shouldReset,
+          newLastReset: today
+        });
+        return true;
+      }
     }
     
     return false;
