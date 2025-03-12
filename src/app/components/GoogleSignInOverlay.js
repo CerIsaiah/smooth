@@ -24,7 +24,7 @@ import React, { useEffect, useRef } from 'react';
  * - src/app/api/auth/google/route.js: Authentication endpoint
  */
 
-export function GoogleSignInOverlay({ googleLoaded, onClose }) {
+export function GoogleSignInOverlay({ googleLoaded, onClose, onSignInSuccess, preventReload = false }) {
   const overlayButtonRef = useRef(null);
 
   useEffect(() => {
@@ -52,10 +52,19 @@ export function GoogleSignInOverlay({ googleLoaded, onClose }) {
                   const data = await res.json();
                   // Store user data in localStorage
                   localStorage.setItem('smoothrizz_user', JSON.stringify(data.user));
+                  
+                  // Call onSignInSuccess if provided
+                  if (onSignInSuccess) {
+                    onSignInSuccess();
+                  }
+                  
                   // Close the overlay after successful sign-in
                   if (onClose) onClose();
-                  // Reload the page to update the UI
-                  window.location.reload();
+                  
+                  // Only reload if not prevented. This is used to allow a redirect to the saved page after sign-in.
+                  if (!preventReload) {
+                    window.location.reload();
+                  }
                 }
               } catch (error) {
                 console.error('Sign-in error:', error);
@@ -76,7 +85,7 @@ export function GoogleSignInOverlay({ googleLoaded, onClose }) {
     };
 
     initializeButton();
-  }, [googleLoaded, onClose]);
+  }, [googleLoaded, onClose, onSignInSuccess, preventReload]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">

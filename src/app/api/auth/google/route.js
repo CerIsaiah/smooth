@@ -40,7 +40,7 @@ export async function POST(request) {
 
     // Get anonymous usage first
     const ipUsage = await getIPUsage(requestIP);
-    const anonymousSwipes = ipUsage.total_usage;
+    const anonymousSwipes = ipUsage.daily_usage;
 
     // Get or create user using centralized function
     const user = await findOrCreateUser(email, name, picture, anonymousSwipes);

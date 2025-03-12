@@ -83,6 +83,34 @@ function RegeneratePopup({ onRegenerate, onClose }) {
   );
 }
 
+// Update PhotoPreview component to handle outside clicks
+function PhotoPreview({ imageUrl, onClose }) {
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="relative bg-white rounded-xl overflow-hidden max-w-md w-full max-h-[80vh]">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-white bg-black/50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-black/70 z-10"
+        >
+          ×
+        </button>
+        <img 
+          src={imageUrl} 
+          alt="Uploaded screenshot"
+          className="w-full h-full object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ResponsesPage() {
   const [responses, setResponses] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -433,9 +461,12 @@ export default function ResponsesPage() {
     }
   };
 
-  // Add preview toggle handler
+  // Update togglePreview to use lastFile
   const togglePreview = () => {
-    setShowPreview(!showPreview);
+    if (lastFile) {
+      setPreviewUrl(lastFile);
+      setShowPreview(!showPreview);
+    }
   };
 
   // Add computed properties for swipe controls
@@ -532,6 +563,12 @@ export default function ResponsesPage() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Update GoogleSignInOverlay handling
+  const handleSignInSuccess = () => {
+    setShowSignInOverlay(false);
+    router.push('/saved');
   };
 
   return (
@@ -701,10 +738,9 @@ export default function ResponsesPage() {
         {showSignInOverlay && !isSignedIn && (
           <GoogleSignInOverlay 
             googleLoaded={googleLoaded}
-            onClose={() => {
-              setShowSignInOverlay(false);
-              router.push('/'); // Redirect to home after closing sign-in overlay
-            }}
+            onClose={() => setShowSignInOverlay(false)}
+            onSignInSuccess={handleSignInSuccess}
+            preventReload={true}
           />
         )}
 
@@ -723,6 +759,14 @@ export default function ResponsesPage() {
               setShowRegeneratePopup(false);
             }}
             onClose={() => router.push('/')}
+          />
+        )}
+
+        {/* Add PhotoPreview component before closing root div */}
+        {showPreview && lastFile && (
+          <PhotoPreview 
+            imageUrl={lastFile}
+            onClose={() => setShowPreview(false)}
           />
         )}
       </div>
