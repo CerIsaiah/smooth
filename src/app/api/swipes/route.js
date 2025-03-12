@@ -5,9 +5,9 @@ import {
 } from '@/app/constants';
 import { 
   checkUsageStatus, 
-  incrementUsage, 
   getNextResetTime 
 } from '@/utils/usageTracking';
+import { incrementUsage } from '@/utils/dbOperations';
 import { checkUsageLimits } from '@/utils/dbOperations';
 
 /**

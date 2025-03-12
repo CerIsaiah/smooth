@@ -278,40 +278,44 @@ export async function getDailyUsage(email) {
   return data.total_usage;
 }
 
-export async function resetDailyUsage(supabase, identifier, isEmail = false) {
-  const table = isEmail ? 'users' : 'ip_usage';
-  const idField = isEmail ? 'email' : 'ip_address';
+export async function resetDailyUsage(supabase, email) {
   const now = new Date(getCurrentPSTTime());
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
   const today = now.toISOString();
 
   try {
-    if (isEmail) {
-      // For users, maintain the history when resetting
-      const { data: currentUser } = await supabase
-        .from(table)
-        .select('daily_usage_history')
-        .eq(idField, identifier)
-        .single();
+    // Get current user data to preserve history
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('daily_usage, daily_usage_history')
+      .eq('email', email)
+      .single();
 
-      const { error } = await supabase
-        .from(table)
-        .update({
-          daily_usage: 0,
-          last_reset: today,
-          // Preserve the existing history
-          daily_usage_history: currentUser?.daily_usage_history || {}
-        })
-        .eq(idField, identifier);
+    // Add yesterday's final count to history before resetting
+    const updatedHistory = currentUser?.daily_usage_history || {};
+    if (currentUser?.daily_usage > 0) {
+      updatedHistory[yesterdayStr] = currentUser.daily_usage;
+    }
 
-      if (error) throw error;
-    } 
+    const { error } = await supabase
+      .from('users')
+      .update({
+        daily_usage: 0,
+        last_reset: today,
+        daily_usage_history: updatedHistory
+      })
+      .eq('email', email);
+
+    if (error) throw error;
   } catch (error) {
-    console.error(`Error resetting daily usage for ${idField}:${identifier}:`, error);
+    console.error(`Error resetting daily usage for email:${email}:`, error);
     throw error;
   }
 }
 
-export async function checkAndResetUsage(identifier, isEmail = false) {
+export async function checkAndResetUsage(identifier, isEmail) {
   console.log('Reset Check:', {
     identifier,
     isEmail,
@@ -322,62 +326,31 @@ export async function checkAndResetUsage(identifier, isEmail = false) {
   console.log(`Checking reset for ${isEmail ? 'email' : 'IP'}: ${identifier}`);
   const supabase = getSupabaseClient();
   const now = new Date(getCurrentPSTTime());
-  const today = now.toISOString(); // Store full ISO string instead of just date portion
-  const table = isEmail ? 'users' : 'ip_usage';
-  const idField = isEmail ? 'email' : 'ip_address';
+  const today = now.toISOString();
   
   try {
-    if (!isEmail) {
-      // For IP addresses, use upsert pattern to avoid race conditions
-      const { data, error } = await supabase
-        .from(table)
-        .upsert({
-          [idField]: identifier,
-          daily_usage: 0, // Will be overridden if record exists and doesn't need reset
-          total_usage: 0, // Will be overridden if record exists
-          last_reset: today
-        }, {
-          onConflict: idField,
-          ignoreDuplicates: true
-        });
-      
-      if (error) throw error;
-    }
-    
-    // Now get the most current record
-    const { data: record, error: getError } = await supabase
-      .from(table)
-      .select('last_reset, daily_usage, total_usage')
-      .eq(idField, identifier)
-      .single();
-    
-    if (getError) {
-      if (getError.code === 'PGRST116' && !isEmail) {
-        // This should not happen since we just upserted, but handle it anyway
-        return true;
-      }
-      throw getError;
-    }
-    
-    // Check if reset is needed
-    const shouldReset = !record?.last_reset || isPastResetTime(record.last_reset);
-    
-    if (shouldReset) {
-      const { error: resetError } = await supabase
-        .from(table)
-        .update({
-          daily_usage: 0,
-          last_reset: today
-        })
-        .eq(idField, identifier);
-      
-      if (resetError) throw resetError;
-      console.log('Reset Result:', {
-        identifier,
-        wasReset: shouldReset,
-        newLastReset: today
-      });
-      return true;
+    // Get the most current record
+      if (isEmail) {
+        const { data: record, error: getError } = await supabase
+          .from('users')
+          .select('last_reset, daily_usage, total_usage')
+          .eq('email', isEmail)
+          .single();
+        
+        if (getError) throw getError;
+        
+        // Check if reset is needed
+        const shouldReset = !record?.last_reset || isPastResetTime(record.last_reset);
+        
+        if (shouldReset) {
+          await resetDailyUsage(supabase, email);
+          console.log('Reset Result:', {
+            email,
+            wasReset: shouldReset,
+            newLastReset: today
+          });
+          return true;
+        }
     }
     
     return false;
@@ -478,9 +451,14 @@ export async function incrementUsage(identifier, isEmail = false) {
 
       if (fetchError) throw fetchError;
 
+      // Add logging to debug history updates
+      console.log('Current history before update:', currentUser?.daily_usage_history);
+
       // Update or initialize daily_usage_history
       const currentHistory = currentUser?.daily_usage_history || {};
       currentHistory[today] = (currentHistory[today] || 0) + 1;
+
+      console.log('Updated history:', currentHistory);
 
       // Then update with new values
       const { data: updatedUser, error: updateError } = await supabase
@@ -495,7 +473,12 @@ export async function incrementUsage(identifier, isEmail = false) {
         .select()
         .single();
         
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error updating usage:', updateError);
+        throw updateError;
+      }
+
+      console.log('Final updated user:', updatedUser);
       return { ...limitCheck, dailySwipes: updatedUser.daily_usage };
     } else {
       // For IP addresses, use RLS-safe update - get, then update approach
