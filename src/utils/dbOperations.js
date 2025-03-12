@@ -60,20 +60,11 @@ function isPastResetTime(lastResetTime) {
   const now = new Date(getCurrentPSTTime());
   const lastReset = new Date(lastResetTime);
   
-  // Get reset time (e.g., 12:00 AM PST)
-  const resetHour = 0; // midnight
-  const resetMinute = 0;
+  // Get previous midnight PST
+  const resetTime = new Date(now);
+  resetTime.setHours(0, 0, 0, 0);
   
-  // Create reset timestamp for comparison
-  const today = new Date(now);
-  today.setHours(resetHour, resetMinute, 0, 0);
-  
-  // If current time is before today's reset, use yesterday's reset time
-  const resetTimestamp = now.getHours() < resetHour ? 
-    today.getTime() - 24 * 60 * 60 * 1000 : 
-    today.getTime();
-    
-  return getPSTTimestamp(lastResetTime) < resetTimestamp;
+  return lastReset < resetTime;
 }
 
 export async function getUserData(email) {
@@ -87,7 +78,8 @@ export async function getUserData(email) {
     console.log('Querying user with email:', email);
     
     const supabase = getSupabaseClient();
-    const now = new Date().toISOString();
+    const now = new Date(getCurrentPSTTime());
+    const today = now.toISOString(); // Store full ISO string instead of just date portion
     
     // Calculate next reset time properly
     const nextResetDate = new Date();
@@ -289,7 +281,8 @@ export async function getDailyUsage(email) {
 export async function resetDailyUsage(supabase, identifier, isEmail = false) {
   const table = isEmail ? 'users' : 'ip_usage';
   const idField = isEmail ? 'email' : 'ip_address';
-  const today = getPSTTimestamp(getCurrentPSTTime());
+  const now = new Date(getCurrentPSTTime());
+  const today = now.toISOString(); // Store full ISO string instead of just date portion
 
   try {
     const { error } = await supabase
@@ -308,10 +301,17 @@ export async function resetDailyUsage(supabase, identifier, isEmail = false) {
 }
 
 export async function checkAndResetUsage(identifier, isEmail = false) {
+  console.log('Reset Check:', {
+    identifier,
+    isEmail,
+    currentTime: getCurrentPSTTime(),
+    timeZone: RESET_TIMEZONE
+  });
+
   console.log(`Checking reset for ${isEmail ? 'email' : 'IP'}: ${identifier}`);
   const supabase = getSupabaseClient();
-  const currentPSTTime = getCurrentPSTTime();
-  const today = new Date(currentPSTTime).toISOString().split('T')[0]; // Just the date portion
+  const now = new Date(getCurrentPSTTime());
+  const today = now.toISOString(); // Store full ISO string instead of just date portion
   const table = isEmail ? 'users' : 'ip_usage';
   const idField = isEmail ? 'email' : 'ip_address';
   
@@ -362,6 +362,11 @@ export async function checkAndResetUsage(identifier, isEmail = false) {
         .eq(idField, identifier);
       
       if (resetError) throw resetError;
+      console.log('Reset Result:', {
+        identifier,
+        wasReset: shouldReset,
+        newLastReset: today
+      });
       return true;
     }
     
