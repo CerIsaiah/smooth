@@ -115,7 +115,6 @@ export async function getUserData(email) {
           subscription_type: 'standard',
           subscription_status: 'inactive',
           subscription_updated_at: now,
-          next_reset: nextReset,
           is_trial: false,
           trial_end_date: null,
           trial_started_at: null,

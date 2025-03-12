@@ -284,7 +284,7 @@ export default function SavedResponses() {
                   Trial Active
                 </p>
                 <p className="text-sm text-gray-400 mt-1">
-                  {trialDaysLeft} days remaining in trial
+                  {formatTimeRemaining(subscriptionDetails?.trialEndsAt)} days remaining in trial
                 </p>
               </>
             ) : subscriptionStatus === 'trial-canceling' ? (
@@ -704,7 +704,7 @@ export default function SavedResponses() {
                           Trial Active
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {subscriptionDetails?.trialDaysLeft} days remaining in trial
+                          {formatTimeRemaining(subscriptionDetails?.trialEndsAt)} days remaining in trial
                         </p>
                       </>
                     ) : subscriptionStatus === 'premium' ? (
