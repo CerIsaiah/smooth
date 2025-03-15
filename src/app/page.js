@@ -601,12 +601,19 @@ export default function Home() {
     }
   };
 
-  // Handle redirect back from Stripe (unchanged)
+  // Handle redirect back from Stripe
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     
     if (query.get('success')) {
       console.log('Order placed! You will receive an email confirmation.');
+      
+      // Add Google Ads conversion tracking
+      if (typeof window !== 'undefined' && window.gtag) {
+        gtag('event', 'conversion', {
+          'send_to': 'AW-16615505567/rdXeCPDjlqsaEJ_98fI9'
+        });
+      }
     }
 
     if (query.get('canceled')) {
