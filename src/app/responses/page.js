@@ -148,7 +148,7 @@ export default function ResponsesPage() {
       .map(() => React.createRef())
   );
 
-  // Update initialization effect to maintain card position
+  // Update initialization effect
   useEffect(() => {
     console.log('Initializing responses page...');
     const savedData = JSON.parse(localStorage.getItem('current_responses') || '{}');
@@ -158,13 +158,12 @@ export default function ResponsesPage() {
       console.log('Found saved responses:', {
         responseCount: savedData.responses.length,
         savedIndex: savedData.currentIndex,
-        defaultIndex: savedData.responses.length - 1
+        defaultIndex: savedData.responses.length - 1,
+        inputMode: savedData.inputMode
       });
       
       setResponses(savedData.responses);
-      // Ensure we use the saved currentIndex, defaulting to the last card if not available
       const savedIndex = savedData.currentIndex !== undefined ? savedData.currentIndex : savedData.responses.length - 1;
-      console.log('Setting current index to:', savedIndex);
       setCurrentIndex(savedIndex);
       setMode(savedData.mode);
       setLastFile(savedData.lastFile);
@@ -175,7 +174,6 @@ export default function ResponsesPage() {
       childRefs.current = Array(savedData.responses.length)
         .fill(0)
         .map(() => React.createRef());
-      console.log('Updated childRefs array length:', childRefs.current.length);
     } else {
       console.log('No saved responses found, redirecting to home');
       router.push('/');
@@ -520,38 +518,71 @@ export default function ResponsesPage() {
     };
   }, []);
 
-  // Add handleRegenerate function
+  // Update handleRegenerate function
   const handleRegenerate = async () => {
     try {
       setIsGenerating(true);
       
-      // Convert base64 back to File object if lastFile exists
-      const file = lastFile ? await base64ToFile(lastFile, 'screenshot.png') : null;
-      
-      if (!file) {
-        console.error('No screenshot available for regeneration');
+      // Check if we're using text input or file input
+      if (lastContext && lastText) {
+        // Text input path
+        const newResponses = await analyzeScreenshot(
+          null, // no file
+          mode,
+          isSignedIn,
+          lastContext,
+          lastText
+        );
+        
+        // Update responses state and localStorage
+        setResponses(newResponses);
+        setCurrentIndex(newResponses.length - 1);
+        setKey(prevKey => prevKey + 1); // Force re-render of cards
+        
+        // Update localStorage with new responses
+        const savedData = {
+          responses: newResponses,
+          currentIndex: newResponses.length - 1,
+          mode,
+          lastFile: null, // ensure this is null for text input
+          lastContext,
+          lastText,
+          inputMode: 'text' // Add this to track input mode
+        };
+        localStorage.setItem('current_responses', JSON.stringify(savedData));
+        
+      } else if (lastFile) {
+        // Existing file input path
+        const file = await base64ToFile(lastFile, 'screenshot.png');
+        
+        if (!file) {
+          console.error('No screenshot available for regeneration');
+          router.push('/');
+          return;
+        }
+
+        const newResponses = await analyzeScreenshot(file, mode, isSignedIn, lastContext, lastText);
+        
+        // Update responses state and localStorage
+        setResponses(newResponses);
+        setCurrentIndex(newResponses.length - 1);
+        setKey(prevKey => prevKey + 1);
+        
+        const savedData = {
+          responses: newResponses,
+          currentIndex: newResponses.length - 1,
+          mode,
+          lastFile,
+          lastContext,
+          lastText,
+          inputMode: 'screenshot'
+        };
+        localStorage.setItem('current_responses', JSON.stringify(savedData));
+      } else {
+        console.error('No input available for regeneration');
         router.push('/');
         return;
       }
-
-      // Reuse analyzeScreenshot with existing file and context
-      const newResponses = await analyzeScreenshot(file, lastContext, lastText);
-      
-      // Update responses state and localStorage
-      setResponses(newResponses);
-      setCurrentIndex(newResponses.length - 1);
-      setKey(prevKey => prevKey + 1); // Force re-render of cards
-      
-      // Update localStorage with new responses
-      const savedData = {
-        responses: newResponses,
-        currentIndex: newResponses.length - 1,
-        mode,
-        lastFile,
-        lastContext,
-        lastText
-      };
-      localStorage.setItem('current_responses', JSON.stringify(savedData));
       
       // Update childRefs for new responses
       childRefs.current = Array(newResponses.length)

@@ -416,10 +416,10 @@ export default function Home() {
           mode,
           lastContext: context,
           lastText,
+          inputMode: selectedFile ? 'screenshot' : 'text',
           timestamp: Date.now()
         };
 
-        // Handle file conversion separately to avoid timing issues
         if (selectedFile) {
           console.log('Converting file to base64...');
           const base64File = await convertFileToBase64(selectedFile);
