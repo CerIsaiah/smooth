@@ -9,6 +9,7 @@ import {
 } from '@/utils/usageTracking';
 import { incrementUsage } from '@/utils/dbOperations';
 import { checkUsageLimits } from '@/utils/dbOperations';
+import { resolveIdentity } from '@/utils/auth';
 
 /**
  * Swipes API Route
@@ -37,12 +38,10 @@ import { checkUsageLimits } from '@/utils/dbOperations';
 
 export async function GET(request) {
   try {
-    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-    const userEmail = request.headers.get('x-user-email');
-    
-    // Check if we have a valid email, otherwise use IP
-    const identifier = userEmail || requestIP;
-    const isEmail = Boolean(userEmail && userEmail.includes('@'));
+    // Identity: verified session email, else the request IP (anonymous path).
+    const identity = resolveIdentity(request);
+    const identifier = identity.email || identity.ip;
+    const isEmail = identity.isSignedIn;
     
     const limitCheck = await checkUsageLimits(identifier, isEmail);
 
@@ -63,15 +62,14 @@ export async function POST(request) {
       console.warn('Invalid or empty JSON body received:', error);
     }
 
-    const userEmail = request.headers.get('x-user-email');
-    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    // Identity: verified session email, else the request IP (anonymous path).
+    const identity = resolveIdentity(request);
+    const identifier = identity.email || identity.ip;
+    const isEmail = identity.isSignedIn;
     
-    console.log('Processing swipe for:', { userEmail, requestIP });
+    console.log('Processing swipe for:', { identifier, isEmail });
     
     // Check usage first
-    const identifier = userEmail || requestIP;
-    const isEmail = Boolean(userEmail);
-    
     const currentUsage = await checkUsageLimits(identifier, isEmail);
     
     console.log('Current usage:', currentUsage);
@@ -118,8 +116,8 @@ export async function POST(request) {
       dailySwipes: 0,
       isPremium: false,
       isTrial: false,
-      requiresSignIn: !request.headers.get('x-user-email'),
-      requiresUpgrade: Boolean(request.headers.get('x-user-email'))
+      requiresSignIn: false,
+      requiresUpgrade: false
     }, { status: 500 });
   }
 }

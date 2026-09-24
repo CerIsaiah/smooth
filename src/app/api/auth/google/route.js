@@ -21,6 +21,7 @@
 import { NextResponse } from 'next/server';
 import { OAuth2Client } from 'google-auth-library';
 import { findOrCreateUser, getIPUsage } from '@/utils/dbOperations';
+import { createSessionToken, createSessionCookieHeader } from '@/utils/auth';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -51,8 +52,11 @@ export async function POST(request) {
       user.trial_end_date && 
       new Date(user.trial_end_date) > new Date();
     
-    // Return user data along with subscription status
-    return NextResponse.json({
+    // Return user data along with subscription status, and set the
+    // httpOnly session cookie. Identity for all other routes is derived
+    // server-side from this signed cookie — the client never receives it.
+    const sessionToken = createSessionToken({ email, name, picture });
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -67,6 +71,8 @@ export async function POST(request) {
         trialEndsAt: user.trial_end_date
       })
     });
+    response.headers.set('Set-Cookie', createSessionCookieHeader(sessionToken));
+    return response;
 
   } catch (error) {
     console.error('Google auth error:', error);

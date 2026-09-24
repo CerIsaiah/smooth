@@ -28,10 +28,6 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
     isSignedIn
   };
 
-  // Get user email from localStorage
-  const storedUser = localStorage.getItem('smoothrizz_user');
-  const userEmail = storedUser ? JSON.parse(storedUser).email : null;
-
   if (file) {
     try {
       // Compress and resize image before converting to base64
@@ -65,9 +61,9 @@ export async function analyzeScreenshot(file, mode, isSignedIn, context = '', la
     const response = await fetch('/api/openai', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        ...(userEmail && { 'x-user-email': userEmail }),
+        'Content-Type': 'application/json'
       },
+      // Identity is derived server-side from the httpOnly session cookie.
       body: JSON.stringify(requestBody),
       signal: controller.signal
     });

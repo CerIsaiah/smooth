@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/utils/auth';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -14,15 +15,11 @@ const supabase = createClient(
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const userEmail = searchParams.get('userEmail')?.toLowerCase().trim();
+    // Identity comes from the verified session cookie — never query params.
+    const { session, error: authError } = requireSession(request);
+    if (authError) return authError;
+    const userEmail = session.email;
 
-    if (!userId && !userEmail) {
-      return NextResponse.json({ error: 'User ID or email is required' }, { status: 400 });
-    }
-
-    // Query using either userId or email
     const query = supabase
       .from('users')
       .select(`
@@ -34,14 +31,9 @@ export async function GET(request) {
         email,
         cancel_at_period_end,
         trial_started_at
-      `);
+      `)
+      .eq('email', userEmail);
 
-    if (userId) {
-      query.eq('id', userId);
-    } else {
-      query.eq('email', userEmail);
-    }
-    
     const { data: user, error } = await query.single();
 
     if (error) {

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from "next/server";
+import { requireSession } from '@/utils/auth';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -8,8 +9,12 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
+    // Identity comes from the verified session cookie — never from the body.
+    const { session, error: authError } = requireSession(request);
+    if (authError) return authError;
+    const userEmail = session.email;
+
     const body = await request.json();
-    const userEmail = body.userEmail;
     
     // Handle both single response and bulk responses
     if (Array.isArray(body.responses)) {
@@ -74,11 +79,10 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const userEmail = request.headers.get('x-user-email');
-
-    if (!userEmail) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Identity comes from the verified session cookie — never from a header.
+    const { session, error: authError } = requireSession(request);
+    if (authError) return authError;
+    const userEmail = session.email;
 
     const { data, error } = await supabase
       .from('users')
@@ -97,11 +101,15 @@ export async function GET(request) {
 
 export async function DELETE(request) {
   try {
+    // Identity comes from the verified session cookie — never a query param.
+    const { session, error: authError } = requireSession(request);
+    if (authError) return authError;
+    const userEmail = session.email;
+
     const { searchParams } = new URL(request.url);
-    const userEmail = searchParams.get('email');
     const timestamp = searchParams.get('timestamp');
 
-    if (!userEmail || !timestamp) {
+    if (!timestamp) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 

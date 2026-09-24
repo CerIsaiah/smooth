@@ -10,9 +10,9 @@ export async function GET() {
   });
 
   if (!clientId) {
-    return NextResponse.json({ 
-      error: 'Google Client ID not configured',
-      envVars: Object.keys(process.env).filter(key => key.includes('GOOGLE'))
+    // Intentionally minimal: never echo env var names back to the client.
+    return NextResponse.json({
+      error: 'Google Client ID not configured'
     }, { status: 500 });
   }
   
