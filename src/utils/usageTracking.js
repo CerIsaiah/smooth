@@ -151,10 +151,9 @@ export async function getLearningPercentage(email) {
   const supabase = getSupabaseClient();
 
   try {
-    // Single query to get all needed user data
     const { data: userData, error } = await supabase
       .from('users')
-      .select('subscription_status, is_trial, trial_end_date, saved_responses')
+      .select('id, subscription_status, is_trial, trial_end_date')
       .eq('email', email)
       .single();
 
@@ -163,7 +162,19 @@ export async function getLearningPercentage(email) {
       return { percentage: MIN_LEARNING_PERCENTAGE };
     }
 
-    const savedResponsesCount = userData?.saved_responses?.length ?? 0;
+    // COUNT(*) on the saved_responses table (head request — count only, no
+    // rows transferred); replaces the legacy users.saved_responses JSONB blob
+    const { count, error: countError } = await supabase
+      .from('saved_responses')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userData.id);
+
+    if (countError) {
+      console.error('Error counting saved responses:', countError);
+      return { percentage: MIN_LEARNING_PERCENTAGE };
+    }
+
+    const savedResponsesCount = count ?? 0;
     const now = new Date();
     const hasActiveSubscription = 
       userData?.subscription_status === 'active' || 
