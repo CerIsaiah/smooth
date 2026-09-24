@@ -7,8 +7,7 @@ import {
   FREE_INCREMENT_PER_RESPONSE,
   PREMIUM_MAX_PERCENTAGE,
   FREE_MAX_PERCENTAGE,
-  MIN_LEARNING_PERCENTAGE,
-  MATCH_PERCENTAGE_BASE
+  MIN_LEARNING_PERCENTAGE
 } from '../constants';
 
 const DeleteButton = ({ onDelete, isDeleting }) => (
