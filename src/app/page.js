@@ -83,8 +83,7 @@ export default function Home() {
     try {
       const response = await fetch('/api/usage', {
         headers: {
-          'Content-Type': 'application/json',
-          ...(isSignedIn && user?.email && { 'x-user-email': user.email })
+          'Content-Type': 'application/json'
         }
       });
       
@@ -208,7 +207,6 @@ export default function Home() {
                 },
                 body: JSON.stringify({
                   response: item.response,
-                  userEmail: data.user.email,
                   context: item.context,
                   lastMessage: item.lastMessage,
                   created_at: item.created_at,
@@ -228,6 +226,13 @@ export default function Home() {
 
   // Update the handleSignOut function
   const handleSignOut = async () => {
+    // Expire the server session cookie so usage falls back to IP tracking.
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Error clearing session:', error);
+    }
+
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
       window.google.accounts.id.revoke();
@@ -360,8 +365,7 @@ export default function Home() {
       console.log('Checking usage status...');
       const statusResponse = await fetch('/api/usage', {
         headers: {
-          'Content-Type': 'application/json',
-          ...(isSignedIn && user?.email && { 'x-user-email': user.email }),
+          'Content-Type': 'application/json'
         },
       });
       
@@ -580,10 +584,7 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          userEmail: user.email.toLowerCase().trim()
-        })
+        }
       });
 
       const data = await response.json();
@@ -1054,7 +1055,7 @@ export default function Home() {
     const checkSubscriptionStatus = async () => {
       if (isSignedIn && user?.email) {
         try {
-          const response = await fetch(`/api/subscription-status?userEmail=${encodeURIComponent(user.email)}`);
+          const response = await fetch('/api/subscription-status');
           const data = await response.json();
           
           // Update isPremium based on both premium and trial status

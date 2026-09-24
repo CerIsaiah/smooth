@@ -200,7 +200,6 @@ export default function ResponsesPage() {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                userEmail: parsedUser.email,
                 responses: anonymousResponses // Send as bulk migration
               })
             });
@@ -234,8 +233,7 @@ export default function ResponsesPage() {
         }
 
         const headers = {
-          'Content-Type': 'application/json',
-          ...(savedUser && { 'x-user-email': JSON.parse(savedUser).email })
+          'Content-Type': 'application/json'
         };
 
         const response = await fetch('/api/usage', { headers });
@@ -268,10 +266,9 @@ export default function ResponsesPage() {
     if (!canInteract) return;
     
     try {
-      // Track swipe first
+      // Track swipe first (identity rides on the session cookie)
       const headers = {
-        'Content-Type': 'application/json',
-        ...(user?.email && { 'x-user-email': user.email })
+        'Content-Type': 'application/json'
       };
       
       const response = await fetch('/api/swipes', {
@@ -319,7 +316,6 @@ export default function ResponsesPage() {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                userEmail: user.email,
                 ...newResponse
               })
             });
@@ -382,8 +378,7 @@ export default function ResponsesPage() {
     const checkInitialLimits = async () => {
       try {
         const headers = {
-          'Content-Type': 'application/json',
-          ...(user?.email && { 'x-user-email': user.email })
+          'Content-Type': 'application/json'
         };
 
         const response = await fetch('/api/swipes', { headers });
@@ -443,10 +438,7 @@ export default function ResponsesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userEmail: user?.email,
-        }),
+        }
       });
 
       const data = await response.json();
@@ -476,11 +468,7 @@ export default function ResponsesPage() {
     const fetchLearningPercentage = async () => {
       if (user?.email) {
         try {
-          const response = await fetch('/api/learning-percentage', {
-            headers: {
-              'x-user-email': user.email
-            }
-          });
+          const response = await fetch('/api/learning-percentage');
           const data = await response.json();
           setMatchPercentage(data.percentage);
         } catch (error) {

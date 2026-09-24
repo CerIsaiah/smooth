@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/utils/auth';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -18,12 +19,11 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
-    const { userEmail } = await request.json();
-
-    if (!userEmail) {
-      console.error('No user email provided');
-      return NextResponse.json({ error: 'User email is required' }, { status: 400 });
-    }
+    // Identity comes from the verified session cookie — an attacker can no
+    // longer cancel someone else's subscription by posting their email.
+    const { session, error: authError } = requireSession(request);
+    if (authError) return authError;
+    const userEmail = session.email;
 
     console.log('Attempting to cancel subscription for:', userEmail);
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/utils/auth';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -30,37 +31,21 @@ export async function POST(req) {
       );
     }
 
-    const body = await req.json();
-    console.log('Received request body:', body);
+    // Identity comes from the verified session cookie — body userId/userEmail
+    // are no longer trusted.
+    const { session: authSession, error: authError } = requireSession(req);
+    if (authError) return authError;
 
-    // Handle both userId and userEmail
-    let userQuery;
-    if (body.userId) {
-      userQuery = supabase
-        .from('users')
-        .select('*')
-        .eq('id', body.userId)
-        .single();
-    } else if (body.userEmail) {
-      userQuery = supabase
-        .from('users')
-        .select('*')
-        .eq('email', body.userEmail.toLowerCase().trim())
-        .single();
-    } else {
-      console.log('No user identifier provided');
-      return NextResponse.json(
-        { error: 'Please sign in to continue with checkout' }, 
-        { status: 401 }
-      );
-    }
-
-    const { data: user, error: dbError } = await userQuery;
+    const { data: user, error: dbError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', authSession.email)
+      .single();
     
     console.log('Supabase query result:', { user, dbError });
 
     if (dbError || !user) {
-      console.error('Database error or user not found:', { dbError, userId: body.userId });
+      console.error('Database error or user not found:', { dbError, userId: authSession.email });
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
@@ -132,7 +117,7 @@ export async function OPTIONS(req) {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-User-Email',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 } 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkUsageStatus } from '@/utils/usageTracking';
 import { checkAndResetUsage, checkUsageLimits } from '@/utils/dbOperations';
+import { resolveIdentity } from '@/utils/auth';
 
 /**
  * Usage API Route
@@ -26,21 +27,17 @@ import { checkAndResetUsage, checkUsageLimits } from '@/utils/dbOperations';
 
 export async function GET(request) {
   try {
-    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-    const userEmail = request.headers.get('x-user-email');
-    const userName = request.headers.get('x-user-name');
-    const userPicture = request.headers.get('x-user-picture');
-    
-    // Check if we have a valid email, otherwise use IP
-    const identifier = userEmail || requestIP;
-    const isEmail = Boolean(userEmail && userEmail.includes('@'));
+    // Identity: verified session email, else the request IP (anonymous path).
+    const identity = resolveIdentity(request);
+    const identifier = identity.email || identity.ip;
+    const isEmail = identity.isSignedIn;
     
     // First check if we need to reset
     const wasReset = await checkAndResetUsage(identifier, isEmail);
     console.log('Usage check reset status:', { identifier, wasReset });
     
     // Then get the current usage status (which will now reflect any reset)
-    const usageStatus = await checkUsageStatus(identifier, isEmail, userName, userPicture);
+    const usageStatus = await checkUsageStatus(identifier, isEmail, identity.name, identity.picture);
     
     return NextResponse.json({
       ...usageStatus,

@@ -26,6 +26,7 @@
 import OpenAI from "openai";
 import { NextResponse } from 'next/server';
 import { checkUsageStatus } from '@/utils/usageTracking';
+import { resolveIdentity } from '@/utils/auth';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
@@ -87,19 +88,17 @@ Return exactly 10 responses in an array format suitable for JSON parsing.
 
 export async function POST(request) {
   try {
-    const requestIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-    const userEmail = request.headers.get('x-user-email');
-    
-    // Check if we have a valid email, otherwise use IP
-    const identifier = userEmail || requestIP;
-    const isEmail = Boolean(userEmail && userEmail.includes('@'));
+    // Identity: verified session email, else the request IP (anonymous path).
+    const identity = resolveIdentity(request);
+    const identifier = identity.email || identity.ip;
+    const isEmail = identity.isSignedIn;
     
     // Check usage status
     const usageStatus = await checkUsageStatus(identifier, isEmail);
 
     if (usageStatus.limitReached) {
       return NextResponse.json({ 
-        error: userEmail ? 
+        error: isEmail ? 
           'Daily limit reached. Please upgrade to continue.' : 
           'Anonymous usage limit reached. Please sign in to continue.',
         requestId: crypto.randomUUID()
@@ -109,8 +108,8 @@ export async function POST(request) {
     const { imageBase64, mode = 'first-move', context, lastText } = await request.json();
     
     console.log('Debug - OpenAI Request:', {
-      ip: requestIP,
-      isSignedIn: !!userEmail,
+      ip: identity.ip,
+      isSignedIn: identity.isSignedIn,
       timestamp: new Date().toISOString()
     });
 

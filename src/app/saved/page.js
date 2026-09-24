@@ -62,7 +62,7 @@ export default function SavedResponses() {
     const fetchSubscriptionStatus = async () => {
       if (user?.email) {
         try {
-          const response = await fetch(`/api/subscription-status?userEmail=${user.email}`);
+          const response = await fetch('/api/subscription-status');
           const data = await response.json();
           setSubscriptionStatus(data.status);
           setSubscriptionDetails(data.details);
@@ -82,11 +82,7 @@ export default function SavedResponses() {
       if (user?.email) {
         // Fetch from database for signed-in users
         try {
-          const response = await fetch('/api/saved-responses', {
-            headers: {
-              'x-user-email': user.email,
-            },
-          });
+          const response = await fetch('/api/saved-responses');
           const data = await response.json();
           
           if (response.ok) {
@@ -111,12 +107,8 @@ export default function SavedResponses() {
   useEffect(() => {
     const fetchLearningPercentage = async () => {
       try {
-        const headers = {};
-        if (user?.email) {
-          headers['x-user-email'] = user.email;
-        }
-
-        const response = await fetch('/api/learning-percentage', { headers });
+        // Identity rides on the session cookie; anonymous users get the minimum.
+        const response = await fetch('/api/learning-percentage');
         const data = await response.json();
         setMatchPercentage(data.percentage);
       } catch (error) {
@@ -152,7 +144,7 @@ export default function SavedResponses() {
       setDeletingIds(prev => new Set([...prev, timestamp]));
 
       const response = await fetch(
-        `/api/saved-responses?email=${encodeURIComponent(user.email)}&timestamp=${encodeURIComponent(timestamp)}`,
+        `/api/saved-responses?timestamp=${encodeURIComponent(timestamp)}`,
         { method: 'DELETE' }
       );
 
@@ -175,6 +167,10 @@ export default function SavedResponses() {
   };
 
   const handleSignOut = () => {
+    // Expire the server session cookie so usage falls back to IP tracking.
+    fetch('/api/auth/logout', { method: 'POST' }).catch((error) =>
+      console.error('Error clearing session:', error)
+    );
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
       window.google.accounts.id.revoke();
@@ -186,8 +182,8 @@ export default function SavedResponses() {
 
   const handleCheckout = async () => {
     try {
-      if (!user?.id) {
-        console.error('No user ID found');
+      if (!user?.email) {
+        console.error('No signed-in user found');
         return;
       }
 
@@ -195,8 +191,7 @@ export default function SavedResponses() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id })
+        }
       });
 
       const data = await response.json();
@@ -228,8 +223,7 @@ export default function SavedResponses() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userEmail: user.email }),
+        }
       });
 
       const data = await response.json();
@@ -239,7 +233,7 @@ export default function SavedResponses() {
       }
 
       // Refresh subscription status
-      const statusResponse = await fetch(`/api/subscription-status?userEmail=${encodeURIComponent(user.email)}`);
+      const statusResponse = await fetch('/api/subscription-status');
       const statusData = await statusResponse.json();
       setSubscriptionStatus(statusData.status);
       setSubscriptionDetails(statusData.details);
