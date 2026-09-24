@@ -33,7 +33,7 @@ import {
   MIN_LEARNING_PERCENTAGE
 } from '@/app/constants';
 import { getUserData, getIPUsage, findOrCreateUser } from './dbOperations';
-import { getNextUtcMidnight } from './resetWindow';
+import { getNextResetInstant, RESET_TIMEZONE } from './resetWindow';
 
 let supabaseClient = null;
 
@@ -103,12 +103,15 @@ export async function checkUsageStatus(identifier, isEmail, name = null, picture
   }
 }
 
-// A usage day is a UTC calendar date: counters reset at 00:00 UTC. The same
-// convention is enforced server-side by the atomic RPCs in
-// supabase/migrations/*_atomic_usage_tracking.sql; boundary math on the JS
-// side lives only in src/utils/resetWindow.js.
+// A usage day is an America/Los_Angeles calendar date (the app's original
+// product behavior): counters reset at PT calendar midnight, DST-safe,
+// expressed as true UTC instants. The same convention is enforced
+// server-side by the atomic RPCs in supabase/migrations/*_atomic_usage_tracking.sql;
+// boundary math on the JS side lives only in src/utils/resetWindow.js.
+export { RESET_TIMEZONE };
+
 export function getNextResetTime() {
-  return getNextUtcMidnight();
+  return getNextResetInstant();
 }
 
 export function getFormattedTimeUntilReset() {

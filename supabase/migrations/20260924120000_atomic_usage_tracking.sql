@@ -9,13 +9,16 @@
 -- parsing and UTC ISO writes, so reset boundaries drifted.
 --
 -- What: transaction-safe RPC functions. Each one locks the row
--- (SELECT ... FOR UPDATE), resets daily counters when the UTC day has rolled
--- over, enforces the daily limit server-side, and increments — atomically.
+-- (SELECT ... FOR UPDATE), resets daily counters when the reset-timezone
+-- (America/Los_Angeles) calendar day has rolled over, enforces the daily
+-- limit server-side, and increments — atomically.
 -- The API calls these via supabase.rpc(...) with the service-role key;
 -- counter writes from application code are removed.
 --
--- Timezone convention: UTC. A "usage day" is a UTC calendar date; counters
--- reset at 00:00 UTC. The same convention is implemented in
+-- Timezone convention: America/Los_Angeles (the app's original product
+-- behavior). A "usage day" is an America/Los_Angeles calendar date, DST-safe,
+-- expressed as true UTC instants; counters reset at PT calendar midnight.
+-- The same convention is implemented in
 -- src/utils/resetWindow.js — change both together or not at all.
 --
 -- Apply with: supabase db push (or paste into the Supabase SQL editor).
@@ -47,7 +50,8 @@ create unique index if not exists ip_usage_ip_address_key
 -- 2. reset_user_usage_if_stale
 --
 -- Archives yesterday's final count into daily_usage_history and zeroes
--- daily_usage when the UTC day has rolled over since last_reset.
+-- daily_usage when the reset-timezone (America/Los_Angeles) calendar day
+-- has rolled over since last_reset.
 -- Used by /api/usage (which reports whether a reset happened) and by
 -- increment_user_usage, so the rollover logic exists exactly once.
 -- The caller is expected to already hold (or take) the row lock.
@@ -58,7 +62,7 @@ language plpgsql
 as $$
 declare
   v_email   text := p_email;
-  v_today   date := (now() at time zone 'utc')::date;
+  v_today   date := (now() at time zone 'America/Los_Angeles')::date;
   v_row     public.users%rowtype;
   v_history jsonb;
 begin
@@ -69,8 +73,8 @@ begin
   end if;
 
   if v_row.last_reset is not null
-     and (v_row.last_reset at time zone 'utc')::date >= v_today then
-    return false;  -- same UTC day: nothing to reset
+     and (v_row.last_reset at time zone 'America/Los_Angeles')::date >= v_today then
+    return false;  -- same reset-timezone calendar day: nothing to reset
   end if;
 
   v_history := coalesce(v_row.daily_usage_history, '{}'::jsonb);
@@ -85,7 +89,7 @@ begin
   update public.users set
     daily_usage         = 0,
     daily_usage_history = v_history,
-    last_reset          = (v_today::timestamp at time zone 'utc')  -- exact 00:00 UTC
+    last_reset          = now()  -- true UTC instant (matches PR #1's write shape)
   where email = v_email;
 
   return true;
@@ -116,7 +120,7 @@ language plpgsql
 as $$
 declare
   v_email     text    := p_email;
-  v_today     date    := (now() at time zone 'utc')::date;
+  v_today     date    := (now() at time zone 'America/Los_Angeles')::date;
   v_today_key text    := to_char(v_today, 'YYYY-MM-DD');
   v_row       public.users%rowtype;
   v_was_reset boolean := false;
@@ -132,8 +136,9 @@ begin
     return;  -- caller falls back to its "User not found" handling
   end if;
 
-  -- UTC-day rollover (shared implementation; row lock is already held, so
-  -- the re-select inside sees our transaction's state).
+  -- Reset-timezone (America/Los_Angeles) calendar-day rollover (shared
+  -- implementation; row lock is already held, so the re-select inside sees
+  -- our transaction's state).
   v_was_reset := public.reset_user_usage_if_stale(v_email);
   if v_was_reset then
     select * into v_row from public.users where email = v_email for update;
@@ -185,7 +190,7 @@ $$;
 --
 -- Atomic swipe increment for anonymous (IP-keyed) usage:
 -- increment_ip_usage(ip, 14). Seeds the row on first contact, resets the
--- daily counter at UTC rollover (previously ip_usage rows were never reset
+-- daily counter at reset-timezone calendar-midnight rollover (previously ip_usage rows were never reset
 -- server-side), and enforces the limit under the row lock. No row returned
 -- means the upsert could not establish a row (should not happen).
 -- ---------------------------------------------------------------------------
@@ -199,7 +204,7 @@ returns table (
 language plpgsql
 as $$
 declare
-  v_today     date    := (now() at time zone 'utc')::date;
+  v_today     date    := (now() at time zone 'America/Los_Angeles')::date;
   v_row       public.ip_usage%rowtype;
   v_was_reset boolean := false;
   v_daily     integer;
@@ -226,8 +231,9 @@ begin
     end if;
   end if;
 
-  -- UTC-day rollover: zero the daily counter in the same statement as the
-  -- increment so a stale count can neither block nor vanish.
+  -- Reset-timezone (America/Los_Angeles) calendar-day rollover: zero the
+  -- daily counter in the same statement as the increment so a stale count
+  -- can neither block nor vanish.
   if v_row.last_reset is null or v_row.last_reset < v_today then
     v_was_reset := true;
     v_row.daily_usage := 0;

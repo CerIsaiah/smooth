@@ -22,7 +22,7 @@
  * - src/app/api/swipes/route.js: Usage tracking
  * - src/app/api/usage/route.js: Usage status checks
  * - src/utils/usageTracking.js: Usage tracking utilities
- * - src/utils/resetWindow.js: UTC reset-boundary helpers
+ * - src/utils/resetWindow.js: America/Los_Angeles (PT) reset-boundary helpers
  * - supabase/migrations/*_atomic_usage_tracking.sql: atomic RPCs used below
  *
  * Counting contract: every usage counter write goes through a Supabase RPC
@@ -32,7 +32,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { getNextUtcMidnight } from './resetWindow';
+import { getNextResetInstant } from './resetWindow';
 import { 
   ANONYMOUS_USAGE_LIMIT, 
   FREE_USER_DAILY_LIMIT,
@@ -65,7 +65,7 @@ export async function getUserData(email) {
     const supabase = getSupabaseClient();
     const now = new Date();
     const today = now.toISOString(); // Store full ISO string instead of just date portion
-    const nextReset = getNextUtcMidnight(now).toISOString(); // Next 00:00 UTC
+    const nextReset = getNextResetInstant().toISOString(); // Next reset-timezone midnight
     
     // First, try to get the user
     const { data, error } = await supabase
@@ -269,8 +269,9 @@ export async function getDailyUsage(email) {
 }
 
 export async function checkAndResetUsage(identifier, isEmail) {
-  // Anonymous (IP) counters reset inside increment_ip_usage at UTC rollover;
-  // there is no read-side reset for IPs (same as before).
+  // Anonymous (IP) counters reset inside increment_ip_usage at the
+  // reset-timezone calendar-midnight rollover; there is no read-side reset
+  // for IPs (same as before).
   if (!isEmail) return false;
 
   console.log(`Checking reset for email: ${identifier}`);
@@ -278,8 +279,9 @@ export async function checkAndResetUsage(identifier, isEmail) {
 
   try {
     // Atomic reset: the RPC locks the row, archives yesterday's final count
-    // into daily_usage_history and zeroes daily_usage when the UTC day has
-    // rolled over. Returns whether a reset happened.
+    // into daily_usage_history and zeroes daily_usage when the reset-timezone
+    // (America/Los_Angeles) calendar day has rolled over. Returns whether a
+    // reset happened.
     const { data, error } = await supabase.rpc('reset_user_usage_if_stale', {
       p_email: identifier,
     });
@@ -300,9 +302,10 @@ export async function checkAndResetUsage(identifier, isEmail) {
 // Update checkUsageLimits to handle the identifier correctly
 export async function checkUsageLimits(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
-  // Reset boundaries are UTC (see src/utils/resetWindow.js) — the same
-  // convention the RPCs enforce server-side.
-  const nextResetTime = getNextUtcMidnight().toISOString();
+  // Reset boundary is America/Los_Angeles calendar midnight, DST-safe
+  // (see src/utils/resetWindow.js) — the same convention the RPCs enforce
+  // server-side.
+  const nextResetTime = getNextResetInstant().toISOString();
   
   try {
     console.log('Checking usage limits for:', { identifier, isEmail });
@@ -368,9 +371,10 @@ export async function checkUsageLimits(identifier, isEmail = false) {
 }
 
 // Atomic usage increment. All counter decisions happen inside a Supabase
-// RPC that locks the row, resets at UTC rollover and enforces the limit
-// server-side — concurrent requests can no longer undercount or bypass the
-// limit by racing the old read-then-write window.
+// RPC that locks the row, resets at the reset-timezone calendar-midnight
+// rollover and enforces the limit server-side — concurrent requests can no
+// longer undercount or bypass the limit by racing the old read-then-write
+// window.
 export async function incrementUsage(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
   

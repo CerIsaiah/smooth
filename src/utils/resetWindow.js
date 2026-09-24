@@ -1,39 +1,60 @@
 /**
- * UTC reset-window helpers — the single source of truth for usage-day
+ * Reset-window helpers — the single source of truth for usage-day
  * boundaries on the JS side.
  *
- * A "usage day" is a UTC calendar date; daily counters reset at 00:00 UTC.
+ * Convention (shared with PR #1's Stripe lifecycle branch): a "usage day"
+ * is an America/Los_Angeles calendar date, so daily counters reset at PT
+ * calendar midnight — DST-safe, expressed as true UTC instants. This
+ * matches the app's original product behavior (a usage day ends when the
+ * user's PT day ends), with the old wall-clock-string parsing bugs fixed.
+ *
  * The authoritative enforcement lives server-side in the Supabase RPCs
  * (supabase/migrations/*_atomic_usage_tracking.sql), which implement the
  * same convention in SQL. Everything that needs a reset boundary imports
  * from this module so the convention cannot drift again — do not compute
- * reset times with local timezones or toLocaleString anywhere else.
+ * reset times with toLocaleString round-trips or server-local Date
+ * arithmetic anywhere else.
  */
 
+export const RESET_TIMEZONE = 'America/Los_Angeles';
+
 /**
- * Returns the UTC date key ('YYYY-MM-DD') for a timestamp.
+ * Calendar date ('YYYY-MM-DD') of an instant in the reset timezone,
+ * DST-safe. en-CA yields ISO-shaped output without locale ambiguity.
  */
-export function getUtcDateKey(date = new Date()) {
-  return date.toISOString().split('T')[0];
+export function getPTDateString(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: RESET_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
 }
 
 /**
- * Returns the next 00:00:00 UTC boundary after `from`.
+ * True UTC instant of the upcoming midnight in the reset timezone. Walks
+ * forward to the first hour whose calendar date (in the reset timezone)
+ * differs from today's, so DST transitions are handled by construction.
  */
-export function getNextUtcMidnight(from = new Date()) {
-  const next = new Date(from);
-  next.setUTCHours(24, 0, 0, 0); // hour 24 normalizes into the next UTC day
-  return next;
+export function getNextResetInstant() {
+  const today = getPTDateString();
+  const candidate = new Date();
+  candidate.setMinutes(0, 0, 0);
+  candidate.setHours(candidate.getHours() + 1);
+  while (getPTDateString(candidate) === today) {
+    candidate.setHours(candidate.getHours() + 1);
+  }
+  return candidate;
 }
 
 /**
- * True when `lastReset` falls on a UTC day before `from`'s UTC day — i.e.
- * the daily counter it belongs to is stale and should be treated as 0
- * until the next increment resets it server-side.
+ * Reset is due when the stored reset happened on an earlier reset-timezone
+ * calendar day than now. Unparseable stored values count as "due" so the
+ * counter self-heals instead of erroring or silently never resetting.
  */
-export function isUtcDayStale(lastReset, from = new Date()) {
-  if (!lastReset) return true;
-  const last = new Date(lastReset);
-  if (Number.isNaN(last.getTime())) return true;
-  return getUtcDateKey(last) < getUtcDateKey(from);
+export function isPastResetTime(lastResetTime) {
+  if (!lastResetTime) return true;
+  const lastReset = new Date(lastResetTime);
+  if (Number.isNaN(lastReset.getTime())) return true;
+  return getPTDateString(lastReset) !== getPTDateString();
 }
