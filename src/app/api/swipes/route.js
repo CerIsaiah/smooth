@@ -4,8 +4,7 @@ import {
   FREE_USER_DAILY_LIMIT 
 } from '@/app/constants';
 import { 
-  checkUsageStatus, 
-  getNextResetTime 
+  checkUsageStatus
 } from '@/utils/usageTracking';
 import { incrementUsage } from '@/utils/dbOperations';
 import { checkUsageLimits } from '@/utils/dbOperations';
@@ -87,8 +86,14 @@ export async function POST(request) {
       try {
         console.log('Incrementing usage for:', identifier);
         
-        // First ensure the user exists in the database
+        // First ensure the user exists in the database (identity only — no
+        // counter writes happen here)
         await checkUsageStatus(identifier, isEmail);
+
+        // Atomic increment via Supabase RPC. The RPC re-checks the limit
+        // under a row lock, so it is authoritative even when parallel
+        // requests race past the pre-check above — one swipe is exactly one
+        // increment, and the limit cannot be bypassed with parallel requests.
         usageResult = await incrementUsage(identifier, isEmail);
         
         console.log('Usage incremented:', usageResult);
@@ -99,12 +104,18 @@ export async function POST(request) {
       }
     }
     
+    // The increment RPC's result is authoritative when it ran; otherwise the
+    // pre-check values are returned. Response shape is unchanged.
+    const dailySwipes = usageResult.dailySwipes ?? currentUsage.dailySwipes ?? 0;
+    
     // Return detailed response
     const response = {
+      ...currentUsage,
       ...usageResult,
-      canSwipe,
-      requiresSignIn: !isEmail && usageResult.dailySwipes >= ANONYMOUS_USAGE_LIMIT,
-      requiresUpgrade: isEmail && !usageResult.isPremium && !usageResult.isTrial && usageResult.dailySwipes >= FREE_USER_DAILY_LIMIT
+      dailySwipes,
+      canSwipe: usageResult.canSwipe ?? canSwipe,
+      requiresSignIn: !isEmail && dailySwipes >= ANONYMOUS_USAGE_LIMIT,
+      requiresUpgrade: isEmail && !usageResult.isPremium && !usageResult.isTrial && dailySwipes >= FREE_USER_DAILY_LIMIT
     };
     
     console.log('Returning response:', response);
