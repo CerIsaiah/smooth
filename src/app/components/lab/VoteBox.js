@@ -210,8 +210,7 @@ export function VoteBox() {
 
       {hasVoted ? (
         <p className="text-sm sm:text-base text-gray-700 font-medium">
-          You voted. The winner gets tested first, and the verdict says &ldquo;you picked
-          this&rdquo; when it runs.
+          You voted. The winner gets tested first.
         </p>
       ) : isSignedIn ? (
         <p className="text-sm sm:text-base text-gray-600">

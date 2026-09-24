@@ -95,7 +95,7 @@ export async function GET() {
       return NextResponse.json({ available: false });
     }
     console.error('Error fetching lab experiments:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Try again.' }, { status: 500 });
   }
 }
 
@@ -114,13 +114,13 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Something went wrong. Try again.' }, { status: 400 });
   }
 
   const { experimentId, choice } = body || {};
   if (!experimentId || !choice) {
     return NextResponse.json(
-      { error: 'Missing required parameters' },
+      { error: 'Something went wrong. Try again.' },
       { status: 400 }
     );
   }
@@ -140,7 +140,7 @@ export async function POST(request) {
     if (expError) throw expError;
 
     if (!experiment) {
-      return NextResponse.json({ error: 'Vote not found' }, { status: 404 });
+      return NextResponse.json({ error: "We can't find that vote." }, { status: 404 });
     }
 
     if (experiment.status !== 'voting') {
@@ -151,7 +151,10 @@ export async function POST(request) {
       (candidate) => candidate.id
     );
     if (!candidateIds.includes(choice)) {
-      return NextResponse.json({ error: 'Unknown choice' }, { status: 400 });
+      return NextResponse.json(
+        { error: "That's not one of the options on this vote." },
+        { status: 400 }
+      );
     }
 
     const { error: insertError } = await supabase
@@ -193,6 +196,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Voting opens soon' }, { status: 503 });
     }
     console.error('Error casting lab vote:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Try again.' }, { status: 500 });
   }
 }
