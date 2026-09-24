@@ -32,7 +32,7 @@ import {
   FREE_MAX_PERCENTAGE,
   MIN_LEARNING_PERCENTAGE
 } from '@/app/constants';
-import { getUserData, getIPUsage, findOrCreateUser } from './dbOperations';
+import { getUserData, getIPUsage, findOrCreateUser, getNextResetInstant } from './dbOperations';
 
 let supabaseClient = null;
 
@@ -105,12 +105,10 @@ export async function checkUsageStatus(identifier, isEmail, name = null, picture
 export const RESET_TIMEZONE = 'America/Los_Angeles';
 
 export function getNextResetTime() {
-  const now = new Date();
-  const pstDate = new Date(now.toLocaleString('en-US', { timeZone: RESET_TIMEZONE }));
-  const tomorrow = new Date(pstDate);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-  return tomorrow;
+  // True UTC instant of the next reset-timezone midnight. The old version
+  // round-tripped a localized string through new Date() (parsed as
+  // server-local time), skewing the countdown by the server/browser UTC offset.
+  return getNextResetInstant();
 }
 
 export function getFormattedTimeUntilReset() {
