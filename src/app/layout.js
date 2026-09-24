@@ -19,6 +19,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${poppins.variable}`}>
       <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts -- keeping the original synchronous load; changing script timing is a behavior change */}
         <script src="https://accounts.google.com/gserviceauth/js"></script>
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         {/* Google Analytics */}
