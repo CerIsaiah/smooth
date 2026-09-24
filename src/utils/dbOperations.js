@@ -22,10 +22,17 @@
  * - src/app/api/swipes/route.js: Usage tracking
  * - src/app/api/usage/route.js: Usage status checks
  * - src/utils/usageTracking.js: Usage tracking utilities
+ * - src/utils/resetWindow.js: America/Los_Angeles (PT) reset-boundary helpers
+ * - supabase/migrations/*_atomic_usage_tracking.sql: atomic RPCs used below
+ *
+ * Counting contract: every usage counter write goes through a Supabase RPC
+ * that locks the row and decides under the lock — there are no
+ * read-then-write counter updates in application code. One swipe = exactly
+ * one increment (generation in /api/openai never increments).
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { RESET_TIMEZONE } from './usageTracking';
+import { getNextResetInstant } from './resetWindow';
 import { 
   ANONYMOUS_USAGE_LIMIT, 
   FREE_USER_DAILY_LIMIT,
@@ -45,28 +52,6 @@ function getSupabaseClient() {
   return supabaseClient;
 }
 
-// Helper function to get current PST/PDT time
-function getCurrentPSTTime() {
-  return new Date().toLocaleString("en-US", { timeZone: RESET_TIMEZONE });
-}
-
-// New helper function to get PST/PDT timestamp for comparison
-function getPSTTimestamp(date) {
-  return new Date(new Date(date).toLocaleString("en-US", { timeZone: RESET_TIMEZONE })).getTime();
-}
-
-// Modified function to check if it's past reset time
-function isPastResetTime(lastResetTime) {
-  const now = new Date(getCurrentPSTTime());
-  const lastReset = new Date(lastResetTime);
-  
-  // Get previous midnight PST
-  const resetTime = new Date(now);
-  resetTime.setHours(0, 0, 0, 0);
-  
-  return lastReset < resetTime;
-}
-
 export async function getUserData(email) {
   console.time('getUserData');
   try {
@@ -78,14 +63,9 @@ export async function getUserData(email) {
     console.log('Querying user with email:', email);
     
     const supabase = getSupabaseClient();
-    const now = new Date(getCurrentPSTTime());
+    const now = new Date();
     const today = now.toISOString(); // Store full ISO string instead of just date portion
-    
-    // Calculate next reset time properly
-    const nextResetDate = new Date();
-    nextResetDate.setDate(nextResetDate.getDate() + 1);
-    nextResetDate.setHours(0, 0, 0, 0);
-    const nextReset = nextResetDate.toISOString(); // Convert to ISO string
+    const nextReset = getNextResetInstant().toISOString(); // Next reset-timezone midnight
     
     // First, try to get the user
     const { data, error } = await supabase
@@ -219,23 +199,34 @@ export async function findOrCreateUser(email, name, picture, anonymousSwipes = 0
       .single();
 
     if (existingUser) {
-      // If user exists, add anonymous swipes to their daily usage
-      const newDailyUsage = (existingUser.daily_usage || 0) + anonymousSwipes;
-      const newTotalUsage = (existingUser.total_usage || 0) + anonymousSwipes;
+      if (anonymousSwipes > 0) {
+        // Merge the anonymous device's swipes into the account atomically —
+        // the old read-then-write update could clobber a concurrent swipe
+        // increment. Empty result means the row vanished since the read;
+        // fall through to the insert below to recreate it.
+        const { data: mergedRows, error: mergeError } = await supabase
+          .rpc('merge_anonymous_usage', {
+            p_email: email,
+            p_anonymous_swipes: anonymousSwipes,
+          });
 
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({
-          daily_usage: newDailyUsage,
-          total_usage: newTotalUsage,
-          last_used: new Date().toISOString()
-        })
-        .eq('email', email)
-        .select()
-        .single();
+        if (mergeError) throw mergeError;
 
-      if (updateError) throw updateError;
-      return updatedUser;
+        const mergedUser = Array.isArray(mergedRows) ? mergedRows[0] : mergedRows;
+        if (mergedUser) return mergedUser;
+      } else {
+        // Nothing to merge: refresh last_used only. A single-column write
+        // cannot clobber the counters the way the old +0 counter rewrite did.
+        const { data: updatedUser, error: updateError } = await supabase
+          .from('users')
+          .update({ last_used: new Date().toISOString() })
+          .eq('email', email)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        return updatedUser;
+      }
     }
 
     // If user doesn't exist, create new user with anonymous swipes
@@ -274,85 +265,34 @@ export async function getDailyUsage(email) {
     .single();
 
   if (error && error.code !== 'PGRST116') throw error;
-  return data.total_usage;
-}
-
-export async function resetDailyUsage(supabase, email) {
-  const now = new Date(getCurrentPSTTime());
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-  const today = now.toISOString();
-
-  try {
-    // Get current user data to preserve history
-    const { data: currentUser } = await supabase
-      .from('users')
-      .select('daily_usage, daily_usage_history')
-      .eq('email', email)
-      .single();
-
-    // Add yesterday's final count to history before resetting
-    const updatedHistory = currentUser?.daily_usage_history || {};
-    if (currentUser?.daily_usage > 0) {
-      updatedHistory[yesterdayStr] = currentUser.daily_usage;
-    }
-
-    const { error } = await supabase
-      .from('users')
-      .update({
-        daily_usage: 0,
-        last_reset: today,
-        daily_usage_history: updatedHistory
-      })
-      .eq('email', email);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error(`Error resetting daily usage for email:${email}:`, error);
-    throw error;
-  }
+  return data?.total_usage ?? 0;  // no row for this email/day yet
 }
 
 export async function checkAndResetUsage(identifier, isEmail) {
-  console.log('Reset Check:', {
-    identifier,
-    isEmail,
-    currentTime: getCurrentPSTTime(),
-    timeZone: RESET_TIMEZONE
-  });
+  // Anonymous (IP) counters reset inside increment_ip_usage at the
+  // reset-timezone calendar-midnight rollover; there is no read-side reset
+  // for IPs (same as before).
+  if (!isEmail) return false;
 
-  console.log(`Checking reset for ${isEmail ? 'email' : 'IP'}: ${identifier}`);
+  console.log(`Checking reset for email: ${identifier}`);
   const supabase = getSupabaseClient();
-  const now = new Date(getCurrentPSTTime());
-  const today = now.toISOString();
-  
+
   try {
-    // Get the most current record
-    if (isEmail) {
-      const { data: record, error: getError } = await supabase
-        .from('users')
-        .select('last_reset, daily_usage, total_usage')
-        .eq('email', identifier)
-        .single();
-      
-      if (getError) throw getError;
-      
-      // Check if reset is needed
-      const shouldReset = !record?.last_reset || isPastResetTime(record.last_reset);
-      
-      if (shouldReset) {
-        await resetDailyUsage(supabase, identifier);
-        console.log('Reset Result:', {
-          identifier,
-          wasReset: shouldReset,
-          newLastReset: today
-        });
-        return true;
-      }
+    // Atomic reset: the RPC locks the row, archives yesterday's final count
+    // into daily_usage_history and zeroes daily_usage when the reset-timezone
+    // (America/Los_Angeles) calendar day has rolled over. Returns whether a
+    // reset happened.
+    const { data, error } = await supabase.rpc('reset_user_usage_if_stale', {
+      p_email: identifier,
+    });
+
+    if (error) throw error;
+
+    const wasReset = Array.isArray(data) ? data[0] : data;
+    if (wasReset) {
+      console.log('Daily usage reset for:', identifier);
     }
-    
-    return false;
+    return Boolean(wasReset);
   } catch (error) {
     console.error('Error in checkAndResetUsage:', error);
     throw error;
@@ -362,6 +302,10 @@ export async function checkAndResetUsage(identifier, isEmail) {
 // Update checkUsageLimits to handle the identifier correctly
 export async function checkUsageLimits(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
+  // Reset boundary is America/Los_Angeles calendar midnight, DST-safe
+  // (see src/utils/resetWindow.js) — the same convention the RPCs enforce
+  // server-side.
+  const nextResetTime = getNextResetInstant().toISOString();
   
   try {
     console.log('Checking usage limits for:', { identifier, isEmail });
@@ -388,6 +332,7 @@ export async function checkUsageLimits(identifier, isEmail = false) {
           isPremium: userData.subscription_status === 'active',
           isTrial: isTrialActive,
           dailySwipes: userData.daily_usage || 0,
+          nextResetTime,
           ...(isTrialActive && { trialEndsAt: userData.trial_end_date })
         };
       }
@@ -398,6 +343,7 @@ export async function checkUsageLimits(identifier, isEmail = false) {
         isPremium: false,
         isTrial: false,
         dailySwipes: userData.daily_usage || 0,
+        nextResetTime,
         requiresUpgrade: (userData.daily_usage || 0) >= FREE_USER_DAILY_LIMIT
       };
     }
@@ -414,6 +360,7 @@ export async function checkUsageLimits(identifier, isEmail = false) {
       isPremium: false,
       isTrial: false,
       dailySwipes: ipData?.daily_usage || 0,
+      nextResetTime,
       requiresSignIn: (ipData?.daily_usage || 0) >= ANONYMOUS_USAGE_LIMIT
     };
 
@@ -423,111 +370,55 @@ export async function checkUsageLimits(identifier, isEmail = false) {
   }
 }
 
-// Update incrementUsage to handle race conditions better
+// Atomic usage increment. All counter decisions happen inside a Supabase
+// RPC that locks the row, resets at the reset-timezone calendar-midnight
+// rollover and enforces the limit server-side — concurrent requests can no
+// longer undercount or bypass the limit by racing the old read-then-write
+// window.
 export async function incrementUsage(identifier, isEmail = false) {
   const supabase = getSupabaseClient();
   
   try {
-    // Check and reset usage first
-    await checkAndResetUsage(identifier, isEmail);
-    
-    // Then check limits
-    const limitCheck = await checkUsageLimits(identifier, isEmail);
-    if (!limitCheck.canSwipe) {
-      return limitCheck;
-    }
-    
-    const now = new Date().toISOString();
-    const today = new Date(getCurrentPSTTime()).toISOString().split('T')[0];
-    
     if (isEmail) {
-      // First fetch current values including daily_usage_history
-      const { data: currentUser, error: fetchError } = await supabase
-        .from('users')
-        .select('daily_usage, total_usage, daily_usage_history')
-        .eq('email', identifier)
-        .single();
+      const { data, error } = await supabase.rpc('increment_user_usage', {
+        p_email: identifier,
+        p_daily_limit: FREE_USER_DAILY_LIMIT,
+      });
 
-      if (fetchError) throw fetchError;
+      if (error) throw error;
 
-      // Add logging to debug history updates
-      console.log('Current history before update:', currentUser?.daily_usage_history);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) return { error: 'User not found' };
 
-      // Update or initialize daily_usage_history
-      const currentHistory = currentUser?.daily_usage_history || {};
-      currentHistory[today] = (currentHistory[today] || 0) + 1;
-
-      console.log('Updated history:', currentHistory);
-
-      // Then update with new values
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({
-          daily_usage: (currentUser?.daily_usage || 0) + 1,
-          total_usage: (currentUser?.total_usage || 0) + 1,
-          daily_usage_history: currentHistory,
-          last_used: now
-        })
-        .eq('email', identifier)
-        .select()
-        .single();
-        
-      if (updateError) {
-        console.error('Error updating usage:', updateError);
-        throw updateError;
-      }
-
-      console.log('Final updated user:', updatedUser);
-      return { ...limitCheck, dailySwipes: updatedUser.daily_usage };
-    } else {
-      // For IP addresses, use RLS-safe update - get, then update approach
-      let currentData;
-      
-      // First, get the latest data
-      const { data: ipData, error: getError } = await supabase
-        .from('ip_usage')
-        .select('daily_usage, total_usage')
-        .eq('ip_address', identifier)
-        .single();
-        
-      if (getError) {
-        if (getError.code === 'PGRST116') {
-          // Record doesn't exist, create it with upsert
-          const { data, error } = await supabase
-            .from('ip_usage')
-            .upsert({
-              ip_address: identifier,
-              daily_usage: 1,
-              total_usage: 1,
-              last_used: now,
-              last_reset: new Date(getCurrentPSTTime()).toISOString().split('T')[0]
-            })
-            .select();
-            
-          if (error) throw error;
-          return { ...limitCheck, dailySwipes: 1 };
-        }
-        throw getError;
-      }
-      
-      // Record exists, update it
-      const newDailyUsage = (ipData.daily_usage || 0) + 1;
-      const newTotalUsage = (ipData.total_usage || 0) + 1;
-      
-      const { error: updateError } = await supabase
-        .from('ip_usage')
-        .update({
-          daily_usage: newDailyUsage,
-          total_usage: newTotalUsage,
-          last_used: now
-        })
-        .eq('ip_address', identifier);
-        
-      if (updateError) throw updateError;
-      return { ...limitCheck, dailySwipes: newDailyUsage };
+      return {
+        // The RPC's limit decision is authoritative (premium/active trial
+        // users are unlimited inside the RPC, matching checkUsageLimits).
+        canSwipe: row.incremented !== false,
+        isPremium: Boolean(row.is_premium),
+        isTrial: Boolean(row.is_trial),
+        dailySwipes: row.daily_usage ?? 0,
+        wasReset: Boolean(row.was_reset),
+      };
     }
+
+    const { data, error } = await supabase.rpc('increment_ip_usage', {
+      p_ip: identifier,
+      p_daily_limit: ANONYMOUS_USAGE_LIMIT,
+    });
+
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+
+    return {
+      canSwipe: row.incremented !== false,
+      isPremium: false,
+      isTrial: false,
+      dailySwipes: row.daily_usage ?? 0,
+      wasReset: Boolean(row.was_reset),
+    };
   } catch (error) {
     console.error('Error incrementing usage:', error);
     throw error;
   }
-} 
+}
